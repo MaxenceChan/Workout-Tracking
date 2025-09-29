@@ -653,6 +653,9 @@ function Analytics({ sessions, allExercises }) {
   const weekdayHM = useMemo(() => buildWeekdayHeatmapData(sessions), [sessions]);
 
   return (
+      <div className="space-y-4">
+      {/* 0) Calendrier du mois */}
+      <MonthlyCalendar sessions={sessions} />
     <div className="space-y-4">
       {/* 1) Intensité moyenne par séance */}
       <Card>
@@ -732,41 +735,56 @@ function Analytics({ sessions, allExercises }) {
         </CardContent>
       </Card>
 
-      {/* 4) Évolution du tonnage par série pour un exercice (barres empilées) */}
-      <Card>
-        <CardContent className="p-4 space-y-3">
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <h3 className="font-semibold">Évolution du tonnage par série – {exerciseSetTon}</h3>
-            <select
-              className="border rounded-xl p-2"
-              value={exerciseSetTon}
-              onChange={(e) => setExerciseSetTon(e.target.value)}
-            >
-              {allExercises.map((e) => (
-                <option key={e} value={e}>{e}</option>
-              ))}
-            </select>
-          </div>
+{/* 4) Évolution du tonnage par série – 3 dernières séances */}
+<Card>
+  <CardContent className="p-4 space-y-3">
+    <div className="flex items-center justify-between flex-wrap gap-2">
+      <h3 className="font-semibold">
+        Évolution du tonnage par série – 3 dernières séances ({exerciseSetTon})
+      </h3>
+      <select
+        className="border rounded-xl p-2"
+        value={exerciseSetTon}
+        onChange={(e) => setExerciseSetTon(e.target.value)}
+      >
+        {allExercises.map((e) => (
+          <option key={e} value={e}>{e}</option>
+        ))}
+      </select>
+    </div>
 
-          {setTonnage.series.length === 0 ? (
-            <div className="text-sm text-gray-600">Pas encore de données pour cet exercice.</div>
-          ) : (
-            <div className="h-64 md:h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={setTonnage.series} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip formatter={(v, name) => [`${Math.round(v)} kg`, name.toUpperCase()]} />
-                  {setTonnage.keys.map((k) => (
-                    <Bar key={k} dataKey={k} stackId="a" />
-                  ))}
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+    {(() => {
+      const lastN = buildExerciseSetTonnageLastN(sessions, exerciseSetTon, 3);
+      if (lastN.rows.length === 0 || lastN.labels.length === 0) {
+        return <div className="text-sm text-gray-600">Pas encore de données pour cet exercice.</div>;
+      }
+      return (
+        <div className="h-64 md:h-80">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={lastN.rows} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="set" />
+              <YAxis />
+              <Tooltip formatter={(v, name) => [`${Math.round(v)} kg`, name]} />
+              {/* Une ligne par séance (date en légende) */}
+              {lastN.labels.map((label) => (
+                <Line
+                  key={label}
+                  type="monotone"
+                  dataKey={label}
+                  strokeWidth={2}
+                  dot
+                />
+              ))}
+              <Legend />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      );
+    })()}
+  </CardContent>
+</Card>
+
 
       
       {/* 5) Répartition PUSH / PULL / FULL (30 derniers jours) */}
@@ -837,6 +855,124 @@ function buildAvgIntensitySeries(sessions) {
       const intensity = reps > 0 ? ton / reps : 0;
       return { date: prettyDate(s.date), intensity };
     });
+}
+// — Évolution du tonnage par série pour les N dernières séances d’un exercice
+function buildExerciseSetTonnageLastN(sessions, exercise, n = 3) {
+  // On suppose sessions triées desc par date (c’est ton cas via orderBy("date","desc")).
+  // On ne garde que celles qui contiennent l’exercice.
+  const withEx = (sessions || []).filter(s =>
+    (s.exercises || []).some(ex => ex.name === exercise)
+  );
+
+  // Prend les N dernières
+  const last = withEx.slice(0, n);
+
+  // Libellés des courbes = dates jolies
+  const labels = last.map(s => prettyDate(s.date));
+
+  // Tonnage par série pour chaque séance
+  let maxSets = 0;
+  const perSessionSets = last.map(s => {
+    const flatSets = [];
+    s.exercises
+      .filter(ex => ex.name === exercise)
+      .forEach(ex => {
+        ex.sets.forEach(set => {
+          const r = Number(set.reps || 0);
+          const w = Number(set.weight || 0);
+          flatSets.push(r * w); // tonnage de la série
+        });
+      });
+    maxSets = Math.max(maxSets, flatSets.length);
+    return flatSets;
+  });
+
+  // On normalise sur le même nombre de séries (0 si manquante)
+  const rows = [];
+  for (let i = 0; i < maxSets; i++) {
+    const row = { set: `S${i + 1}`, index: i + 1 };
+    last.forEach((s, idx) => {
+      const key = labels[idx];
+      row[key] = perSessionSets[idx][i] || 0;
+    });
+    rows.push(row);
+  }
+
+  return { rows, labels };
+}
+
+// — Calendrier du mois en cours : vert si séance ce jour-là
+function MonthlyCalendar({ sessions = [] }) {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth(); // 0..11
+  const today = now.getDate();
+
+  const first = new Date(year, month, 1);
+  // Lundi=0 ... Dimanche=6
+  const startCol = (first.getDay() + 6) % 7;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  // set des dates avec séance, format "YYYY-MM-DD"
+  const sessionDays = new Set(
+    (sessions || []).map(s => String(s.date)) // tes dates sont déjà "YYYY-MM-DD"
+  );
+
+  const dayCells = [];
+  for (let i = 0; i < startCol; i++) dayCells.push({ empty: true, key: `empty-${i}` });
+  for (let d = 1; d <= daysInMonth; d++) {
+    const iso = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    const hasSession = sessionDays.has(iso);
+    const isToday = d === today;
+    dayCells.push({ d, iso, hasSession, isToday, key: `d-${d}` });
+  }
+
+  const weekLabels = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+
+  return (
+    <Card>
+      <CardContent className="p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold">
+            Calendrier du mois — {now.toLocaleString(undefined, { month: "long", year: "numeric" })}
+          </h3>
+          <div className="text-xs text-gray-500 flex items-center gap-3">
+            <span className="inline-block h-3 w-3 rounded bg-green-200" /> jour avec séance
+            <span className="inline-block h-3 w-3 rounded bg-green-400 ring-2 ring-gray-800" /> aujourd’hui + séance
+          </div>
+        </div>
+
+        {/* En-têtes des jours */}
+        <div className="grid grid-cols-7 gap-1 text-center text-xs text-gray-600">
+          {weekLabels.map((w) => (
+            <div key={w} className="py-1">{w}</div>
+          ))}
+        </div>
+
+        {/* Cases du mois */}
+        <div className="grid grid-cols-7 gap-1">
+          {dayCells.map((c) =>
+            c.empty ? (
+              <div key={c.key} />
+            ) : (
+              <div
+                key={c.key}
+                className={cn(
+                  "h-10 md:h-12 rounded-lg grid place-items-center text-sm",
+                  c.hasSession && !c.isToday && "bg-green-200",
+                  c.hasSession && c.isToday && "bg-green-400 ring-2 ring-gray-800",
+                  !c.hasSession && c.isToday && "ring-2 ring-gray-800"
+                )}
+                title={c.iso + (c.hasSession ? " • séance" : "")}
+              >
+                {c.d}
+              </div>
+            )
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 // ISO week (semaine basée sur le jeudi, Lun=1..Dim=7)
