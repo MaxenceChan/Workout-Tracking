@@ -836,6 +836,16 @@ function buildAvgIntensitySeries(sessions) {
     });
 }
 
+// ISO week (semaine basée sur le jeudi, Lun=1..Dim=7)
+function isoWeek(date) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;       // 1..7 (Dimanche=7)
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+  return { year: d.getUTCFullYear(), week: weekNo };
+}
+
 // — Fréquence des séances par semaine (ISO)
 function buildSessionsPerWeekSeries(sessions) {
   const map = new Map();
