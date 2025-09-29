@@ -643,7 +643,11 @@ function Analytics({ sessions, allExercises }) {
   const topSet         = useMemo(() => buildTopSetSeriesByExercise(sessions, exerciseTS), [sessions, exerciseTS]);
   const setTonnage     = useMemo(() => buildExerciseSetTonnageSeries(sessions, exerciseSetTon), [sessions, exerciseSetTon]);
   const weekdayHM      = useMemo(() => buildWeekdayHeatmapData(sessions), [sessions]);
-
+  const [exerciseLast3, setExerciseLast3] = useState(allExercises[0] || "");
+  useEffect(() => {
+    if (!exerciseLast3 && allExercises.length) setExerciseLast3(allExercises[0]);
+  }, [allExercises, exerciseLast3]);
+  
   return (
     <div className="space-y-6">
       {/* ────────────────────────── Bloc 1 : Calendrier + Heatmap ────────────────────────── */}
@@ -727,9 +731,10 @@ function Analytics({ sessions, allExercises }) {
         {/* Courbes des 3 dernières séances (par séries) pour l'exercice demandé */}
         <LastThreeSessionsSetTonnageChart
           sessions={sessions}
-          exerciseName="DC incliné barre smith"
+          exerciseName={exerciseLast3}
+          options={allExercises}
+          onChangeExercise={setExerciseLast3}
         />
-      </div>
 
       {/* ────────────────────────── Bloc 4 : Répartition 30 jours ────────────────────────── */}
       <div className="grid md:grid-cols-2 gap-4">
@@ -1064,15 +1069,34 @@ function HeatmapCard({ weekdayHM }) {
   );
 }
 
-function LastThreeSessionsSetTonnageChart({ sessions, exerciseName }) {
-  const data = useMemo(() => buildLast3SessionsSetTonnage(sessions, exerciseName), [sessions, exerciseName]);
+function LastThreeSessionsSetTonnageChart({ sessions, exerciseName, options = [], onChangeExercise }) {
+  const data = useMemo(
+    () => buildLast3SessionsSetTonnage(sessions, exerciseName),
+    [sessions, exerciseName]
+  );
 
   return (
     <Card>
       <CardContent className="p-4 space-y-3">
-        <h3 className="font-semibold">Évolution du tonnage par série – 3 dernières séances ({exerciseName})</h3>
-        {data.length === 0 ? (
-          <div className="text-sm text-gray-600">Pas assez de séances pour cet exercice.</div>
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <h3 className="font-semibold">
+            Évolution du tonnage par série – 3 dernières séances
+          </h3>
+          <select
+            className="border rounded-xl p-2"
+            value={exerciseName}
+            onChange={(e) => onChangeExercise?.(e.target.value)}
+          >
+            {options.map((e) => (
+              <option key={e} value={e}>{e}</option>
+            ))}
+          </select>
+        </div>
+
+        {(!data || data.length === 0) ? (
+          <div className="text-sm text-gray-600">
+            Pas assez de séances pour “{exerciseName}”.
+          </div>
         ) : (
           <div className="h-64 md:h-80">
             <ResponsiveContainer width="100%" height="100%">
@@ -1082,9 +1106,10 @@ function LastThreeSessionsSetTonnageChart({ sessions, exerciseName }) {
                 <YAxis />
                 <Tooltip formatter={(v, name) => [`${Math.round(v)} kg`, name]} />
                 <Legend />
-                <Line type="monotone" dataKey="Séance 3" strokeWidth={2} dot />
-                <Line type="monotone" dataKey="Séance 2" strokeWidth={2} dot />
+                {/* 3 courbes = 3 dernières séances (la plus récente = Séance 1) */}
                 <Line type="monotone" dataKey="Séance 1" strokeWidth={2} dot />
+                <Line type="monotone" dataKey="Séance 2" strokeWidth={2} dot />
+                <Line type="monotone" dataKey="Séance 3" strokeWidth={2} dot />
               </LineChart>
             </ResponsiveContainer>
           </div>
