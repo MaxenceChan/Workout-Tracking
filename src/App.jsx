@@ -197,6 +197,7 @@ export default function App() {
             <TabsTrigger value="log">Saisir une séance</TabsTrigger>
             <TabsTrigger value="sessions">Historique</TabsTrigger>
             <TabsTrigger value="analytics">Datavisualisation</TabsTrigger>
+              <TabsTrigger value="last">Dernière séance</TabsTrigger>
           </TabsList>
 
           <TabsContent value="log" className="mt-4">
@@ -225,6 +226,11 @@ export default function App() {
           <TabsContent value="analytics" className="mt-4">
             <Analytics sessions={data.sessions} allExercises={getAllExercises(data)} />
           </TabsContent>
+
+          <TabsContent value="last" className="mt-4">
+            <LastSession sessions={data.sessions} />
+          </TabsContent>
+          
         </Tabs>
       </main>
     </div>
@@ -646,4 +652,73 @@ function OneRMPanel({ sessions, exercise }) {
       </CardContent>
     </Card>
   );
+}
+
+function LastSession({ sessions }) {
+  const [t, setT] = useState("PUSH"); // type sélectionné
+
+  const last = useMemo(() => getLastSessionByType(sessions, t), [sessions, t]);
+  const tonnage = useMemo(() => (last ? computeSessionTonnage(last) : 0), [last]);
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardContent className="p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold">Dernière séance – {t}</h3>
+            <div className="flex gap-2">
+              <Button variant={t==="PUSH" ? "default" : "secondary"} onClick={() => setT("PUSH")}>PUSH</Button>
+              <Button variant={t==="PULL" ? "default" : "secondary"} onClick={() => setT("PULL")}>PULL</Button>
+              <Button variant={t==="FULL" ? "default" : "secondary"} onClick={() => setT("FULL")}>FULL BODY</Button>
+            </div>
+          </div>
+
+          {!last ? (
+            <div className="text-gray-600">Aucune séance {t} trouvée.</div>
+          ) : (
+            <>
+              <div className="flex items-baseline justify-between">
+                <div className="text-sm text-gray-500">{prettyDate(last.date)} • {last.type}</div>
+                <div className="text-2xl font-semibold">{Math.round(tonnage)} kg</div>
+              </div>
+
+              <div className="space-y-4">
+                {last.exercises.map((ex) => (
+                  <div key={ex.id} className="border rounded-xl p-3 bg-gray-50">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="font-medium">{ex.name}</div>
+                      <div className="text-sm">
+                        Sous-total: <span className="font-semibold">{Math.round(volumeOfSets(ex.sets))} kg</span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 text-sm font-medium text-gray-600 mb-2">
+                      <div>Série</div><div>Réps</div><div>Poids (kg)</div>
+                    </div>
+                    {ex.sets.map((s, i) => (
+                      <div key={i} className="grid grid-cols-3 gap-2 items-center mb-1">
+                        <div className="text-gray-600">{i + 1}</div>
+                        <div>{s.reps}</div>
+                        <div>{s.weight} kg</div>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// utilitaire pour trouver la dernière séance d'un type donné
+function getLastSessionByType(sessions, type) {
+  if (!sessions || sessions.length === 0) return null;
+  const rows = sessions.filter((s) => s.type === type);
+  if (rows.length === 0) return null;
+  // Les dates sont au format "YYYY-MM-DD" → tri lexical ok ; sinon on convertit en Date
+  rows.sort((a, b) => (a.date < b.date ? 1 : -1)); // desc
+  return rows[0];
 }
