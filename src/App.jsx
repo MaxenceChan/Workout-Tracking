@@ -211,6 +211,7 @@ export default function App() {
           <div className="flex items-center gap-2">
             <Dumbbell className="h-5 w-5" />
             <h1 className="text-xl md:text-2xl font-semibold">Workout Tracker</h1>
+            <div className="text-xs text-gray-400">UID: {user?.id}</div>
           </div>
           <div className="flex items-center gap-3">
             <div className="text-sm text-gray-600">{user.email}</div>
