@@ -656,7 +656,6 @@ function Analytics({ sessions, allExercises }) {
       <div className="space-y-4">
       {/* 0) Calendrier du mois */}
       <MonthlyCalendar sessions={sessions} />
-    <div className="space-y-4">
       {/* 1) Intensité moyenne par séance */}
       <Card>
         <CardContent className="p-4 space-y-3">
