@@ -53,6 +53,10 @@ const EXERCISES = {
   ],
 };
 const prettyDate = (d) => new Date(d).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "2-digit" });
+const shortFR = (iso) => {
+  const d = new Date(iso + "T00:00:00");
+  return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" }); // JJ/MM
+};
 const volumeOfSets = (sets) => sets.reduce((acc, s) => acc + Number(s.reps || 0) * Number(s.weight || 0), 0);
 const computeSessionTonnage = (session) => session.exercises.reduce((acc, ex) => acc + volumeOfSets(ex.sets), 0);
 const epley1RM = (weight, reps) => (reps > 1 ? weight * (1 + reps / 30) : weight);
@@ -768,7 +772,9 @@ function buildLast3SessionsSetTonnage(sessions, exerciseName) {
     .sort((a, b) => (a.date < b.date ? 1 : -1)) // plus récent d'abord
     .slice(0, 3);
 
-  if (last3.length === 0) return [];
+  if (last3.length === 0) return { rows: [], labels: [] };
+
+  const labels = last3.map(s => shortFR(s.date)); // ["13/02","07/02","01/02"] par ex.
 
   const maxSets = Math.max(
     ...last3.map(s =>
@@ -782,7 +788,7 @@ function buildLast3SessionsSetTonnage(sessions, exerciseName) {
   for (let i = 0; i < maxSets; i++) {
     const row = { set: `Série ${i + 1}` };
     last3.forEach((s, idx) => {
-      const label = `Séance ${idx + 1}`; // 1 = plus récente
+      const label = labels[idx]; // JJ/MM
       const flatSets = s.exercises
         .filter(ex => ex.name === exerciseName)
         .flatMap(ex => ex.sets);
@@ -791,8 +797,9 @@ function buildLast3SessionsSetTonnage(sessions, exerciseName) {
     });
     rows.push(row);
   }
-  return rows;
+  return { rows, labels };
 }
+
 
 // — Intensité moyenne par séance = (Σ reps×poids) / (Σ reps)
 function buildAvgIntensitySeries(sessions) {
@@ -1102,7 +1109,7 @@ function HeatmapCard({ weekdayHM }) {
 }
 
 function LastThreeSessionsSetTonnageChart({ sessions, exerciseName, options = [], onChangeExercise }) {
-  const data = useMemo(
+  const { rows, labels } = useMemo(
     () => buildLast3SessionsSetTonnage(sessions, exerciseName),
     [sessions, exerciseName]
   );
@@ -1111,37 +1118,27 @@ function LastThreeSessionsSetTonnageChart({ sessions, exerciseName, options = []
     <Card>
       <CardContent className="p-4 space-y-3">
         <div className="flex items-center justify-between flex-wrap gap-2">
-          <h3 className="font-semibold">
-            Évolution du tonnage par série – 3 dernières séances
-          </h3>
-          <select
-            className="border rounded-xl p-2"
-            value={exerciseName}
-            onChange={(e) => onChangeExercise?.(e.target.value)}
-          >
-            {options.map((e) => (
-              <option key={e} value={e}>{e}</option>
-            ))}
+          <h3 className="font-semibold">Évolution du tonnage par série – 3 dernières séances</h3>
+          <select className="border rounded-xl p-2" value={exerciseName} onChange={(e) => onChangeExercise?.(e.target.value)}>
+            {options.map((e) => <option key={e} value={e}>{e}</option>)}
           </select>
         </div>
 
-        {(!data || data.length === 0) ? (
-          <div className="text-sm text-gray-600">
-            Pas assez de séances pour “{exerciseName}”.
-          </div>
+        {(!rows || rows.length === 0) ? (
+          <div className="text-sm text-gray-600">Pas assez de séances pour “{exerciseName}”.</div>
         ) : (
           <div className="h-64 md:h-80">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+              <LineChart data={rows} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="set" />
                 <YAxis />
+                {/* Affiche “JJ/MM : Y kg” (nom = date) */}
                 <Tooltip formatter={(v, name) => [`${Math.round(v)} kg`, name]} />
                 <Legend />
-                {/* 3 courbes = 3 dernières séances (la plus récente = Séance 1) */}
-                <Line type="monotone" dataKey="Séance 1" strokeWidth={2} dot />
-                <Line type="monotone" dataKey="Séance 2" strokeWidth={2} dot />
-                <Line type="monotone" dataKey="Séance 3" strokeWidth={2} dot />
+                {labels.map((lab) => (
+                  <Line key={lab} type="monotone" dataKey={lab} strokeWidth={2} dot />
+                ))}
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -1150,6 +1147,7 @@ function LastThreeSessionsSetTonnageChart({ sessions, exerciseName, options = []
     </Card>
   );
 }
+
 
 function buildExerciseSeries(sessions, exercise) {
   const byDate = {};
