@@ -9,12 +9,12 @@ import { getFirestore } from 'firebase/firestore'
 
 // ⚠️ Mets ici ta config (Firebase console → Project settings → Your apps → Web)
 export const firebaseConfig = {
-  apiKey: 'REPLACE_ME',
-  authDomain: 'REPLACE_ME.firebaseapp.com',
-  projectId: 'REPLACE_ME',
-  storageBucket: 'REPLACE_ME.appspot.com',
-  messagingSenderId: 'REPLACE_ME',
-  appId: 'REPLACE_ME',
+  apiKey: "AIzaSyAuN2C91wSJSJ9gvDd0fXseNkXVtm1l9vc",
+  authDomain: "workout-tracking-12e5d.firebaseapp.com",
+  projectId: "workout-tracking-12e5d",
+  storageBucket: "workout-tracking-12e5d.firebasestorage.app",
+  messagingSenderId: "401248058371",
+  appId: "1:401248058371:web:e2a2963b1d4780cc4f6236",
 }
 
 export const app = initializeApp(firebaseConfig)
