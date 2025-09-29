@@ -555,43 +555,31 @@ function SessionCard({ session, onDelete, onEdit }) {
 }
 
 function Analytics({ sessions, allExercises }) {
+  // Sélecteurs
   const [exercise, setExercise] = useState(allExercises[0] || "");
-  useEffect(() => { if (!exercise && allExercises.length) setExercise(allExercises[0]); }, [allExercises, exercise]);
-  const perExerciseSeries = useMemo(() => buildExerciseSeries(sessions, exercise), [sessions, exercise]);
-  const tonnageSeries = useMemo(() => buildTonnageSeries(sessions), [sessions]);
+  useEffect(() => {
+    if (!exercise && allExercises.length) setExercise(allExercises[0]);
+  }, [allExercises, exercise]);
+
+  // Séries calculées
+  const weeklyVolume = useMemo(() => buildWeeklyVolumeSeries(sessions), [sessions]);
+  const splitRecent = useMemo(() => buildTypeSplitLastNDays(sessions, 30), [sessions]);
+  const oneRMSeries = useMemo(() => buildOneRMSeriesByExercise(sessions, exercise), [sessions]);
+  const heatmapData = useMemo(() => buildCalendarHeatmapData(sessions, 12), [sessions]); // 12 semaines
 
   return (
-    <div className="grid lg:grid-cols-2 gap-4">
+    <div className="space-y-4">
+      {/* 1) Volume hebdomadaire */}
       <Card>
         <CardContent className="p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="font-semibold">Évolution du tonnage – {exercise}</h3>
-            <select className="border rounded-xl p-2" value={exercise} onChange={(e) => setExercise(e.target.value)}>
-              {allExercises.map((e) => (<option key={e} value={e}>{e}</option>))}
-            </select>
-          </div>
-          <div className="h-72">
+          <h3 className="font-semibold">Volume hebdomadaire (Σ reps × poids)</h3>
+          <div className="h-64 md:h-80">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={perExerciseSeries} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+              <BarChart data={weeklyVolume} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" /><YAxis />
-                <Tooltip formatter={(v) => [`${Math.round(v)} kg`, "Tonnage"]} />
-                <Line type="monotone" dataKey="tonnage" strokeWidth={2} dot />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardContent className="p-4 space-y-3">
-          <h3 className="font-semibold">Tonnage total par séance</h3>
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={tonnageSeries} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" /><YAxis />
-                <Tooltip formatter={(v) => [`${Math.round(v)} kg`, "Tonnage total"]} />
+                <XAxis dataKey="weekLabel" />
+                <YAxis />
+                <Tooltip formatter={(v) => [`${Math.round(v)} kg`, "Volume hebdo"]} />
                 <Bar dataKey="tonnage" />
               </BarChart>
             </ResponsiveContainer>
@@ -599,10 +587,208 @@ function Analytics({ sessions, allExercises }) {
         </CardContent>
       </Card>
 
-      <OneRMPanel sessions={sessions} exercise={exercise} />
+      {/* 2) Répartition PUSH / PULL / FULL (30 derniers jours) */}
+      <Card>
+        <CardContent className="p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold">Répartition des séances (30 derniers jours)</h3>
+            <div className="text-sm text-gray-500">PUSH / PULL / FULL</div>
+          </div>
+          <div className="h-64 md:h-80 grid place-items-center">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={splitRecent} dataKey="value" nameKey="name" innerRadius={60} outerRadius={90} label>
+                  {splitRecent.map((_, i) => (
+                    <Cell key={i} fill={["#8884d8", "#82ca9d", "#ffc658"][i % 3]} />
+                  ))}
+                </Pie>
+                <Legend />
+                <Tooltip formatter={(v) => [`${v}`, "Séances"]} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 3) 1RM estimé par exercice */}
+      <Card>
+        <CardContent className="p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold">1RM estimé (Epley) – {exercise}</h3>
+            <select className="border rounded-xl p-2" value={exercise} onChange={(e) => setExercise(e.target.value)}>
+              {allExercises.map((e) => (
+                <option key={e} value={e}>{e}</option>
+              ))}
+            </select>
+          </div>
+          <div className="h-64 md:h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={oneRMSeries} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" />
+                <YAxis />
+                <Tooltip formatter={(v) => [`${Math.round(v)} kg`, "1RM estimé"]} />
+                <Line type="monotone" dataKey="oneRM" strokeWidth={2} dot />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 4) Heatmap calendrier (12 dernières semaines) */}
+      <Card>
+        <CardContent className="p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold">Calendrier d’entraînement (12 dernières semaines)</h3>
+            <div className="text-sm text-gray-500">Intensité = tonnage de la séance</div>
+          </div>
+          <CalendarHeatmap weeks={heatmapData.weeks} max={heatmapData.max} />
+          <div className="text-xs text-gray-500">Lun → Dim (colonnes), semaines (lignes)</div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
+
+/* ── Helpers Analytics ───────────────────────────────────────── */
+
+function buildWeeklyVolumeSeries(sessions) {
+  // group by ISO week (Mon-Sun)
+  const map = new Map();
+  sessions.forEach((s) => {
+    const d = new Date(s.date + "T00:00:00");
+    const { year, week } = isoWeek(d);
+    const key = `${year}-W${String(week).padStart(2, "0")}`;
+    const current = map.get(key) || 0;
+    map.set(key, current + computeSessionTonnage(s));
+  });
+  // sort by week asc, keep label "Wxx\nYYYY" or "dd MMM"
+  return Array.from(map.entries())
+    .sort(([a], [b]) => (a < b ? -1 : 1))
+    .map(([key, tonnage]) => ({
+      weekLabel: key.replace("-", " ").replace("W", "W"),
+      tonnage,
+    }));
+}
+
+function buildTypeSplitLastNDays(sessions, days = 30) {
+  const since = new Date();
+  since.setDate(since.getDate() - days);
+  const counts = { PUSH: 0, PULL: 0, FULL: 0 };
+  sessions.forEach((s) => {
+    const d = new Date(s.date + "T00:00:00");
+    if (d >= since) counts[s.type] = (counts[s.type] || 0) + 1;
+  });
+  return [
+    { name: "PUSH", value: counts.PUSH || 0 },
+    { name: "PULL", value: counts.PULL || 0 },
+    { name: "FULL", value: counts.FULL || 0 },
+  ].filter((x) => x.value > 0);
+}
+
+function buildOneRMSeriesByExercise(sessions, exercise) {
+  const rows = [];
+  sessions
+    .slice()
+    .reverse()
+    .forEach((s) => {
+      let best = 0;
+      s.exercises
+        .filter((ex) => ex.name === exercise)
+        .forEach((ex) => {
+          ex.sets.forEach((set) => {
+            const w = Number(set.weight || 0);
+            const r = Number(set.reps || 0);
+            best = Math.max(best, epley1RM(w, r));
+          });
+        });
+      if (best > 0) rows.push({ date: prettyDate(s.date), oneRM: best });
+    });
+  return rows;
+}
+
+/* Heatmap: structure weeks[row][col] avec valeur tonnage par jour (lun=0..dim=6) */
+function buildCalendarHeatmapData(sessions, weeksBack = 12) {
+  const today = startOfDay(new Date());
+  const end = endOfWeekISO(today); // fin de semaine courante (dim)
+  const start = addDays(end, -7 * (weeksBack - 1) - 6); // couvrir exactement weeksBack lignes
+
+  // init matrice: weeksBack lignes x 7 colonnes
+  const weeks = Array.from({ length: weeksBack }, () => Array(7).fill(0));
+
+  let max = 0;
+  sessions.forEach((s) => {
+    const d = startOfDay(new Date(s.date + "T00:00:00"));
+    if (d < start || d > end) return;
+    const diffDays = Math.floor((d - start) / (1000 * 60 * 60 * 24));
+    const row = Math.floor(diffDays / 7);
+    const col = (d.getDay() + 6) % 7; // Lundi=0 ... Dim=6
+    const ton = computeSessionTonnage(s);
+    weeks[row][col] += ton; // si 2 séances même jour, on cumule
+    if (weeks[row][col] > max) max = weeks[row][col];
+  });
+
+  return { weeks, max };
+}
+
+/* ── Lib date ISO / utils ────────────────────────────────────── */
+function startOfDay(d) {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+function addDays(d, n) {
+  const x = new Date(d);
+  x.setDate(x.getDate() + n);
+  return x;
+}
+function isoWeek(date) {
+  // ISO week: Thursday-based week
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
+  return { year: d.getUTCFullYear(), week: weekNo };
+}
+function endOfWeekISO(d) {
+  // Dimanche de la semaine ISO (Lun=0..Dim=6)
+  const day = (d.getDay() + 6) % 7; // Lun=0
+  return startOfDay(addDays(d, 6 - day));
+}
+
+/* ── Composant Heatmap ───────────────────────────────────────── */
+function CalendarHeatmap({ weeks, max }) {
+  // palette simple 5 niveaux (0 → vide)
+  const levels = (v) => {
+    if (v === 0) return "bg-gray-100";
+    const p = v / (max || 1);
+    if (p < 0.2) return "bg-green-100";
+    if (p < 0.4) return "bg-green-200";
+    if (p < 0.6) return "bg-green-300";
+    if (p < 0.8) return "bg-green-400";
+    return "bg-green-500";
+  };
+
+  return (
+    <div className="overflow-x-auto">
+      <div className="inline-grid grid-rows-{weeks.length} gap-1">
+        <div className="grid gap-1" style={{ gridTemplateRows: `repeat(${weeks.length}, minmax(0, 1fr))`, gridTemplateColumns: "repeat(7, 16px)" }}>
+          {weeks.map((row, rIdx) =>
+            row.map((v, cIdx) => (
+              <div
+                key={`${rIdx}-${cIdx}`}
+                className={`h-4 w-4 rounded ${levels(v)}`}
+                title={`${["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"][cIdx]} • ${Math.round(v)} kg`}
+              />
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function buildExerciseSeries(sessions, exercise) {
   const byDate = {};
   sessions.slice().reverse().forEach((s) => {
