@@ -1136,8 +1136,16 @@ function LastThreeSessionsSetTonnageChart({ sessions, exerciseName, options = []
                 {/* Affiche “JJ/MM : Y kg” (nom = date) */}
                 <Tooltip formatter={(v, name) => [`${Math.round(v)} kg`, name]} />
                 <Legend />
-                {labels.map((lab) => (
-                  <Line key={lab} type="monotone" dataKey={lab} strokeWidth={2} dot />
+                {labels.map((lab, i) => (
+                  <Line
+                    key={lab}
+                    type="monotone"
+                    dataKey={lab}
+                    stroke={LINE_COLORS[i % LINE_COLORS.length]}
+                    dot={{ r: 3 }}
+                    activeDot={{ r: 5 }}
+                    strokeWidth={2}
+                  />
                 ))}
               </LineChart>
             </ResponsiveContainer>
@@ -1148,6 +1156,7 @@ function LastThreeSessionsSetTonnageChart({ sessions, exerciseName, options = []
   );
 }
 
+const LINE_COLORS = ["#3b82f6", "#10b981", "#f59e0b"]; // Bleu, Vert, Orange
 
 function buildExerciseSeries(sessions, exercise) {
   const byDate = {};
