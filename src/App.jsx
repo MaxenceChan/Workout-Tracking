@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect, useContext, createContext } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { Trash2, Plus, BarChart3, Save, Edit3, Dumbbell, LogOut } from "lucide-react";
-import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, BarChart, Bar } from "recharts";
+import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, Legend} from "recharts";
 
 // Firebase
 import { db, onAuth, signInEmail, signUpEmail, signInGoogle, signOutUser } from "./firebase";
