@@ -218,10 +218,17 @@ export default function App() {
             <SessionList
               user={user}
               sessions={data.sessions}
-              onDelete={async (id) => { try { await deleteSession(user.id, id); } catch (e) { console.error(e); alert("Suppression impossible: " + (e?.message || e)); } }}
-              onEdit={async (updated) => { try { await upsertSessions(user.id, [updated]); } catch (e) { console.error(e); alert("Sauvegarde impossible: " + (e?.message || e)); } }}
+              onDelete={async (id) => {
+                try { await deleteSession(user.id, id); }
+                catch (e) { console.error(e); alert("Suppression impossible: " + (e?.message || e)); }
+              }}
+              onEdit={async (updated) => {
+                try { await upsertSessions(user.id, [updated]); }
+                catch (e) { console.error(e); alert("Sauvegarde impossible: " + (e?.message || e)); }
+              }}
             />
           </TabsContent>
+
 
           <TabsContent value="analytics" className="mt-4">
             <Analytics sessions={data.sessions} allExercises={getAllExercises(data)} />
@@ -466,14 +473,78 @@ function EmptyState() {
 }
 
 function SessionList({ user, sessions, onDelete, onEdit }) {
-  if (!sessions || sessions.length === 0) return <EmptyState />;
+  const [filter, setFilter] = useState("ALL"); // ALL | PUSH | PULL | FULL
+
+  const filtered = useMemo(() => {
+    if (!sessions) return [];
+    if (filter === "ALL") return sessions;
+    // "FULL BODY" correspond à type "FULL" dans tes données
+    const wanted = filter === "FULL" ? "FULL" : filter; 
+    return sessions.filter((s) => s.type === wanted);
+  }, [sessions, filter]);
+
+  if (!sessions || sessions.length === 0) {
+    return (
+      <div className="space-y-4">
+        <FilterBar filter={filter} setFilter={setFilter} />
+        <EmptyState />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
-      {sessions.map((s) => (
-        <SessionCard key={s.id} session={s} onDelete={() => onDelete(s.id)} onEdit={onEdit} />
-      ))}
+      <FilterBar filter={filter} setFilter={setFilter} total={filtered.length} />
+      {filtered.length === 0 ? (
+        <Card>
+          <CardContent className="p-4 text-sm text-gray-600">
+            Aucune séance trouvée pour ce filtre.
+          </CardContent>
+        </Card>
+      ) : (
+        filtered.map((s) => (
+          <SessionCard key={s.id} session={s} onDelete={() => onDelete(s.id)} onEdit={onEdit} />
+        ))
+      )}
     </div>
+  );
+}
+
+function FilterBar({ filter, setFilter, total }) {
+  return (
+    <Card>
+      <CardContent className="p-3 flex flex-wrap items-center gap-2 justify-between">
+        <div className="flex gap-2">
+          <Button
+            variant={filter === "ALL" ? "default" : "secondary"}
+            onClick={() => setFilter("ALL")}
+          >
+            Tout
+          </Button>
+          <Button
+            variant={filter === "PUSH" ? "default" : "secondary"}
+            onClick={() => setFilter("PUSH")}
+          >
+            PUSH
+          </Button>
+          <Button
+            variant={filter === "PULL" ? "default" : "secondary"}
+            onClick={() => setFilter("PULL")}
+          >
+            PULL
+          </Button>
+          <Button
+            variant={filter === "FULL" ? "default" : "secondary"}
+            onClick={() => setFilter("FULL")}
+          >
+            FULL BODY
+          </Button>
+        </div>
+        {typeof total === "number" && (
+          <div className="text-sm text-gray-600">Séances: {total}</div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
