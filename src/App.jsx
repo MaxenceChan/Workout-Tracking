@@ -735,7 +735,7 @@ function Analytics({ sessions, allExercises }) {
           options={allExercises}
           onChangeExercise={setExerciseLast3}
         />
-
+      </div>
       {/* ────────────────────────── Bloc 4 : Répartition 30 jours ────────────────────────── */}
       <div className="grid md:grid-cols-2 gap-4">
         <Card className="md:col-span-2">
@@ -760,6 +760,38 @@ function Analytics({ sessions, allExercises }) {
       </div>
     </div>
   );
+}
+
+function buildLast3SessionsSetTonnage(sessions, exerciseName) {
+  const last3 = (sessions || [])
+    .filter(s => (s.exercises || []).some(ex => ex.name === exerciseName))
+    .sort((a, b) => (a.date < b.date ? 1 : -1)) // plus récent d'abord
+    .slice(0, 3);
+
+  if (last3.length === 0) return [];
+
+  const maxSets = Math.max(
+    ...last3.map(s =>
+      s.exercises
+        .filter(ex => ex.name === exerciseName)
+        .reduce((m, ex) => Math.max(m, ex.sets.length), 0)
+    )
+  );
+
+  const rows = [];
+  for (let i = 0; i < maxSets; i++) {
+    const row = { set: `Série ${i + 1}` };
+    last3.forEach((s, idx) => {
+      const label = `Séance ${idx + 1}`; // 1 = plus récente
+      const flatSets = s.exercises
+        .filter(ex => ex.name === exerciseName)
+        .flatMap(ex => ex.sets);
+      const st = flatSets[i];
+      row[label] = st ? Number(st.reps || 0) * Number(st.weight || 0) : 0;
+    });
+    rows.push(row);
+  }
+  return rows;
 }
 
 // — Intensité moyenne par séance = (Σ reps×poids) / (Σ reps)
