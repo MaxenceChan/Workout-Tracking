@@ -656,6 +656,30 @@ function Analytics({ sessions, allExercises }) {
       <div className="space-y-4">
       {/* 0) Calendrier du mois */}
       <MonthlyCalendar sessions={sessions} />
+              {/* 6) Heatmap des jours de la semaine */}
+      <Card>
+        <CardContent className="p-4 space-y-3">
+          <h3 className="font-semibold">Jours d’entraînement (heatmap hebdo)</h3>
+          <div className="text-sm text-gray-500">Plus la case est foncée, plus tu t’entraînes ce jour-là.</div>
+
+          <div className="inline-grid gap-1" style={{ gridTemplateColumns: "repeat(7, 28px)" }}>
+            {weekdayHM.counts.map((v, idx) => (
+              <div key={idx} className="flex flex-col items-center gap-1">
+                <div
+                  className={cn(
+                    "h-6 w-6 rounded",
+                    weekdayHM.level(v)
+                  )}
+                  title={`${["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"][idx]} • ${v} séance(s)`}
+                />
+                <div className="text-[10px] text-gray-600">
+                  {["L","M","M","J","V","S","D"][idx]}
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
       {/* 1) Intensité moyenne par séance */}
       <Card>
         <CardContent className="p-4 space-y-3">
@@ -805,31 +829,6 @@ function Analytics({ sessions, allExercises }) {
                 <Tooltip formatter={(v) => [`${v}`, "Séances"]} />
               </PieChart>
             </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* 6) Heatmap des jours de la semaine */}
-      <Card>
-        <CardContent className="p-4 space-y-3">
-          <h3 className="font-semibold">Jours d’entraînement (heatmap hebdo)</h3>
-          <div className="text-sm text-gray-500">Plus la case est foncée, plus tu t’entraînes ce jour-là.</div>
-
-          <div className="inline-grid gap-1" style={{ gridTemplateColumns: "repeat(7, 28px)" }}>
-            {weekdayHM.counts.map((v, idx) => (
-              <div key={idx} className="flex flex-col items-center gap-1">
-                <div
-                  className={cn(
-                    "h-6 w-6 rounded",
-                    weekdayHM.level(v)
-                  )}
-                  title={`${["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"][idx]} • ${v} séance(s)`}
-                />
-                <div className="text-[10px] text-gray-600">
-                  {["L","M","M","J","V","S","D"][idx]}
-                </div>
-              </div>
-            ))}
           </div>
         </CardContent>
       </Card>
