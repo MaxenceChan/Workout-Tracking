@@ -626,39 +626,147 @@ function SessionCard({ session, onDelete, onEdit }) {
 }
 
 function Analytics({ sessions, allExercises }) {
-  // Sélecteurs
-  const [exercise, setExercise] = useState(allExercises[0] || "");
+  // Sélecteurs d'exercice (utilisés pour Top Set & Tonnage par série)
+  const [exerciseTS, setExerciseTS] = useState(allExercises[0] || "");
+  const [exerciseSetTon, setExerciseSetTon] = useState(allExercises[0] || "");
   useEffect(() => {
-    if (!exercise && allExercises.length) setExercise(allExercises[0]);
-  }, [allExercises, exercise]);
+    if (!exerciseTS && allExercises.length) setExerciseTS(allExercises[0]);
+    if (!exerciseSetTon && allExercises.length) setExerciseSetTon(allExercises[0]);
+  }, [allExercises, exerciseTS, exerciseSetTon]);
 
-  // Séries calculées
-  const weeklyVolume = useMemo(() => buildWeeklyVolumeSeries(sessions), [sessions]);
+  // Données calculées
+  const intensitySeries = useMemo(() => buildAvgIntensitySeries(sessions), [sessions]);
+  const weeklyFreq = useMemo(() => buildSessionsPerWeekSeries(sessions), [sessions]);
   const splitRecent = useMemo(() => buildTypeSplitLastNDays(sessions, 30), [sessions]);
-  const oneRMSeries = useMemo(() => buildOneRMSeriesByExercise(sessions, exercise), [sessions]);
-  const heatmapData = useMemo(() => buildCalendarHeatmapData(sessions, 12), [sessions]); // 12 semaines
+
+  const topSet = useMemo(
+    () => buildTopSetSeriesByExercise(sessions, exerciseTS),
+    [sessions, exerciseTS]
+  );
+  const setTonnage = useMemo(
+    () => buildExerciseSetTonnageSeries(sessions, exerciseSetTon),
+    [sessions, exerciseSetTon]
+  );
+
+  const weekdayHM = useMemo(() => buildWeekdayHeatmapData(sessions), [sessions]);
 
   return (
     <div className="space-y-4">
-      {/* 1) Volume hebdomadaire */}
+      {/* 1) Intensité moyenne par séance */}
       <Card>
         <CardContent className="p-4 space-y-3">
-          <h3 className="font-semibold">Volume hebdomadaire (Σ reps × poids)</h3>
+          <h3 className="font-semibold">Intensité moyenne par séance (kg / rep)</h3>
           <div className="h-64 md:h-80">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={weeklyVolume} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+              <LineChart data={intensitySeries} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" />
+                <YAxis />
+                <Tooltip formatter={(v) => [`${(Number(v) || 0).toFixed(1)} kg/rep`, "Intensité"]} />
+                <Line type="monotone" dataKey="intensity" strokeWidth={2} dot />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 2) Fréquence des séances par semaine */}
+      <Card>
+        <CardContent className="p-4 space-y-3">
+          <h3 className="font-semibold">Fréquence des séances par semaine</h3>
+          <div className="h-64 md:h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={weeklyFreq} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="weekLabel" />
-                <YAxis />
-                <Tooltip formatter={(v) => [`${Math.round(v)} kg`, "Volume hebdo"]} />
-                <Bar dataKey="tonnage" />
+                <YAxis allowDecimals={false} />
+                <Tooltip formatter={(v) => [`${v}`, "Séances"]} />
+                <Bar dataKey="count" />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </CardContent>
       </Card>
 
-      {/* 2) Répartition PUSH / PULL / FULL (30 derniers jours) */}
+      {/* 3) Top set par exercice (1RM estimé Epley) */}
+      <Card>
+        <CardContent className="p-4 space-y-3">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <h3 className="font-semibold">Top set (1RM estimé) – par exercice</h3>
+            <select
+              className="border rounded-xl p-2"
+              value={exerciseTS}
+              onChange={(e) => setExerciseTS(e.target.value)}
+            >
+              {allExercises.map((e) => (
+                <option key={e} value={e}>{e}</option>
+              ))}
+            </select>
+          </div>
+
+          {topSet.series.length === 0 ? (
+            <div className="text-sm text-gray-600">Pas encore de données pour cet exercice.</div>
+          ) : (
+            <>
+              <div className="text-sm text-gray-600">
+                Record: <span className="font-semibold">
+                  {Math.round(topSet.record.oneRM)} kg
+                </span>
+                {" "}({topSet.record.weight} kg × {topSet.record.reps} reps) le {topSet.record.date}
+              </div>
+              <div className="h-64 md:h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={topSet.series} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis />
+                    <Tooltip formatter={(v) => [`${Math.round(v)} kg`, "1RM estimé"]} />
+                    <Line type="monotone" dataKey="oneRM" strokeWidth={2} dot />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 4) Évolution du tonnage par série pour un exercice (barres empilées) */}
+      <Card>
+        <CardContent className="p-4 space-y-3">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <h3 className="font-semibold">Évolution du tonnage par série – {exerciseSetTon}</h3>
+            <select
+              className="border rounded-xl p-2"
+              value={exerciseSetTon}
+              onChange={(e) => setExerciseSetTon(e.target.value)}
+            >
+              {allExercises.map((e) => (
+                <option key={e} value={e}>{e}</option>
+              ))}
+            </select>
+          </div>
+
+          {setTonnage.series.length === 0 ? (
+            <div className="text-sm text-gray-600">Pas encore de données pour cet exercice.</div>
+          ) : (
+            <div className="h-64 md:h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={setTonnage.series} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" />
+                  <YAxis />
+                  <Tooltip formatter={(v, name) => [`${Math.round(v)} kg`, name.toUpperCase()]} />
+                  {setTonnage.keys.map((k) => (
+                    <Bar key={k} dataKey={k} stackId="a" />
+                  ))}
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 5) Répartition PUSH / PULL / FULL (30 derniers jours) */}
       <Card>
         <CardContent className="p-4 space-y-3">
           <div className="flex items-center justify-between">
@@ -670,7 +778,7 @@ function Analytics({ sessions, allExercises }) {
               <PieChart>
                 <Pie data={splitRecent} dataKey="value" nameKey="name" innerRadius={60} outerRadius={90} label>
                   {splitRecent.map((_, i) => (
-                    <Cell key={i} fill={["#8884d8", "#82ca9d", "#ffc658"][i % 3]} />
+                    <Cell key={i} />
                   ))}
                 </Pie>
                 <Legend />
@@ -681,157 +789,156 @@ function Analytics({ sessions, allExercises }) {
         </CardContent>
       </Card>
 
-      {/* 3) 1RM estimé par exercice */}
+      {/* 6) Heatmap des jours de la semaine */}
       <Card>
         <CardContent className="p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="font-semibold">1RM estimé (Epley) – {exercise}</h3>
-            <select className="border rounded-xl p-2" value={exercise} onChange={(e) => setExercise(e.target.value)}>
-              {allExercises.map((e) => (
-                <option key={e} value={e}>{e}</option>
-              ))}
-            </select>
-          </div>
-          <div className="h-64 md:h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={oneRMSeries} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis />
-                <Tooltip formatter={(v) => [`${Math.round(v)} kg`, "1RM estimé"]} />
-                <Line type="monotone" dataKey="oneRM" strokeWidth={2} dot />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
+          <h3 className="font-semibold">Jours d’entraînement (heatmap hebdo)</h3>
+          <div className="text-sm text-gray-500">Plus la case est foncée, plus tu t’entraînes ce jour-là.</div>
 
-      {/* 4) Heatmap calendrier (12 dernières semaines) */}
-      <Card>
-        <CardContent className="p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="font-semibold">Calendrier d’entraînement (12 dernières semaines)</h3>
-            <div className="text-sm text-gray-500">Intensité = tonnage de la séance</div>
+          <div className="inline-grid gap-1" style={{ gridTemplateColumns: "repeat(7, 28px)" }}>
+            {weekdayHM.counts.map((v, idx) => (
+              <div key={idx} className="flex flex-col items-center gap-1">
+                <div
+                  className={cn(
+                    "h-6 w-6 rounded",
+                    weekdayHM.level(v)
+                  )}
+                  title={`${["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"][idx]} • ${v} séance(s)`}
+                />
+                <div className="text-[10px] text-gray-600">
+                  {["L","M","M","J","V","S","D"][idx]}
+                </div>
+              </div>
+            ))}
           </div>
-          <CalendarHeatmap weeks={heatmapData.weeks} max={heatmapData.max} />
-          <div className="text-xs text-gray-500">Lun → Dim (colonnes), semaines (lignes)</div>
         </CardContent>
       </Card>
     </div>
   );
 }
+// — Intensité moyenne par séance = (Σ reps×poids) / (Σ reps)
+function buildAvgIntensitySeries(sessions) {
+  return sessions
+    .slice()
+    .reverse()
+    .map((s) => {
+      let ton = 0, reps = 0;
+      s.exercises.forEach((ex) =>
+        ex.sets.forEach((set) => {
+          const r = Number(set.reps || 0);
+          const w = Number(set.weight || 0);
+          ton += r * w;
+          reps += r;
+        })
+      );
+      const intensity = reps > 0 ? ton / reps : 0;
+      return { date: prettyDate(s.date), intensity };
+    });
+}
 
-/* ── Helpers Analytics ───────────────────────────────────────── */
-
-function buildWeeklyVolumeSeries(sessions) {
-  // group by ISO week (Mon-Sun)
+// — Fréquence des séances par semaine (ISO)
+function buildSessionsPerWeekSeries(sessions) {
   const map = new Map();
   sessions.forEach((s) => {
     const d = new Date(s.date + "T00:00:00");
     const { year, week } = isoWeek(d);
     const key = `${year}-W${String(week).padStart(2, "0")}`;
-    const current = map.get(key) || 0;
-    map.set(key, current + computeSessionTonnage(s));
+    map.set(key, (map.get(key) || 0) + 1);
   });
-  // sort by week asc, keep label "Wxx\nYYYY" or "dd MMM"
   return Array.from(map.entries())
     .sort(([a], [b]) => (a < b ? -1 : 1))
-    .map(([key, tonnage]) => ({
-      weekLabel: key.replace("-", " ").replace("W", "W"),
-      tonnage,
-    }));
+    .map(([key, count]) => ({ weekLabel: key, count }));
 }
 
-function buildTypeSplitLastNDays(sessions, days = 30) {
-  const since = new Date();
-  since.setDate(since.getDate() - days);
-  const counts = { PUSH: 0, PULL: 0, FULL: 0 };
-  sessions.forEach((s) => {
-    const d = new Date(s.date + "T00:00:00");
-    if (d >= since) counts[s.type] = (counts[s.type] || 0) + 1;
-  });
-  return [
-    { name: "PUSH", value: counts.PUSH || 0 },
-    { name: "PULL", value: counts.PULL || 0 },
-    { name: "FULL", value: counts.FULL || 0 },
-  ].filter((x) => x.value > 0);
-}
-
-function buildOneRMSeriesByExercise(sessions, exercise) {
-  const rows = [];
+// — Top set (1RM Epley) par exercice, + record global
+function buildTopSetSeriesByExercise(sessions, exercise) {
+  const series = [];
+  let best = { oneRM: 0, date: "", weight: 0, reps: 0 };
   sessions
     .slice()
     .reverse()
     .forEach((s) => {
-      let best = 0;
+      let bestDay = 0;
+      let bestDetail = { weight: 0, reps: 0 };
       s.exercises
         .filter((ex) => ex.name === exercise)
         .forEach((ex) => {
           ex.sets.forEach((set) => {
             const w = Number(set.weight || 0);
             const r = Number(set.reps || 0);
-            best = Math.max(best, epley1RM(w, r));
+            const curr = epley1RM(w, r);
+            if (curr > bestDay) {
+              bestDay = curr;
+              bestDetail = { weight: w, reps: r };
+            }
           });
         });
-      if (best > 0) rows.push({ date: prettyDate(s.date), oneRM: best });
+      if (bestDay > 0) {
+        series.push({ date: prettyDate(s.date), oneRM: bestDay });
+        if (bestDay > best.oneRM) {
+          best = { oneRM: bestDay, date: prettyDate(s.date), weight: bestDetail.weight, reps: bestDetail.reps };
+        }
+      }
     });
-  return rows;
+  return { series, record: best };
 }
 
-/* Heatmap: structure weeks[row][col] avec valeur tonnage par jour (lun=0..dim=6) */
-function buildCalendarHeatmapData(sessions, weeksBack = 12) {
-  const today = startOfDay(new Date());
-  const end = endOfWeekISO(today); // fin de semaine courante (dim)
-  const start = addDays(end, -7 * (weeksBack - 1) - 6); // couvrir exactement weeksBack lignes
+// — Évolution du tonnage par série pour un exercice (barres empilées set1,set2,...)
+function buildExerciseSetTonnageSeries(sessions, exercise) {
+  // On doit homogénéiser le nombre de sets (clés)
+  let maxSets = 0;
+  const rows = [];
 
-  // init matrice: weeksBack lignes x 7 colonnes
-  const weeks = Array.from({ length: weeksBack }, () => Array(7).fill(0));
+  sessions
+    .slice()
+    .reverse()
+    .forEach((s) => {
+      const exRows = s.exercises.filter((ex) => ex.name === exercise);
+      if (exRows.length === 0) return;
 
-  let max = 0;
+      // On concatène toutes les séries de cet exo pour la séance (au cas de plusieurs blocs)
+      const sets = [];
+      exRows.forEach((ex) => {
+        ex.sets.forEach((set) => {
+          const r = Number(set.reps || 0);
+          const w = Number(set.weight || 0);
+          sets.push({ ton: r * w });
+        });
+      });
+
+      if (sets.length === 0) return;
+      maxSets = Math.max(maxSets, sets.length);
+
+      const row = { date: prettyDate(s.date) };
+      sets.forEach((st, i) => {
+        row[`set${i + 1}`] = st.ton;
+      });
+      rows.push(row);
+    });
+
+  const keys = Array.from({ length: maxSets }, (_, i) => `set${i + 1}`);
+  // Remplir les trous à 0 pour Recharts
+  const filled = rows.map((r) => {
+    const out = { date: r.date };
+    keys.forEach((k) => (out[k] = Number(r[k] || 0)));
+    return out;
+    });
+
+  return { series: filled, keys };
+}
+
+// — Heatmap simple des jours de la semaine (compte total sur l’historique)
+function buildWeekdayHeatmapData(sessions) {
+  const counts = Array(7).fill(0); // Lun=0 ... Dim=6
   sessions.forEach((s) => {
-    const d = startOfDay(new Date(s.date + "T00:00:00"));
-    if (d < start || d > end) return;
-    const diffDays = Math.floor((d - start) / (1000 * 60 * 60 * 24));
-    const row = Math.floor(diffDays / 7);
-    const col = (d.getDay() + 6) % 7; // Lundi=0 ... Dim=6
-    const ton = computeSessionTonnage(s);
-    weeks[row][col] += ton; // si 2 séances même jour, on cumule
-    if (weeks[row][col] > max) max = weeks[row][col];
+    const d = new Date(s.date + "T00:00:00");
+    const col = (d.getDay() + 6) % 7;
+    counts[col] += 1;
   });
+  const max = counts.reduce((a, b) => Math.max(a, b), 0);
 
-  return { weeks, max };
-}
-
-/* ── Lib date ISO / utils ────────────────────────────────────── */
-function startOfDay(d) {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x;
-}
-function addDays(d, n) {
-  const x = new Date(d);
-  x.setDate(x.getDate() + n);
-  return x;
-}
-function isoWeek(date) {
-  // ISO week: Thursday-based week
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  const dayNum = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  const weekNo = Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
-  return { year: d.getUTCFullYear(), week: weekNo };
-}
-function endOfWeekISO(d) {
-  // Dimanche de la semaine ISO (Lun=0..Dim=6)
-  const day = (d.getDay() + 6) % 7; // Lun=0
-  return startOfDay(addDays(d, 6 - day));
-}
-
-/* ── Composant Heatmap ───────────────────────────────────────── */
-function CalendarHeatmap({ weeks, max }) {
-  // palette simple 5 niveaux (0 → vide)
-  const levels = (v) => {
+  // Échelle en 5 niveaux
+  const level = (v) => {
     if (v === 0) return "bg-gray-100";
     const p = v / (max || 1);
     if (p < 0.2) return "bg-green-100";
@@ -841,23 +948,7 @@ function CalendarHeatmap({ weeks, max }) {
     return "bg-green-500";
   };
 
-  return (
-    <div className="overflow-x-auto">
-      <div className="inline-grid grid-rows-{weeks.length} gap-1">
-        <div className="grid gap-1" style={{ gridTemplateRows: `repeat(${weeks.length}, minmax(0, 1fr))`, gridTemplateColumns: "repeat(7, 16px)" }}>
-          {weeks.map((row, rIdx) =>
-            row.map((v, cIdx) => (
-              <div
-                key={`${rIdx}-${cIdx}`}
-                className={`h-4 w-4 rounded ${levels(v)}`}
-                title={`${["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"][cIdx]} • ${Math.round(v)} kg`}
-              />
-            ))
-          )}
-        </div>
-      </div>
-    </div>
-  );
+  return { counts, max, level };
 }
 
 function buildExerciseSeries(sessions, exercise) {
