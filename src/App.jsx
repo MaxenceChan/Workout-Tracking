@@ -628,7 +628,7 @@ function SessionCard({ session, onDelete, onEdit }) {
 }
 
 function Analytics({ sessions, allExercises }) {
-  // Sélecteurs d'exercice (utilisés pour Top Set & Tonnage par série)
+  // Sélecteurs d'exercice (déjà dans ton code)
   const [exerciseTS, setExerciseTS] = useState(allExercises[0] || "");
   const [exerciseSetTon, setExerciseSetTon] = useState(allExercises[0] || "");
   useEffect(() => {
@@ -636,205 +636,127 @@ function Analytics({ sessions, allExercises }) {
     if (!exerciseSetTon && allExercises.length) setExerciseSetTon(allExercises[0]);
   }, [allExercises, exerciseTS, exerciseSetTon]);
 
-  // Données calculées
+  // Données calculées (déjà dans ton code)
   const intensitySeries = useMemo(() => buildAvgIntensitySeries(sessions), [sessions]);
-  const weeklyFreq = useMemo(() => buildSessionsPerWeekSeries(sessions), [sessions]);
-  const splitRecent = useMemo(() => buildTypeSplitLastNDays(sessions, 30), [sessions]);
-
-  const topSet = useMemo(
-    () => buildTopSetSeriesByExercise(sessions, exerciseTS),
-    [sessions, exerciseTS]
-  );
-  const setTonnage = useMemo(
-    () => buildExerciseSetTonnageSeries(sessions, exerciseSetTon),
-    [sessions, exerciseSetTon]
-  );
-
-  const weekdayHM = useMemo(() => buildWeekdayHeatmapData(sessions), [sessions]);
+  const weeklyFreq     = useMemo(() => buildSessionsPerWeekSeries(sessions), [sessions]);
+  const splitRecent    = useMemo(() => buildTypeSplitLastNDays(sessions, 30), [sessions]);
+  const topSet         = useMemo(() => buildTopSetSeriesByExercise(sessions, exerciseTS), [sessions, exerciseTS]);
+  const setTonnage     = useMemo(() => buildExerciseSetTonnageSeries(sessions, exerciseSetTon), [sessions, exerciseSetTon]);
+  const weekdayHM      = useMemo(() => buildWeekdayHeatmapData(sessions), [sessions]);
 
   return (
-      <div className="space-y-4">
-      {/* 0) Calendrier du mois */}
-      <MonthlyCalendar sessions={sessions} />
-              {/* 6) Heatmap des jours de la semaine */}
-      <Card>
-        <CardContent className="p-4 space-y-3">
-          <h3 className="font-semibold">Jours d’entraînement (heatmap hebdo)</h3>
-          <div className="text-sm text-gray-500">Plus la case est foncée, plus tu t’entraînes ce jour-là.</div>
+    <div className="space-y-6">
+      {/* ────────────────────────── Bloc 1 : Calendrier + Heatmap ────────────────────────── */}
+      <div className="grid md:grid-cols-2 gap-4">
+        <MonthlyCalendar sessions={sessions} />
+        <HeatmapCard weekdayHM={weekdayHM} />
+      </div>
 
-          <div className="inline-grid gap-1" style={{ gridTemplateColumns: "repeat(7, 28px)" }}>
-            {weekdayHM.counts.map((v, idx) => (
-              <div key={idx} className="flex flex-col items-center gap-1">
-                <div
-                  className={cn(
-                    "h-6 w-6 rounded",
-                    weekdayHM.level(v)
-                  )}
-                  title={`${["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"][idx]} • ${v} séance(s)`}
-                />
-                <div className="text-[10px] text-gray-600">
-                  {["L","M","M","J","V","S","D"][idx]}
+      {/* ────────────────────────── Bloc 2 : Intensité + Fréquence ────────────────────────── */}
+      <div className="grid md:grid-cols-2 gap-4">
+        <Card>
+          <CardContent className="p-4 space-y-3">
+            <h3 className="font-semibold">Intensité moyenne par séance (kg / rep)</h3>
+            <div className="h-64 md:h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={intensitySeries} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" />
+                  <YAxis />
+                  <Tooltip formatter={(v) => [`${(Number(v) || 0).toFixed(1)} kg/rep`, "Intensité"]} />
+                  <Line type="monotone" dataKey="intensity" strokeWidth={2} dot />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4 space-y-3">
+            <h3 className="font-semibold">Fréquence des séances par semaine</h3>
+            <div className="h-64 md:h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={weeklyFreq} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="weekLabel" />
+                  <YAxis allowDecimals={false} />
+                  <Tooltip formatter={(v) => [`${v}`, "Séances"]} />
+                  <Bar dataKey="count" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ────────────────────────── Bloc 3 : Top set + 3 dernières séances (par séries) ────────────────────────── */}
+      <div className="grid md:grid-cols-2 gap-4">
+        <Card>
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <h3 className="font-semibold">Top set (1RM estimé) – par exercice</h3>
+              <select className="border rounded-xl p-2" value={exerciseTS} onChange={(e) => setExerciseTS(e.target.value)}>
+                {allExercises.map((e) => <option key={e} value={e}>{e}</option>)}
+              </select>
+            </div>
+
+            {topSet.series.length === 0 ? (
+              <div className="text-sm text-gray-600">Pas encore de données pour cet exercice.</div>
+            ) : (
+              <>
+                <div className="text-sm text-gray-600">
+                  Record: <span className="font-semibold">{Math.round(topSet.record.oneRM)} kg</span>
+                  {" "}({topSet.record.weight} kg × {topSet.record.reps} reps) le {topSet.record.date}
                 </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-      {/* 1) Intensité moyenne par séance */}
-      <Card>
-        <CardContent className="p-4 space-y-3">
-          <h3 className="font-semibold">Intensité moyenne par séance (kg / rep)</h3>
-          <div className="h-64 md:h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={intensitySeries} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis />
-                <Tooltip formatter={(v) => [`${(Number(v) || 0).toFixed(1)} kg/rep`, "Intensité"]} />
-                <Line type="monotone" dataKey="intensity" strokeWidth={2} dot />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
+                <div className="h-64 md:h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={topSet.series} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" />
+                      <YAxis />
+                      <Tooltip formatter={(v) => [`${Math.round(v)} kg`, "1RM estimé"]} />
+                      <Line type="monotone" dataKey="oneRM" strokeWidth={2} dot />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
 
-      {/* 2) Fréquence des séances par semaine */}
-      <Card>
-        <CardContent className="p-4 space-y-3">
-          <h3 className="font-semibold">Fréquence des séances par semaine</h3>
-          <div className="h-64 md:h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={weeklyFreq} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="weekLabel" />
-                <YAxis allowDecimals={false} />
-                <Tooltip formatter={(v) => [`${v}`, "Séances"]} />
-                <Bar dataKey="count" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
+        {/* Courbes des 3 dernières séances (par séries) pour l'exercice demandé */}
+        <LastThreeSessionsSetTonnageChart
+          sessions={sessions}
+          exerciseName="DC incliné barre smith"
+        />
+      </div>
 
-      {/* 3) Top set par exercice (1RM estimé Epley) */}
-      <Card>
-        <CardContent className="p-4 space-y-3">
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <h3 className="font-semibold">Top set (1RM estimé) – par exercice</h3>
-            <select
-              className="border rounded-xl p-2"
-              value={exerciseTS}
-              onChange={(e) => setExerciseTS(e.target.value)}
-            >
-              {allExercises.map((e) => (
-                <option key={e} value={e}>{e}</option>
-              ))}
-            </select>
-          </div>
-
-          {topSet.series.length === 0 ? (
-            <div className="text-sm text-gray-600">Pas encore de données pour cet exercice.</div>
-          ) : (
-            <>
-              <div className="text-sm text-gray-600">
-                Record: <span className="font-semibold">
-                  {Math.round(topSet.record.oneRM)} kg
-                </span>
-                {" "}({topSet.record.weight} kg × {topSet.record.reps} reps) le {topSet.record.date}
-              </div>
-              <div className="h-64 md:h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={topSet.series} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis />
-                    <Tooltip formatter={(v) => [`${Math.round(v)} kg`, "1RM estimé"]} />
-                    <Line type="monotone" dataKey="oneRM" strokeWidth={2} dot />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
-
-{/* 4) Évolution du tonnage par série – 3 dernières séances */}
-<Card>
-  <CardContent className="p-4 space-y-3">
-    <div className="flex items-center justify-between flex-wrap gap-2">
-      <h3 className="font-semibold">
-        Évolution du tonnage par série – 3 dernières séances ({exerciseSetTon})
-      </h3>
-      <select
-        className="border rounded-xl p-2"
-        value={exerciseSetTon}
-        onChange={(e) => setExerciseSetTon(e.target.value)}
-      >
-        {allExercises.map((e) => (
-          <option key={e} value={e}>{e}</option>
-        ))}
-      </select>
-    </div>
-
-    {(() => {
-      const lastN = buildExerciseSetTonnageLastN(sessions, exerciseSetTon, 3);
-      if (lastN.rows.length === 0 || lastN.labels.length === 0) {
-        return <div className="text-sm text-gray-600">Pas encore de données pour cet exercice.</div>;
-      }
-      return (
-        <div className="h-64 md:h-80">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={lastN.rows} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="set" />
-              <YAxis />
-              <Tooltip formatter={(v, name) => [`${Math.round(v)} kg`, name]} />
-              {/* Une ligne par séance (date en légende) */}
-              {lastN.labels.map((label) => (
-                <Line
-                  key={label}
-                  type="monotone"
-                  dataKey={label}
-                  strokeWidth={2}
-                  dot
-                />
-              ))}
-              <Legend />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      );
-    })()}
-  </CardContent>
-</Card>
-
-
-      
-      {/* 5) Répartition PUSH / PULL / FULL (30 derniers jours) */}
-      <Card>
-        <CardContent className="p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="font-semibold">Répartition des séances (30 derniers jours)</h3>
-            <div className="text-sm text-gray-500">PUSH / PULL / FULL</div>
-          </div>
-          <div className="h-64 md:h-80 grid place-items-center">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={splitRecent} dataKey="value" nameKey="name" innerRadius={60} outerRadius={90} label>
-                  {splitRecent.map((_, i) => (
-                    <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                  ))}
-                </Pie>
-                <Legend />
-                <Tooltip formatter={(v) => [`${v}`, "Séances"]} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
+      {/* ────────────────────────── Bloc 4 : Répartition 30 jours ────────────────────────── */}
+      <div className="grid md:grid-cols-2 gap-4">
+        <Card className="md:col-span-2">
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold">Répartition des séances (30 derniers jours)</h3>
+              <div className="text-sm text-gray-500">PUSH / PULL / FULL</div>
+            </div>
+            <div className="h-64 md:h-80 grid place-items-center">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={splitRecent} dataKey="value" nameKey="name" innerRadius={60} outerRadius={90} label>
+                    {splitRecent.map((_, i) => <Cell key={i} />)}
+                  </Pie>
+                  <Legend />
+                  <Tooltip formatter={(v) => [`${v}`, "Séances"]} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
+
 // — Intensité moyenne par séance = (Σ reps×poids) / (Σ reps)
 function buildAvgIntensitySeries(sessions) {
   return sessions
