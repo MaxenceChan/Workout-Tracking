@@ -1151,36 +1151,6 @@ function LastThreeSessionsSetTonnageChart({ sessions, exerciseName, options = []
   );
 }
 
-function buildLast3SessionsSetTonnage(sessions, exerciseName) {
-  const last3 = (sessions || [])
-    .filter(s => (s.exercises || []).some(ex => ex.name === exerciseName))
-    .sort((a, b) => (a.date < b.date ? 1 : -1))
-    .slice(0, 3);
-
-  if (last3.length === 0) return [];
-
-  const maxSets = Math.max(
-    ...last3.map(s =>
-      s.exercises
-        .filter(ex => ex.name === exerciseName)
-        .reduce((m, ex) => Math.max(m, ex.sets.length), 0)
-    )
-  );
-
-  const rows = [];
-  for (let i = 0; i < maxSets; i++) {
-    const row = { set: `Série ${i + 1}` };
-    last3.forEach((s, idx) => {
-      const label = ["Séance 3", "Séance 2", "Séance 1"][idx]; // 3 = la plus récente
-      const flatSets = s.exercises.filter(ex => ex.name === exerciseName).flatMap(ex => ex.sets);
-      const st = flatSets[i];
-      row[label] = st ? Number(st.reps || 0) * Number(st.weight || 0) : 0;
-    });
-    rows.push(row);
-  }
-  return rows;
-}
-
 function buildExerciseSeries(sessions, exercise) {
   const byDate = {};
   sessions.slice().reverse().forEach((s) => {
