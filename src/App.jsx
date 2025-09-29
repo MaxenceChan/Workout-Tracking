@@ -7,7 +7,9 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContai
 import { db, onAuth, signInEmail, signUpEmail, signInGoogle, signOutUser } from "./firebase";
 import { collection, query, where, orderBy, getDocs, writeBatch, doc } from "firebase/firestore";
 
-// UI primitives
+// ───────────────────────────────────────────────────────────────
+// UI primitives (styles shadcn-like minimalistes)
+// ───────────────────────────────────────────────────────────────
 const cn = (...c) => c.filter(Boolean).join(" ");
 const Card = ({ className, children }) => <div className={cn("rounded-2xl border bg-white shadow-sm", className)}>{children}</div>;
 const CardContent = ({ className, children }) => <div className={cn("p-4", className)}>{children}</div>;
@@ -30,7 +32,7 @@ const Input = ({ className, ...props }) => (
 );
 const Label = ({ className, children }) => <label className={cn("text-sm font-medium text-gray-800", className)}>{children}</label>;
 
-// Tabs ultra-light
+// Tabs light
 const TabsCtx = createContext(null);
 const Tabs = ({ value, onValueChange, children }) => <TabsCtx.Provider value={{ value, onValueChange }}>{children}</TabsCtx.Provider>;
 const TabsList = ({ className, children }) => <div className={cn("rounded-xl bg-gray-100 p-1 flex gap-1", className)}>{children}</div>;
@@ -52,7 +54,9 @@ const TabsContent = ({ value, className, children }) => {
   return <div className={className}>{children}</div>;
 };
 
-// --- Domain helpers
+// ───────────────────────────────────────────────────────────────
+// Domain helpers
+// ───────────────────────────────────────────────────────────────
 const EXERCISES = {
   PUSH: ["DC incliné barre smith","DC convergent unilatéral machine","Élévations latérales","Extension triceps triangle","Press horizontal"],
   PULL: ["Tractions","Tirage horizontal","Tirage vertical unilatéral","Leg curl","Face pull","Curl biceps"],
@@ -66,19 +70,36 @@ const volumeOfSets = (sets) => sets.reduce((acc, s) => acc + Number(s.reps || 0)
 const computeSessionTonnage = (session) => session.exercises.reduce((acc, ex) => acc + volumeOfSets(ex.sets), 0);
 const epley1RM = (weight, reps) => (reps > 1 ? weight * (1 + reps / 30) : weight);
 
-// Local storage (offline cache)
-const STORAGE_KEY = "workout-tracker-v1";
-const loadData = () => {
+// ───────────────────────────────────────────────────────────────
+// LocalStorage PAR UID + migration optionnelle
+// ───────────────────────────────────────────────────────────────
+const STORAGE_NAMESPACE = "workout-tracker-v1";
+const keyFor = (uid) => `${STORAGE_NAMESPACE}:${uid || "anon"}`;
+
+const loadDataFor = (uid) => {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(keyFor(uid));
     return raw ? JSON.parse(raw) : { sessions: [], customExercises: [] };
   } catch {
     return { sessions: [], customExercises: [] };
   }
 };
-const saveData = (data) => localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+const saveDataFor = (uid, data) => {
+  localStorage.setItem(keyFor(uid), JSON.stringify(data));
+};
+// Migration d’une ancienne clé globale (facultatif)
+const migrateLegacyLocal = () => {
+  try {
+    const raw = localStorage.getItem(STORAGE_NAMESPACE);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed || null;
+  } catch { return null; }
+};
 
+// ───────────────────────────────────────────────────────────────
 // Firestore helpers
+// ───────────────────────────────────────────────────────────────
 async function fetchSessions(uid) {
   const q = query(collection(db, "sessions"), where("user_id", "==", uid), orderBy("date", "desc"));
   const snap = await getDocs(q);
@@ -106,38 +127,75 @@ async function upsertSessions(uid, sessions) {
 }
 
 // ───────────────────────────────────────────────────────────────
-// MAIN APP  (✅ default export ici !)
+// MAIN APP (✅ default export)
 // ───────────────────────────────────────────────────────────────
 export default function App() {
-  const [data, setData] = useState(loadData());
+  const [data, setData] = useState({ sessions: [], customExercises: [] });
   const [tab, setTab] = useState("log");
-  const [user, setUser] = useState(undefined); // undefined = loading, null = logged out, object = logged in
+  const [user, setUser] = useState(undefined);       // undefined = loading ; null = logged out ; object = logged in
+  const [cloudLoaded, setCloudLoaded] = useState(false); // on ne push qu’après le 1er fetch cloud
 
-  useEffect(() => saveData(data), [data]);
-
-  // Auth listener
+  // Écoute Auth + stratégie de sync cloud→local
   useEffect(() => {
     const unsub = onAuth(async (u) => {
       if (!u) {
         setUser(null);
+        setData({ sessions: [], customExercises: [] });
+        setCloudLoaded(false);
         return;
       }
-      setUser({ id: u.uid, email: u.email || "Utilisateur" });
+
+      const uid = u.uid;
+      setUser({ id: uid, email: u.email || "Utilisateur" });
+
+      // (Optionnel) migrer d’ancienne clé globale vers la clé par UID
+      const legacy = migrateLegacyLocal();
+      if (legacy && (legacy.sessions?.length || 0) > 0 && !localStorage.getItem(keyFor(uid))) {
+        saveDataFor(uid, legacy);
+        localStorage.removeItem(STORAGE_NAMESPACE);
+      }
+
       try {
-        const remote = await fetchSessions(u.uid);
-        if (remote.length > 0) setData((cur) => ({ ...cur, sessions: remote }));
+        // 1) Lire le cloud
+        const remote = await fetchSessions(uid);
+
+        if (remote.length > 0) {
+          // Cloud gagnant → hydrate app + cache UID
+          const hydrated = { sessions: remote, customExercises: loadDataFor(uid).customExercises || [] };
+          setData(hydrated);
+          saveDataFor(uid, hydrated);
+        } else {
+          // Cloud vide → s’il existe un cache local POUR CE UID, on pousse (une fois)
+          const cached = loadDataFor(uid);
+          if ((cached.sessions?.length || 0) > 0) {
+            await upsertSessions(uid, cached.sessions);
+            setData(cached);
+          } else {
+            setData({ sessions: [], customExercises: [] });
+          }
+        }
       } catch (e) {
         console.error(e);
+        // En cas d’erreur cloud, retomber sur le cache UID
+        setData(loadDataFor(uid));
+      } finally {
+        setCloudLoaded(true);
       }
     });
     return unsub;
   }, []);
 
-  // Push to cloud on changes
+  // Sauvegarde locale par UID à chaque changement
   useEffect(() => {
     if (!user?.id) return;
+    saveDataFor(user.id, data);
+  }, [user?.id, data]);
+
+  // Push auto vers Firestore quand les sessions changent (après 1er fetch cloud)
+  useEffect(() => {
+    if (!user?.id || !cloudLoaded) return;
     upsertSessions(user.id, data.sessions).catch(console.error);
-  }, [user, data.sessions]);
+  }, [user?.id, cloudLoaded, data.sessions]);
 
   if (user === undefined) {
     return <div className="min-h-screen grid place-items-center text-gray-600">Chargement…</div>;
@@ -156,6 +214,7 @@ export default function App() {
           </div>
           <div className="flex items-center gap-3">
             <div className="text-sm text-gray-600">{user.email}</div>
+            {/* Debug UID (optionnel) : <div className="text-xs text-gray-400">UID: {user.id}</div> */}
             <Button variant="ghost" onClick={() => signOutUser()} title="Se déconnecter">
               <LogOut className="h-4 w-4" /> Déconnexion
             </Button>
@@ -295,7 +354,7 @@ function AuthScreen() {
 }
 
 // ───────────────────────────────────────────────────────────────
-// Remaining components
+// Composants métier
 // ───────────────────────────────────────────────────────────────
 function getAllExercises(data) {
   const base = new Set([...EXERCISES.PUSH, ...EXERCISES.PULL, ...EXERCISES.FULL]);
@@ -303,7 +362,6 @@ function getAllExercises(data) {
   return Array.from(base);
 }
 
-// Session Form
 function SessionForm({ onSave, customExercises = [], onAddCustomExercise }) {
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [type, setType] = useState("PUSH");
@@ -475,7 +533,6 @@ function EmptyState() {
   );
 }
 
-// Session List
 function SessionList({ sessions, onDelete, onEdit }) {
   if (!sessions || sessions.length === 0) {
     return <EmptyState />;
@@ -588,7 +645,6 @@ function SessionCard({ session, onDelete, onEdit }) {
   );
 }
 
-// Analytics
 function Analytics({ sessions, allExercises }) {
   const [exercise, setExercise] = useState(allExercises[0] || "");
   useEffect(() => {
