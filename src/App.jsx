@@ -57,6 +57,8 @@ const volumeOfSets = (sets) => sets.reduce((acc, s) => acc + Number(s.reps || 0)
 const computeSessionTonnage = (session) => session.exercises.reduce((acc, ex) => acc + volumeOfSets(ex.sets), 0);
 const epley1RM = (weight, reps) => (reps > 1 ? weight * (1 + reps / 30) : weight);
 
+
+
 // ───────────────────────────────────────────────────────────────
 // Local cache per UID (optional, for fast reload/offline)
 // ───────────────────────────────────────────────────────────────
@@ -766,6 +768,7 @@ function Analytics({ sessions, allExercises }) {
         </CardContent>
       </Card>
 
+      
       {/* 5) Répartition PUSH / PULL / FULL (30 derniers jours) */}
       <Card>
         <CardContent className="p-4 space-y-3">
@@ -778,7 +781,7 @@ function Analytics({ sessions, allExercises }) {
               <PieChart>
                 <Pie data={splitRecent} dataKey="value" nameKey="name" innerRadius={60} outerRadius={90} label>
                   {splitRecent.map((_, i) => (
-                    <Cell key={i} />
+                    <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
                   ))}
                 </Pie>
                 <Legend />
@@ -844,6 +847,27 @@ function isoWeek(date) {
   const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
   const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
   return { year: d.getUTCFullYear(), week: weekNo };
+}
+
+// Palette simple pour le Pie
+const PIE_COLORS = ["#8884d8", "#82ca9d", "#ffc658"];
+
+// Répartition PUSH / PULL / FULL sur les N derniers jours
+function buildTypeSplitLastNDays(sessions, days = 30) {
+  const since = new Date();
+  since.setDate(since.getDate() - days);
+
+  const counts = { PUSH: 0, PULL: 0, FULL: 0 };
+  (sessions || []).forEach((s) => {
+    const d = new Date(s.date + "T00:00:00");
+    if (d >= since && counts[s.type] !== undefined) counts[s.type] += 1;
+  });
+
+  return [
+    { name: "PUSH", value: counts.PUSH },
+    { name: "PULL", value: counts.PULL },
+    { name: "FULL", value: counts.FULL },
+  ];
 }
 
 // — Fréquence des séances par semaine (ISO)
