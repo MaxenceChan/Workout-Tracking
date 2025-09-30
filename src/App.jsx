@@ -495,17 +495,6 @@ function SessionForm({ user, onSavedLocally, customExercises = [], onAddCustomEx
   value={templateId}
   onChange={(e) => {
     const id = e.target.value;
-    if (id === "__custom__") {
-      const name = window.prompt("Nom du nouvel exercice ?");
-      if (name && name.trim()) {
-        onAddCustomExercise(name.trim());
-        setExercises(cur => [
-          ...cur,
-          { id: uuidv4(), name: name.trim(), sets: [{ reps: "", weight: "" }] }
-        ]);
-      }
-      return;
-    }
     setTemplateId(id);
     if (!id) return;
     const tpl = sessionTemplates.find((t) => t.id === id);
@@ -528,8 +517,8 @@ function SessionForm({ user, onSavedLocally, customExercises = [], onAddCustomEx
   {sessionTemplates.map((t) => (
     <option key={t.id} value={t.id}>{t.name}</option>
   ))}
-  <option value="__custom__">+ Créer un nouvel exercice</option>
 </select>
+
 
     <Button
       variant="secondary"
@@ -1242,6 +1231,7 @@ function HeatmapCard({ weekdayHM }) {
 function TemplatesManager({ user, allExercises, templates, onCreate, onDelete }) {
   const [name, setName] = useState("");
   const [selected, setSelected] = useState([]);
+  const [editingId, setEditingId] = useState(null);
 
   const toggle = (ex) => {
     setSelected((cur) =>
@@ -1249,79 +1239,126 @@ function TemplatesManager({ user, allExercises, templates, onCreate, onDelete })
     );
   };
 
+  const startEdit = (tpl) => {
+    setEditingId(tpl.id);
+    setName(tpl.name);
+    setSelected(tpl.exercises);
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setName("");
+    setSelected([]);
+  };
+
+  const saveTemplate = async () => {
+    if (!name.trim()) return alert("Donne un nom à la séance.");
+    if (selected.length === 0) return alert("Sélectionne au moins un exercice.");
+
+    await onCreate({ id: editingId || uuidv4(), name: name.trim(), exercises: selected });
+    setName("");
+    setSelected([]);
+    setEditingId(null);
+  };
+
   return (
     <div className="space-y-4">
+      {/* Formulaire de création / édition */}
       <Card>
         <CardContent className="p-4 space-y-3">
-          <h3 className="font-semibold">Créer une séance pré-créée</h3>
+          <h3 className="font-semibold">
+            {editingId ? "Éditer la séance" : "Créer une séance pré-créée"}
+          </h3>
+
           <div className="grid gap-2">
             <Label>Nom de la séance</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="ex. PUSH A, PULL B, Full Body, etc."/>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="ex. PUSH A, PULL B, Full Body, etc."
+            />
           </div>
 
-<div className="grid gap-2">
-  <Label>Exercices</Label>
-  <div className="flex flex-wrap gap-2">
-    {allExercises.map((ex) => (
-      <button
-        key={ex}
-        onClick={() => toggle(ex)}
-        className={cn(
-          "px-3 py-1 rounded-xl border text-sm",
-          selected.includes(ex) ? "bg-gray-900 text-white" : "bg-white hover:bg-gray-50"
-        )}
-      >
-        {ex}
-      </button>
-    ))}
-    <button
-      onClick={() => {
-        const name = window.prompt("Nom du nouvel exercice ?");
-        if (name && name.trim()) {
-          allExercises.push(name.trim()); // l’ajoute dans la liste
-          toggle(name.trim());
-        }
-      }}
-      className="px-3 py-1 rounded-xl border text-sm bg-green-100 hover:bg-green-200"
-    >
-      + Ajouter
-    </button>
-  </div>
-</div>
+          <div className="grid gap-2">
+            <Label>Exercices</Label>
+            <div className="flex flex-wrap gap-2">
+              {allExercises.map((ex) => (
+                <button
+                  key={ex}
+                  onClick={() => toggle(ex)}
+                  className={cn(
+                    "px-3 py-1 rounded-xl border text-sm",
+                    selected.includes(ex)
+                      ? "bg-gray-900 text-white"
+                      : "bg-white hover:bg-gray-50"
+                  )}
+                >
+                  {ex}
+                </button>
+              ))}
+              <button
+                onClick={() => {
+                  const name = window.prompt("Nom du nouvel exercice ?");
+                  if (name && name.trim()) {
+                    allExercises.push(name.trim());
+                    toggle(name.trim());
+                  }
+                }}
+                className="px-3 py-1 rounded-xl border text-sm bg-green-100 hover:bg-green-200"
+              >
+                + Ajouter
+              </button>
+            </div>
+          </div>
 
-
-          <div className="flex justify-end">
-            <Button
-              onClick={async () => {
-                if (!name.trim()) return alert("Donne un nom à la séance.");
-                if (selected.length === 0) return alert("Sélectionne au moins un exercice.");
-                await onCreate({ id: uuidv4(), name: name.trim(), exercises: selected });
-                setName("");
-                setSelected([]);
-              }}
-            >
-              Enregistrer la séance
+          <div className="flex justify-end gap-2">
+            {editingId && (
+              <Button variant="secondary" onClick={cancelEdit}>
+                Annuler
+              </Button>
+            )}
+            <Button onClick={saveTemplate}>
+              {editingId ? "Sauvegarder" : "Enregistrer la séance"}
             </Button>
           </div>
         </CardContent>
       </Card>
 
+      {/* Liste des séances existantes */}
       <Card>
         <CardContent className="p-4 space-y-3">
           <h3 className="font-semibold">Mes séances pré-créées</h3>
           {(!templates || templates.length === 0) ? (
-            <div className="text-sm text-gray-600">Aucune séance pré-créée.</div>
+            <div className="text-sm text-gray-600">
+              Aucune séance pré-créée.
+            </div>
           ) : (
             <div className="space-y-2">
               {templates.map((t) => (
-                <div key={t.id} className="flex items-center justify-between p-2 rounded-xl border bg-gray-50">
-                  <div className="font-medium">{t.name}</div>
-                  <div className="text-xs text-gray-500 truncate max-w-[50%]">
-                    {t.exercises.join(" • ")}
+                <div
+                  key={t.id}
+                  className="flex items-center justify-between p-2 rounded-xl border bg-gray-50"
+                >
+                  <div className="flex-1">
+                    <div className="font-medium">{t.name}</div>
+                    <div className="text-xs text-gray-500 truncate max-w-[80%]">
+                      {t.exercises.join(" • ")}
+                    </div>
                   </div>
-                  <Button variant="destructive" onClick={() => onDelete(t.id)}>
-                    <Trash2 className="h-4 w-4 mr-1" /> Supprimer
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="secondary"
+                      onClick={() => startEdit(t)}
+                    >
+                      <Edit3 className="h-4 w-4 mr-1" /> Éditer
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      onClick={() => onDelete(t.id)}
+                    >
+                      <Trash2 className="h-4 w-4 mr-1" /> Supprimer
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -1331,6 +1368,7 @@ function TemplatesManager({ user, allExercises, templates, onCreate, onDelete })
     </div>
   );
 }
+
 function LastThreeSessionsSetTonnageChart({ sessions, exerciseName, options = [], onChangeExercise }) {
   const { rows, labels } = useMemo(
     () => buildLast3SessionsSetTonnage(sessions, exerciseName),
