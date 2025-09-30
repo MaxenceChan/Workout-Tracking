@@ -259,17 +259,19 @@ unsubscribeTemplates = subscribeSessionTemplates(
           </TabsList>
 
           <TabsContent value="tpl" className="mt-4">
-            <TemplatesManager
-              user={user}
-              allExercises={getAllExercises(data)}
-              templates={data.sessionTemplates}
-              onCreate={async (tpl) => {
-                await upsertSessionTemplate(user.id, { ...tpl, id: uuidv4() });
-              }}
-              onDelete={async (id) => {
-                await deleteSessionTemplate(id);
-              }}
-            />
+<TemplatesManager
+  user={user}
+  allExercises={getAllExercises(data)}
+  templates={data.sessionTemplates}
+  onCreate={async (tpl) => {
+    const id = tpl.id || uuidv4();   // 👈 garde l’existant si présent
+    await upsertSessionTemplate(user.id, { ...tpl, id });
+  }}
+  onDelete={async (id) => {
+    await deleteSessionTemplate(id);
+  }}
+/>
+
           </TabsContent>
 
           <TabsContent value="log" className="mt-4">
