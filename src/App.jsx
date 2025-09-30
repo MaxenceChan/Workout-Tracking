@@ -1231,7 +1231,7 @@ function HeatmapCard({ weekdayHM }) {
 function TemplatesManager({ user, allExercises, templates, onCreate, onDelete }) {
   const [name, setName] = useState("");
   const [selected, setSelected] = useState([]);
-  const [editingId, setEditingId] = useState(null);
+  const [editingId, setEditingId] = useState(null); // ← nouvel état pour savoir si on édite
 
   const toggle = (ex) => {
     setSelected((cur) =>
@@ -1239,35 +1239,34 @@ function TemplatesManager({ user, allExercises, templates, onCreate, onDelete })
     );
   };
 
-  const startEdit = (tpl) => {
-    setEditingId(tpl.id);
-    setName(tpl.name);
-    setSelected(tpl.exercises);
-  };
-
-  const cancelEdit = () => {
-    setEditingId(null);
-    setName("");
-    setSelected([]);
-  };
-
   const saveTemplate = async () => {
     if (!name.trim()) return alert("Donne un nom à la séance.");
     if (selected.length === 0) return alert("Sélectionne au moins un exercice.");
 
-    await onCreate({ id: editingId || uuidv4(), name: name.trim(), exercises: selected });
+    await onCreate({
+      id: editingId || uuidv4(),   // 👈 si edition → garder le même id
+      name: name.trim(),
+      exercises: selected,
+    });
+
+    // reset form
     setName("");
     setSelected([]);
     setEditingId(null);
   };
 
+  const startEdit = (tpl) => {
+    setName(tpl.name);
+    setSelected(tpl.exercises);
+    setEditingId(tpl.id);  // 👈 on stocke l’id existant
+  };
+
   return (
     <div className="space-y-4">
-      {/* Formulaire de création / édition */}
       <Card>
         <CardContent className="p-4 space-y-3">
           <h3 className="font-semibold">
-            {editingId ? "Éditer la séance" : "Créer une séance pré-créée"}
+            {editingId ? "Modifier une séance" : "Créer une séance pré-créée"}
           </h3>
 
           <div className="grid gap-2">
@@ -1296,42 +1295,34 @@ function TemplatesManager({ user, allExercises, templates, onCreate, onDelete })
                   {ex}
                 </button>
               ))}
-              <button
-                onClick={() => {
-                  const name = window.prompt("Nom du nouvel exercice ?");
-                  if (name && name.trim()) {
-                    allExercises.push(name.trim());
-                    toggle(name.trim());
-                  }
-                }}
-                className="px-3 py-1 rounded-xl border text-sm bg-green-100 hover:bg-green-200"
-              >
-                + Ajouter
-              </button>
             </div>
           </div>
 
           <div className="flex justify-end gap-2">
             {editingId && (
-              <Button variant="secondary" onClick={cancelEdit}>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setEditingId(null);
+                  setName("");
+                  setSelected([]);
+                }}
+              >
                 Annuler
               </Button>
             )}
             <Button onClick={saveTemplate}>
-              {editingId ? "Sauvegarder" : "Enregistrer la séance"}
+              {editingId ? "Mettre à jour" : "Enregistrer"}
             </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* Liste des séances existantes */}
       <Card>
         <CardContent className="p-4 space-y-3">
           <h3 className="font-semibold">Mes séances pré-créées</h3>
           {(!templates || templates.length === 0) ? (
-            <div className="text-sm text-gray-600">
-              Aucune séance pré-créée.
-            </div>
+            <div className="text-sm text-gray-600">Aucune séance pré-créée.</div>
           ) : (
             <div className="space-y-2">
               {templates.map((t) => (
@@ -1339,24 +1330,24 @@ function TemplatesManager({ user, allExercises, templates, onCreate, onDelete })
                   key={t.id}
                   className="flex items-center justify-between p-2 rounded-xl border bg-gray-50"
                 >
-                  <div className="flex-1">
+                  <div>
                     <div className="font-medium">{t.name}</div>
-                    <div className="text-xs text-gray-500 truncate max-w-[80%]">
+                    <div className="text-xs text-gray-500 truncate max-w-[50%]">
                       {t.exercises.join(" • ")}
                     </div>
                   </div>
                   <div className="flex gap-2">
                     <Button
                       variant="secondary"
-                      onClick={() => startEdit(t)}
+                      onClick={() => startEdit(t)} // 👈 active le mode édition
                     >
-                      <Edit3 className="h-4 w-4 mr-1" /> Éditer
+                      Éditer
                     </Button>
                     <Button
                       variant="destructive"
                       onClick={() => onDelete(t.id)}
                     >
-                      <Trash2 className="h-4 w-4 mr-1" /> Supprimer
+                      Supprimer
                     </Button>
                   </div>
                 </div>
@@ -1368,6 +1359,7 @@ function TemplatesManager({ user, allExercises, templates, onCreate, onDelete })
     </div>
   );
 }
+
 
 function LastThreeSessionsSetTonnageChart({ sessions, exerciseName, options = [], onChangeExercise }) {
   const { rows, labels } = useMemo(
