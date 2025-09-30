@@ -759,6 +759,25 @@ function SessionCard({ session, onDelete, onEdit }) {
               <Button variant="secondary" onClick={() => setEditing(true)}><Edit3 className="h-4 w-4 mr-1" />Éditer</Button>
             )}
             <Button variant="destructive" onClick={onDelete}><Trash2 className="h-4 w-4 mr-1" />Supprimer</Button>
+            <Button
+  variant="secondary"
+  onClick={() =>
+    setLocal((cur) => ({
+      ...cur,
+      exercises: [
+        ...cur.exercises,
+        {
+          id: uuidv4(),
+          name: window.prompt("Nom du nouvel exercice ?") || "Nouvel exercice",
+          sets: [{ reps: "", weight: "" }],
+        },
+      ],
+    }))
+  }
+>
+  + Ajouter un exercice
+</Button>
+
           </div>
         </div>
 
@@ -855,24 +874,22 @@ function SessionCard({ session, onDelete, onEdit }) {
     Supprimer l’exercice
   </Button>
 
-  <Button
-    variant="secondary"
-    onClick={() =>
-      setLocal((cur) => ({
-        ...cur,
-        exercises: [
-          ...cur.exercises,
-          {
-            id: uuidv4(),
-            name: window.prompt("Nom du nouvel exercice ?") || "Nouvel exercice",
-            sets: [{ reps: "", weight: "" }],
-          },
-        ],
-      }))
-    }
-  >
-    + Ajouter un exercice
-  </Button>
+<Button
+  variant="secondary"
+  onClick={() =>
+    setLocal((cur) => ({
+      ...cur,
+      exercises: cur.exercises.map((e2, j) =>
+        j === idx
+          ? { ...e2, sets: [...e2.sets, { reps: "", weight: "" }] }
+          : e2
+      ),
+    }))
+  }
+>
+  + Ajouter une série
+</Button>
+
 </div>
 
             </div>
