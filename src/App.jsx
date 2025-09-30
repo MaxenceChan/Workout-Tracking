@@ -1290,6 +1290,8 @@ function TemplatesManager({ user, allExercises, templates, onCreate, onDelete })
 
 <div className="grid gap-2">
   <Label>Exercices choisis</Label>
+
+  {/* Zone où s’affichent les exercices sélectionnés */}
   {selected.length === 0 ? (
     <div className="text-sm text-gray-500">Aucun exercice sélectionné.</div>
   ) : (
@@ -1299,6 +1301,7 @@ function TemplatesManager({ user, allExercises, templates, onCreate, onDelete })
           key={i}
           className="flex items-center justify-between border rounded-lg p-2 bg-white"
         >
+          {/* Champ pour renommer l’exercice */}
           <input
             className="flex-1 px-2 py-1 border rounded"
             value={ex}
@@ -1320,7 +1323,38 @@ function TemplatesManager({ user, allExercises, templates, onCreate, onDelete })
       ))}
     </div>
   )}
+
+  {/* Liste de tous les exercices disponibles (base + custom de l’utilisateur) */}
+  <div className="flex flex-wrap gap-2">
+    {allExercises.map((ex) => (
+      <button
+        key={ex}
+        onClick={() =>
+          setSelected((cur) =>
+            cur.includes(ex) ? cur : [...cur, ex] // évite les doublons
+          )
+        }
+        className="px-3 py-1 rounded-xl border text-sm bg-white hover:bg-gray-50"
+      >
+        {ex}
+      </button>
+    ))}
+  </div>
+
+  {/* Bouton pour ajouter un exercice custom */}
+  <Button
+    variant="secondary"
+    onClick={() => {
+      const name = window.prompt("Nom du nouvel exercice ?");
+      if (name && name.trim()) {
+        setSelected((cur) => [...cur, name.trim()]);
+      }
+    }}
+  >
+    + Ajouter un exercice
+  </Button>
 </div>
+
 
 
           <div className="flex justify-end gap-2">
