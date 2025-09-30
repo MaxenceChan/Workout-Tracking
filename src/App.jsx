@@ -281,10 +281,10 @@ unsubscribeTemplates = subscribeSessionTemplates(
           <TabsContent value="tpl" className="mt-4">
 <TemplatesManager
   user={user}
-  allExercises={getAllExercises(data)}
+  allExercises={getUserExercises(data)}   // 👈 ici
   templates={data.sessionTemplates}
   onCreate={async (tpl) => {
-    const id = tpl.id || uuidv4();   // 👈 garde l’existant si présent
+    const id = tpl.id || uuidv4();
     await upsertSessionTemplate(user.id, { ...tpl, id });
   }}
   onDelete={async (id) => {
@@ -773,6 +773,16 @@ function SessionCard({ session, onDelete, onEdit }) {
   );
 }
 
+function getUserExercises(data) {
+  const base = new Set(data.customExercises || []);
+  (data.sessions || []).forEach((s) => {
+    (s.exercises || []).forEach((ex) => {
+      base.add(ex.name);
+    });
+  });
+  return Array.from(base);
+}
+
 function Analytics({ sessions }) {
   // Exos filtrés : uniquement ceux avec des données
   const allExercises = useMemo(() => getExercisesWithData(sessions), [sessions]);
@@ -1013,19 +1023,19 @@ function buildExerciseSetTonnageLastN(sessions, exercise, n = 3) {
 
 // — Calendrier du mois en cours : vert si séance ce jour-là
 function MonthlyCalendar({ sessions = [] }) {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth(); // 0..11
-  const today = now.getDate();
+  const [current, setCurrent] = useState(new Date()); // 👈 mois affiché
+
+  const year = current.getFullYear();
+  const month = current.getMonth();
+  const today = new Date();
 
   const first = new Date(year, month, 1);
-  // Lundi=0 ... Dimanche=6
   const startCol = (first.getDay() + 6) % 7;
   const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-  // set des dates avec séance, format "YYYY-MM-DD"
+  // set des dates avec séance
   const sessionDays = new Set(
-    (sessions || []).map(s => String(s.date)) // tes dates sont déjà "YYYY-MM-DD"
+    (sessions || []).map((s) => String(s.date))
   );
 
   const dayCells = [];
@@ -1033,7 +1043,7 @@ function MonthlyCalendar({ sessions = [] }) {
   for (let d = 1; d <= daysInMonth; d++) {
     const iso = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
     const hasSession = sessionDays.has(iso);
-    const isToday = d === today;
+    const isToday = iso === today.toISOString().slice(0,10);
     dayCells.push({ d, iso, hasSession, isToday, key: `d-${d}` });
   }
 
@@ -1043,20 +1053,16 @@ function MonthlyCalendar({ sessions = [] }) {
     <Card>
       <CardContent className="p-4 space-y-3">
         <div className="flex items-center justify-between">
+          <Button variant="secondary" onClick={() => setCurrent(new Date(year, month - 1, 1))}>◀</Button>
           <h3 className="font-semibold">
-            Calendrier du mois — {now.toLocaleString(undefined, { month: "long", year: "numeric" })}
+            Calendrier — {current.toLocaleString(undefined, { month: "long", year: "numeric" })}
           </h3>
-          <div className="text-xs text-gray-500 flex items-center gap-3">
-            <span className="inline-block h-3 w-3 rounded bg-green-200" /> jour avec séance
-            <span className="inline-block h-3 w-3 rounded bg-green-400 ring-2 ring-gray-800" /> aujourd’hui + séance
-          </div>
+          <Button variant="secondary" onClick={() => setCurrent(new Date(year, month + 1, 1))}>▶</Button>
         </div>
 
         {/* En-têtes des jours */}
         <div className="grid grid-cols-7 gap-1 text-center text-xs text-gray-600">
-          {weekLabels.map((w) => (
-            <div key={w} className="py-1">{w}</div>
-          ))}
+          {weekLabels.map((w) => <div key={w} className="py-1">{w}</div>)}
         </div>
 
         {/* Cases du mois */}
@@ -1084,7 +1090,6 @@ function MonthlyCalendar({ sessions = [] }) {
     </Card>
   );
 }
-
 // ISO week (semaine basée sur le jeudi, Lun=1..Dim=7)
 function isoWeek(date) {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
