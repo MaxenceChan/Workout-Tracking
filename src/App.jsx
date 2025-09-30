@@ -142,24 +142,6 @@ function subscribeSessionTemplates(uid, onChange, onError) {
   );
 }
 
-async function upsertSessionTemplate(uid, tpl) {
-  const batch = writeBatch(db);
-  const ref = doc(db, "session_templates", tpl.id);
-  batch.set(
-    ref,
-    {
-      user_id: uid,
-      name: tpl.name,
-      // exercices du template = liste de noms d’exercices
-      exercises: Array.from(new Set(tpl.exercises || [])),
-      updated_at: new Date().toISOString(),
-      created_at: tpl.created_at || new Date().toISOString(),
-    },
-    { merge: true }
-  );
-  await batch.commit();
-}
-
 async function deleteSessionTemplate(id) {
   await deleteDoc(doc(db, "session_templates", id));
 }
