@@ -941,13 +941,24 @@ function SessionCard({ session, onDelete, onEdit }) {
 
 function getUserExercises(data) {
   const base = new Set(data.customExercises || []);
+
+  // exos issus des séances déjà loggées
   (data.sessions || []).forEach((s) => {
     (s.exercises || []).forEach((ex) => {
       base.add(ex.name);
     });
   });
+
+  // exos issus des templates
+  (data.sessionTemplates || []).forEach((tpl) => {
+    (tpl.exercises || []).forEach((ex) => {
+      base.add(ex);
+    });
+  });
+
   return Array.from(base);
 }
+
 
 function Analytics({ sessions }) {
   // Exos filtrés : uniquement ceux avec des données
