@@ -1,3 +1,6 @@
+// En haut de App.jsx
+import { db, onAuth, signInEmail, signUpEmail, signInGoogle, signOutUser, resetPassword } from "./firebase";
+
 // App.jsx (Bloc 1)
 import React, { useMemo, useState, useEffect, useContext, createContext } from "react";
 import { v4 as uuidv4 } from "uuid";
@@ -372,6 +375,24 @@ function AuthScreen() {
               <Label>Email</Label>
               <Input type="email" required value={email} onChange={(e)=>setEmail(e.target.value)} placeholder="toi@email.com" />
             </div>
+            <div className="text-center">
+  <button
+    type="button"
+    className="text-xs sm:text-sm text-blue-600 hover:underline"
+    onClick={async () => {
+      if (!email) return alert("Saisis ton email pour réinitialiser le mot de passe");
+      try {
+        await resetPassword(email);
+        alert("Un email de réinitialisation a été envoyé !");
+      } catch (err) {
+        alert("Erreur : " + (err.message || err));
+      }
+    }}
+  >
+    Mot de passe oublié ?
+  </button>
+</div>
+
             <div className="grid gap-1.5">
               <Label>Mot de passe</Label>
               <Input type="password" required value={password} onChange={(e)=>setPassword(e.target.value)} placeholder="••••••••" />
