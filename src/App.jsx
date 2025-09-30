@@ -325,9 +325,10 @@ unsubscribeTemplates = subscribeSessionTemplates(
           </TabsContent>
 
 
-          <TabsContent value="analytics" className="mt-4">
-            <Analytics sessions={data.sessions} allExercises={getAllExercises(data)} />
-          </TabsContent>
+<TabsContent value="analytics" className="mt-4">
+  <Analytics sessions={data.sessions} />
+</TabsContent>
+
 
           <TabsContent value="last" className="mt-4">
             <LastSession sessions={data.sessions} />
@@ -772,7 +773,7 @@ function SessionCard({ session, onDelete, onEdit }) {
   );
 }
 
-function Analytics({ sessions, allExercises }) {
+function Analytics({ sessions }) {
   // Exos filtrés : uniquement ceux avec des données
   const allExercises = useMemo(() => getExercisesWithData(sessions), [sessions]);
 
