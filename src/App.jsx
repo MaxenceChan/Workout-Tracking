@@ -266,6 +266,48 @@ export default function App() {
               onDelete={async (id) => { await deleteSessionTemplate(id); }}
             />
           </TabsContent>
+          <TabsContent value="log" className="mt-3 sm:mt-4">
+  <SessionForm
+    user={user}
+    customExercises={data.customExercises}
+    onAddCustomExercise={(name) => {
+      const upd = { ...data, customExercises: [...data.customExercises, name] };
+      setData(upd);
+      saveDataFor(user.id, upd);
+    }}
+    onSavedLocally={(s) => {
+      const upd = { ...data, sessions: [s, ...data.sessions] };
+      setData(upd);
+      saveDataFor(user.id, upd);
+    }}
+    sessionTemplates={data.sessionTemplates}
+    onCreateTemplate={async (tpl) => {
+      await upsertSessionTemplate(user.id, tpl);
+    }}
+  />
+</TabsContent>
+
+<TabsContent value="sessions" className="mt-3 sm:mt-4">
+  <SessionList
+    user={user}
+    sessions={data.sessions}
+    onDelete={async (id) => {
+      await deleteSession(user.id, id);
+    }}
+    onEdit={async (s) => {
+      await upsertSessions(user.id, [s]);
+    }}
+  />
+</TabsContent>
+
+<TabsContent value="analytics" className="mt-3 sm:mt-4">
+  <Analytics sessions={data.sessions} />
+</TabsContent>
+
+<TabsContent value="last" className="mt-3 sm:mt-4">
+  <LastSession sessions={data.sessions} />
+</TabsContent>
+
            </Tabs>
       </main>
     </div>
