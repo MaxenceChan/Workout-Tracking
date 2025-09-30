@@ -410,10 +410,24 @@ function AuthScreen() {
 // Business components
 // ───────────────────────────────────────────────────────────────
 function getAllExercises(data) {
-  const base = new Set([...EXERCISES.PUSH, ...EXERCISES.PULL, ...EXERCISES.FULL]);
+  const base = new Set(); // 👈 démarre vide
   (data.customExercises || []).forEach((e) => base.add(e));
   return Array.from(base);
 }
+
+function getExercisesWithData(sessions) {
+  const used = new Set();
+  (sessions || []).forEach((s) => {
+    (s.exercises || []).forEach((ex) => {
+      const hasValid = ex.sets.some(
+        (set) => Number(set.reps) > 0 && Number(set.weight) > 0
+      );
+      if (hasValid) used.add(ex.name);
+    });
+  });
+  return Array.from(used);
+}
+
 
 function SessionForm({ user, onSavedLocally, customExercises = [], onAddCustomExercise, sessionTemplates = [], onCreateTemplate }) {
   const [templateId, setTemplateId] = useState("");
@@ -759,9 +773,13 @@ function SessionCard({ session, onDelete, onEdit }) {
 }
 
 function Analytics({ sessions, allExercises }) {
-  // Sélecteurs d'exercice (déjà dans ton code)
+  // Exos filtrés : uniquement ceux avec des données
+  const allExercises = useMemo(() => getExercisesWithData(sessions), [sessions]);
+
+  // Sélecteurs initiaux
   const [exerciseTS, setExerciseTS] = useState(allExercises[0] || "");
   const [exerciseSetTon, setExerciseSetTon] = useState(allExercises[0] || "");
+
   useEffect(() => {
     if (!exerciseTS && allExercises.length) setExerciseTS(allExercises[0]);
     if (!exerciseSetTon && allExercises.length) setExerciseSetTon(allExercises[0]);
