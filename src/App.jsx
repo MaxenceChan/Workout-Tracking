@@ -1029,28 +1029,38 @@ function Analytics({ sessions }) {
         />
       </div>
 
-      {/* Bloc 4 : Répartition PUSH/PULL/FULL */}
-      <div className="grid md:grid-cols-2 gap-4">
-        <Card className="md:col-span-2">
-          <CardContent className="p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold">Répartition des séances (30 derniers jours)</h3>
-              <div className="text-sm text-gray-500">PUSH / PULL / FULL</div>
-            </div>
-            <div className="h-64 md:h-80 grid place-items-center">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={splitRecent} dataKey="value" nameKey="name" innerRadius={60} outerRadius={90} label>
-                    {splitRecent.map((_, i) => <Cell key={i} />)}
-                  </Pie>
-                  <Legend />
-                  <Tooltip formatter={(v) => [`${v}`, "Séances"]} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
+{/* Bloc 4 : Répartition des séances par type sur 30 jours */}
+<div className="grid md:grid-cols-2 gap-4">
+  <Card className="md:col-span-2">
+    <CardContent className="p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold">Répartition des séances (30 derniers jours)</h3>
+        <div className="text-sm text-gray-500">Types de séance</div>
       </div>
+      <div className="h-64 md:h-80 grid place-items-center">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={splitRecent}
+              dataKey="value"
+              nameKey="name"
+              innerRadius={60}
+              outerRadius={90}
+              label
+            >
+              {splitRecent.map((_, i) => (
+                <Cell key={i} fill={colors[i % colors.length]} />
+              ))}
+            </Pie>
+            <Legend />
+            <Tooltip formatter={(v) => [`${v}`, "Séances"]} />
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
+    </CardContent>
+  </Card>
+</div>
+
     </div>
   );
 }
@@ -1362,18 +1372,23 @@ function buildSessionsPerWeekSeries(sessions) {
   return Object.entries(map).map(([weekLabel, count]) => ({ weekLabel, count }));
 }
 
-// Répartition PUSH/PULL/FULL derniers n jours
-function buildTypeSplitLastNDays(sessions, n) {
+// Répartition type de séance derniers n jours
+function buildTypeSplitLastNDays(sessions, nDays = 30) {
   const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - n);
-  const counts = { PUSH: 0, PULL: 0, FULL: 0 };
-  sessions.filter(s => new Date(s.date) >= cutoff).forEach(s => {
-    if (s.type?.toUpperCase().includes("PUSH")) counts.PUSH++;
-    else if (s.type?.toUpperCase().includes("PULL")) counts.PULL++;
-    else counts.FULL++;
+  cutoff.setDate(cutoff.getDate() - nDays);
+
+  const map = {};
+  sessions.forEach((s) => {
+    const d = new Date(s.date);
+    if (d >= cutoff) {
+      const type = s.type || "Libre";
+      map[type] = (map[type] || 0) + 1;
+    }
   });
-  return Object.entries(counts).map(([name, value]) => ({ name, value }));
+
+  return Object.entries(map).map(([name, value]) => ({ name, value }));
 }
+
 
 // Top set (1RM estimé)
 function buildTopSetSeriesByExercise(sessions, exName) {
