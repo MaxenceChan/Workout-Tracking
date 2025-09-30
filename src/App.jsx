@@ -1,6 +1,3 @@
-// En haut de App.jsx
-import { db, onAuth, signInEmail, signUpEmail, signInGoogle, signOutUser, resetPassword } from "./firebase";
-
 // App.jsx (Bloc 1)
 import React, { useMemo, useState, useEffect, useContext, createContext } from "react";
 import { v4 as uuidv4 } from "uuid";
@@ -11,7 +8,7 @@ import {
 } from "recharts";
 
 // Firebase
-import { db, onAuth, signInEmail, signUpEmail, signInGoogle, signOutUser } from "./firebase";
+import { db, onAuth, signInEmail, signUpEmail, signInGoogle, signOutUser, resetPassword } from "./firebase";
 import {
   collection, query, where, orderBy, onSnapshot,
   writeBatch, doc, deleteDoc
