@@ -753,12 +753,45 @@ function SessionCard({ session, onDelete, onEdit }) {
             <div className="text-2xl font-semibold">{Math.round(tonnage)} kg</div>
           </div>
           <div className="flex gap-2">
-            {editing ? (
-              <Button onClick={save}><Save className="h-4 w-4 mr-1" />Sauvegarder</Button>
-            ) : (
-              <Button variant="secondary" onClick={() => setEditing(true)}><Edit3 className="h-4 w-4 mr-1" />Éditer</Button>
-            )}
-            <Button variant="destructive" onClick={onDelete}><Trash2 className="h-4 w-4 mr-1" />Supprimer</Button>
+{editing ? (
+  <>
+    <Button
+      onClick={() => {
+        if (window.confirm("Voulez-vous sauvegarder vos modifications et écraser les anciennes saisies ?")) {
+          save();
+        }
+      }}
+    >
+      <Save className="h-4 w-4 mr-1" />Sauvegarder
+    </Button>
+    <Button
+      variant="secondary"
+      onClick={() => {
+        if (window.confirm("Êtes-vous sûrs ? Toutes vos modifications ne seront pas prises en compte !")) {
+          setLocal(session); // restore état initial
+          setEditing(false);
+        }
+      }}
+    >
+      Annuler
+    </Button>
+  </>
+) : (
+  <Button variant="secondary" onClick={() => setEditing(true)}>
+    <Edit3 className="h-4 w-4 mr-1" />Éditer
+  </Button>
+)}
+
+<Button
+  variant="destructive"
+  onClick={() => {
+    if (window.confirm("Voulez-vous vraiment supprimer cette séance ?")) {
+      onDelete();
+    }
+  }}
+>
+  <Trash2 className="h-4 w-4 mr-1" />Supprimer
+</Button>
 {editing && (
   <Button
     variant="secondary"
@@ -779,20 +812,6 @@ function SessionCard({ session, onDelete, onEdit }) {
     + Ajouter un exercice
   </Button>
 )}
-{editing && (
-  <Button
-    variant="destructive"
-    onClick={() =>
-      setLocal((cur) => ({
-        ...cur,
-        exercises: cur.exercises.filter((_, j) => j !== idx),
-      }))
-    }
-  >
-    Supprimer l’exercice
-  </Button>
-)}
-
 
           </div>
         </div>
