@@ -1416,35 +1416,58 @@ function buildWeekdayHeatmapData(sessions) {
 // Calendrier des séances (jours colorés)
 // ──────────────────────────────────────────────
 function MonthlyCalendar({ sessions }) {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = today.getMonth();
+  const [currentDate, setCurrentDate] = useState(new Date());
 
-  // Jours de ce mois
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
+
+  const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-  // Convertir sessions en set de dates
+  const todayStr = new Date().toISOString().slice(0, 10);
   const sessionDays = new Set(
-    sessions.map(s =>
-      new Date(s.date).toISOString().slice(0, 10)
-    )
+    sessions.map(s => new Date(s.date).toISOString().slice(0, 10))
   );
+
+  const prevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
+  const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
+
+  const monthLabel = currentDate.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
 
   return (
     <Card>
       <CardContent className="p-4 space-y-3">
-        <h3 className="font-semibold">Calendrier du mois</h3>
+        <div className="flex justify-between items-center">
+          <Button variant="secondary" onClick={prevMonth}>←</Button>
+          <h3 className="font-semibold">{monthLabel}</h3>
+          <Button variant="secondary" onClick={nextMonth}>→</Button>
+        </div>
+
+        <div className="grid grid-cols-7 gap-1 text-center text-xs font-medium text-gray-600 mt-2">
+          {["L", "M", "M", "J", "V", "S", "D"].map((d) => (
+            <div key={d}>{d}</div>
+          ))}
+        </div>
+
         <div className="grid grid-cols-7 gap-1 text-center text-xs">
+          {/* Cases vides pour aligner le 1er jour du mois */}
+          {Array.from({ length: (firstDay + 6) % 7 }).map((_, i) => (
+            <div key={"empty" + i} />
+          ))}
           {Array.from({ length: daysInMonth }, (_, i) => {
             const day = i + 1;
             const dateStr = new Date(year, month, day).toISOString().slice(0, 10);
             const hasSession = sessionDays.has(dateStr);
+            const isToday = dateStr === todayStr;
+
+            let bg = "bg-gray-100 text-gray-600"; // défaut
+            if (hasSession) bg = "bg-green-300 text-white"; // vert clair
+            if (hasSession && isToday) bg = "bg-green-600 text-white"; // vert foncé si aujourd'hui
+
             return (
               <div
                 key={day}
-                className={`h-8 w-8 flex items-center justify-center rounded-full ${
-                  hasSession ? "bg-blue-500 text-white" : "bg-gray-100 text-gray-600"
-                }`}
+                className={`h-8 w-8 flex items-center justify-center rounded-full ${bg}`}
               >
                 {day}
               </div>
@@ -1455,6 +1478,7 @@ function MonthlyCalendar({ sessions }) {
     </Card>
   );
 }
+
 
 // Heatmap par jour de la semaine
 function HeatmapCard({ weekdayHM }) {
@@ -1479,18 +1503,17 @@ function HeatmapCard({ weekdayHM }) {
 // Graphique des 3 dernières séances d’un exo
 // ──────────────────────────────────────────────
 function LastThreeSessionsSetTonnageChart({ sessions, exerciseName, options, onChangeExercise }) {
-  // Filtrer uniquement les séances qui contiennent l'exercice choisi
   const filtered = sessions
     .filter(s => s.exercises.some(ex => ex.name === exerciseName))
-    .slice(0, 3) // 3 dernières
+    .slice(0, 3) // dernières 3 séances
     .map(s => ({
-      date: s.date,
+      date: new Date(s.date).toLocaleDateString("fr-FR"),
       sets: s.exercises.find(ex => ex.name === exerciseName).sets
     }));
 
-  // Transformer en format série
+  // Construire données par série
   const chartData = [];
-  filtered.forEach((s, idx) => {
+  filtered.forEach((s) => {
     s.sets.forEach((set, i) => {
       const tonnage = (Number(set.reps) || 0) * (Number(set.weight) || 0);
       if (!chartData[i]) chartData[i] = { serie: i + 1 };
@@ -1522,6 +1545,7 @@ function LastThreeSessionsSetTonnageChart({ sessions, exerciseName, options, onC
                 <XAxis dataKey="serie" />
                 <YAxis />
                 <Tooltip />
+                <Legend /> {/* <── Ajout de la légende */}
                 {filtered.map((s, idx) => (
                   <Line
                     key={s.date}
@@ -1540,4 +1564,3 @@ function LastThreeSessionsSetTonnageChart({ sessions, exerciseName, options, onC
     </Card>
   );
 }
-
