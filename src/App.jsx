@@ -759,9 +759,11 @@ function SessionCard({ session, onDelete, onEdit }) {
               <Button variant="secondary" onClick={() => setEditing(true)}><Edit3 className="h-4 w-4 mr-1" />Éditer</Button>
             )}
             <Button variant="destructive" onClick={onDelete}><Trash2 className="h-4 w-4 mr-1" />Supprimer</Button>
-            <Button
+<Button
   variant="secondary"
+  disabled={!editing}
   onClick={() =>
+    editing &&
     setLocal((cur) => ({
       ...cur,
       exercises: [
@@ -777,6 +779,7 @@ function SessionCard({ session, onDelete, onEdit }) {
 >
   + Ajouter un exercice
 </Button>
+
 
           </div>
         </div>
@@ -862,21 +865,26 @@ function SessionCard({ session, onDelete, onEdit }) {
                 ))
               )}
               <div className="flex gap-2 mt-2">
-  <Button
-    variant="destructive"
-    onClick={() =>
-      setLocal((cur) => ({
-        ...cur,
-        exercises: cur.exercises.filter((_, j) => j !== idx),
-      }))
-    }
-  >
-    Supprimer l’exercice
-  </Button>
+<Button
+  variant="destructive"
+  disabled={!editing}
+  onClick={() =>
+    editing &&
+    setLocal((cur) => ({
+      ...cur,
+      exercises: cur.exercises.filter((_, j) => j !== idx),
+    }))
+  }
+>
+  Supprimer l’exercice
+</Button>
+
 
 <Button
   variant="secondary"
+  disabled={!editing}
   onClick={() =>
+    editing &&
     setLocal((cur) => ({
       ...cur,
       exercises: cur.exercises.map((e2, j) =>
@@ -889,6 +897,7 @@ function SessionCard({ session, onDelete, onEdit }) {
 >
   + Ajouter une série
 </Button>
+
 
 </div>
 
