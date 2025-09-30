@@ -414,14 +414,12 @@ function SessionForm({ user, onSavedLocally, customExercises = [], onAddCustomEx
 
 
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [type, setType] = useState("PUSH");
-  const [exercises, setExercises] = useState([]);
-  const [exSelect, setExSelect] = useState("");
-
   const availableExercises = useMemo(() => {
-    const base = EXERCISES[type] || [];
-    return Array.from(new Set([...base, ...customExercises]));
-  }, [type, customExercises]);
+  // si un template est choisi → on prend ses exos + custom
+  const tpl = sessionTemplates.find((t) => t.id === templateId);
+  const base = tpl ? tpl.exercises : [];
+  return Array.from(new Set([...base, ...customExercises]));
+  }, [templateId, sessionTemplates, customExercises]);
 
   const totalTonnage = useMemo(() => exercises.reduce((acc, ex) => acc + volumeOfSets(ex.sets), 0), [exercises]);
 
@@ -1259,23 +1257,36 @@ function TemplatesManager({ user, allExercises, templates, onCreate, onDelete })
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="ex. PUSH A, PULL B, Full Body, etc."/>
           </div>
 
-          <div className="grid gap-2">
-            <Label>Exercices</Label>
-            <div className="flex flex-wrap gap-2">
-              {allExercises.map((ex) => (
-                <button
-                  key={ex}
-                  onClick={() => toggle(ex)}
-                  className={cn(
-                    "px-3 py-1 rounded-xl border text-sm",
-                    selected.includes(ex) ? "bg-gray-900 text-white" : "bg-white hover:bg-gray-50"
-                  )}
-                >
-                  {ex}
-                </button>
-              ))}
-            </div>
-          </div>
+<div className="grid gap-2">
+  <Label>Exercices</Label>
+  <div className="flex flex-wrap gap-2">
+    {allExercises.map((ex) => (
+      <button
+        key={ex}
+        onClick={() => toggle(ex)}
+        className={cn(
+          "px-3 py-1 rounded-xl border text-sm",
+          selected.includes(ex) ? "bg-gray-900 text-white" : "bg-white hover:bg-gray-50"
+        )}
+      >
+        {ex}
+      </button>
+    ))}
+    <button
+      onClick={() => {
+        const name = window.prompt("Nom du nouvel exercice ?");
+        if (name && name.trim()) {
+          allExercises.push(name.trim()); // l’ajoute dans la liste
+          toggle(name.trim());
+        }
+      }}
+      className="px-3 py-1 rounded-xl border text-sm bg-green-100 hover:bg-green-200"
+    >
+      + Ajouter
+    </button>
+  </div>
+</div>
+
 
           <div className="flex justify-end">
             <Button
