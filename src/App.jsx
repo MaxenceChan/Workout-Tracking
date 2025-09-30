@@ -609,13 +609,42 @@ function SessionForm({ user, onSavedLocally, customExercises = [], onAddCustomEx
                 <div className="grid grid-cols-3 gap-2 text-sm font-medium text-gray-600 mb-2">
                   <div>Série</div><div>Réps</div><div>Poids (kg)</div>
                 </div>
-                {ex.sets.map((s, i) => (
-                  <div key={i} className="grid grid-cols-3 gap-2 mb-2 items-center">
-                    <div className="text-gray-600">{i + 1}</div>
-                    <Input inputMode="numeric" placeholder="10" value={s.reps} onChange={(e) => updateSet(ex.id, i, "reps", e.target.value.replace(/[^0-9]/g, ""))} />
-                    <Input inputMode="decimal" placeholder="40" value={s.weight} onChange={(e) => updateSet(ex.id, i, "weight", e.target.value.replace(/[^0-9.]/g, ""))} />
-                  </div>
-                ))}
+{ex.sets.map((s, i) => (
+  <div key={i} className="grid grid-cols-4 gap-2 mb-2 items-center">
+    <div className="text-gray-600">{i + 1}</div>
+    <Input
+      inputMode="numeric"
+      placeholder="10"
+      value={s.reps}
+      onChange={(e) =>
+        updateSet(ex.id, i, "reps", e.target.value.replace(/[^0-9]/g, ""))
+      }
+    />
+    <Input
+      inputMode="decimal"
+      placeholder="40"
+      value={s.weight}
+      onChange={(e) =>
+        updateSet(ex.id, i, "weight", e.target.value.replace(/[^0-9.]/g, ""))
+      }
+    />
+    <Button
+      variant="destructive"
+      onClick={() =>
+        setExercises((cur) =>
+          cur.map((e2) =>
+            e2.id === ex.id
+              ? { ...e2, sets: e2.sets.filter((_, j) => j !== i) }
+              : e2
+          )
+        )
+      }
+    >
+      <Trash2 className="h-4 w-4" />
+    </Button>
+  </div>
+))}
+
 
                 <div className="flex items-center justify-between mt-3">
                   <div className="text-sm text-gray-700">Sous-total: <span className="font-semibold">{Math.round(volumeOfSets(ex.sets))} kg</span></div>
@@ -746,23 +775,63 @@ function SessionCard({ session, onDelete, onEdit }) {
                   <div className="grid grid-cols-3 gap-2 text-sm font-medium text-gray-600 mb-2">
                     <div>Série</div><div>Réps</div><div>Poids</div>
                   </div>
-                  {ex.sets.map((s, i) => (
-                    <div key={i} className="grid grid-cols-3 gap-2 items-center mb-1">
-                      <div className="text-gray-600">{i + 1}</div>
-                      <Input value={s.reps} onChange={(e) => setLocal((cur) => ({
-                        ...cur,
-                        exercises: cur.exercises.map((e2, j) =>
-                          j === idx ? { ...e2, sets: e2.sets.map((ss, k) => (k === i ? { ...ss, reps: e.target.value } : ss)) } : e2
-                        ),
-                      }))} />
-                      <Input value={s.weight} onChange={(e) => setLocal((cur) => ({
-                        ...cur,
-                        exercises: cur.exercises.map((e2, j) =>
-                          j === idx ? { ...e2, sets: e2.sets.map((ss, k) => (k === i ? { ...ss, weight: e.target.value } : ss)) } : e2
-                        ),
-                      }))} />
-                    </div>
-                  ))}
+{ex.sets.map((s, i) => (
+  <div key={i} className="grid grid-cols-4 gap-2 items-center mb-1">
+    <div className="text-gray-600">{i + 1}</div>
+    <Input
+      value={s.reps}
+      onChange={(e) =>
+        setLocal((cur) => ({
+          ...cur,
+          exercises: cur.exercises.map((e2, j) =>
+            j === idx
+              ? {
+                  ...e2,
+                  sets: e2.sets.map((ss, k) =>
+                    k === i ? { ...ss, reps: e.target.value } : ss
+                  ),
+                }
+              : e2
+          ),
+        }))
+      }
+    />
+    <Input
+      value={s.weight}
+      onChange={(e) =>
+        setLocal((cur) => ({
+          ...cur,
+          exercises: cur.exercises.map((e2, j) =>
+            j === idx
+              ? {
+                  ...e2,
+                  sets: e2.sets.map((ss, k) =>
+                    k === i ? { ...ss, weight: e.target.value } : ss
+                  ),
+                }
+              : e2
+          ),
+        }))
+      }
+    />
+    <Button
+      variant="destructive"
+      onClick={() =>
+        setLocal((cur) => ({
+          ...cur,
+          exercises: cur.exercises.map((e2, j) =>
+            j === idx
+              ? { ...e2, sets: e2.sets.filter((_, k) => k !== i) }
+              : e2
+          ),
+        }))
+      }
+    >
+      <Trash2 className="h-4 w-4" />
+    </Button>
+  </div>
+))}
+
                 </>
               ) : (
                 ex.sets.map((s, i) => (
@@ -773,6 +842,39 @@ function SessionCard({ session, onDelete, onEdit }) {
                   </div>
                 ))
               )}
+              <div className="flex gap-2 mt-2">
+  <Button
+    variant="destructive"
+    onClick={() =>
+      setLocal((cur) => ({
+        ...cur,
+        exercises: cur.exercises.filter((_, j) => j !== idx),
+      }))
+    }
+  >
+    Supprimer l’exercice
+  </Button>
+
+  <Button
+    variant="secondary"
+    onClick={() =>
+      setLocal((cur) => ({
+        ...cur,
+        exercises: [
+          ...cur.exercises,
+          {
+            id: uuidv4(),
+            name: window.prompt("Nom du nouvel exercice ?") || "Nouvel exercice",
+            sets: [{ reps: "", weight: "" }],
+          },
+        ],
+      }))
+    }
+  >
+    + Ajouter un exercice
+  </Button>
+</div>
+
             </div>
           ))}
         </div>
