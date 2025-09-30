@@ -490,26 +490,43 @@ function SessionForm({ user, onSavedLocally, customExercises = [], onAddCustomEx
 <div className="grid gap-2">
   <Label>Séance (template)</Label>
   <div className="flex gap-2">
-    <select
-      className="w-full rounded-xl border p-2"
-      value={templateId}
-      onChange={(e) => {
-        const id = e.target.value;
-        setTemplateId(id);
-        if (!id) return;
-        // on applique le template => préremplissage des exercices avec séries vides
-        const tpl = sessionTemplates.find((t) => t.id === id);
-        if (tpl) {
-          setExercises(
-            tpl.exercises.map((name) => ({
-              id: uuidv4(),
-              name,
-              sets: [{ reps: "", weight: "" }, { reps: "", weight: "" }, { reps: "", weight: "" }],
-            }))
-          );
-        }
-      }}
-    >
+<select
+  className="w-full rounded-xl border p-2"
+  value={templateId}
+  onChange={(e) => {
+    const id = e.target.value;
+    if (id === "__custom__") {
+      const name = window.prompt("Nom du nouvel exercice ?");
+      if (name && name.trim()) {
+        onAddCustomExercise(name.trim());
+        setExercises(cur => [
+          ...cur,
+          { id: uuidv4(), name: name.trim(), sets: [{ reps: "", weight: "" }] }
+        ]);
+      }
+      return;
+    }
+    setTemplateId(id);
+    if (!id) return;
+    const tpl = sessionTemplates.find((t) => t.id === id);
+    if (tpl) {
+      setExercises(
+        tpl.exercises.map((name) => ({
+          id: uuidv4(),
+          name,
+          sets: [{ reps: "", weight: "" }, { reps: "", weight: "" }, { reps: "", weight: "" }],
+        }))
+      );
+    }
+  }}
+>
+  <option value="">— Sélectionner —</option>
+  {sessionTemplates.map((t) => (
+    <option key={t.id} value={t.id}>{t.name}</option>
+  ))}
+  <option value="__custom__">+ Créer un nouvel exercice</option>
+</select>
+
       <option value="">— Sélectionner —</option>
       {sessionTemplates.map((t) => (
         <option key={t.id} value={t.id}>{t.name}</option>
@@ -1073,17 +1090,17 @@ function buildTypeSplitLastNDays(sessions, days = 30) {
   const since = new Date();
   since.setDate(since.getDate() - days);
 
-  const counts = { PUSH: 0, PULL: 0, FULL: 0 };
-  (sessions || []).forEach((s) => {
-    const d = new Date(s.date + "T00:00:00");
-    if (d >= since && counts[s.type] !== undefined) counts[s.type] += 1;
-  });
+const counts = new Map();
 
-  return [
-    { name: "PUSH", value: counts.PUSH },
-    { name: "PULL", value: counts.PULL },
-    { name: "FULL", value: counts.FULL },
-  ];
+(sessions || []).forEach((s) => {
+  const d = new Date(s.date + "T00:00:00");
+  if (d < since) return;
+  const type = s.type || "Libre";
+  counts.set(type, (counts.get(type) || 0) + 1);
+});
+
+return Array.from(counts.entries()).map(([name, value]) => ({ name, value }));
+
 }
 
 // — Fréquence des séances par semaine (ISO)
@@ -1404,7 +1421,11 @@ function OneRMPanel({ sessions, exercise }) {
 }
 
 function LastSession({ sessions }) {
-  const [t, setT] = useState("PUSH"); // type sélectionné
+  const allTypes = useMemo(() => {
+    return Array.from(new Set(sessions.map(s => s.type || "Libre")));
+  }, [sessions]);
+  
+  const [t, setT] = useState(allTypes[0] || "");
 
   const last = useMemo(() => getLastSessionByType(sessions, t), [sessions, t]);
   const tonnage = useMemo(() => (last ? computeSessionTonnage(last) : 0), [last]);
@@ -1415,11 +1436,17 @@ function LastSession({ sessions }) {
         <CardContent className="p-4 space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="font-semibold">Dernière séance – {t}</h3>
-            <div className="flex gap-2">
-              <Button variant={t==="PUSH" ? "default" : "secondary"} onClick={() => setT("PUSH")}>PUSH</Button>
-              <Button variant={t==="PULL" ? "default" : "secondary"} onClick={() => setT("PULL")}>PULL</Button>
-              <Button variant={t==="FULL" ? "default" : "secondary"} onClick={() => setT("FULL")}>FULL BODY</Button>
-            </div>
+            <div className="flex gap-2 flex-wrap">
+  {allTypes.map(tp => (
+    <Button
+      key={tp}
+      variant={t===tp ? "default":"secondary"}
+      onClick={() => setT(tp)}
+    >
+      {tp}
+    </Button>
+  ))}
+</div>
           </div>
 
           {!last ? (
