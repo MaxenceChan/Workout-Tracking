@@ -95,20 +95,22 @@ function subscribeSessions(uid, onChange, onError) {
   );
 }
 
-async function upsertSessions(uid, sessions) {
-  if (!sessions || sessions.length === 0) return;
+async function upsertSessionTemplate(uid, tpl) {
   const batch = writeBatch(db);
-  sessions.forEach((s) => {
-    const ref = doc(db, "sessions", s.id);
-    batch.set(ref, {
-      user_id: uid,
-      date: s.date,
-      type: s.type,
-      exercises: s.exercises,
-      created_at: s.createdAt || new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }, { merge: true });
-  });
+  const ref = doc(db, "session_templates", tpl.id);
+
+  const payload = {
+    user_id: uid,
+    name: tpl.name,
+    exercises: Array.from(new Set(tpl.exercises || [])),
+    updated_at: new Date().toISOString(),
+  };
+
+  if (!tpl.created_at) {
+    payload.created_at = new Date().toISOString();
+  }
+
+  batch.set(ref, payload, { merge: true });
   await batch.commit();
 }
 
@@ -1243,11 +1245,15 @@ function TemplatesManager({ user, allExercises, templates, onCreate, onDelete })
     if (!name.trim()) return alert("Donne un nom à la séance.");
     if (selected.length === 0) return alert("Sélectionne au moins un exercice.");
 
-    await onCreate({
-      id: editingId || uuidv4(),   // 👈 si edition → garder le même id
+  await onCreate({
+      id: editingId ?? uuidv4(),   // 👈 garde l’ancien id si édition
       name: name.trim(),
       exercises: selected,
+      created_at: editingId
+        ? undefined  // 👈 ne pas réécraser la date de création
+        : new Date().toISOString(),
     });
+
 
     // reset form
     setName("");
