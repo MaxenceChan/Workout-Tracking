@@ -411,7 +411,9 @@ function getAllExercises(data) {
 
 function SessionForm({ user, onSavedLocally, customExercises = [], onAddCustomExercise, sessionTemplates = [], onCreateTemplate }) {
   const [templateId, setTemplateId] = useState("");
-
+  
+  const [exercises, setExercises] = useState([]);
+  const [exSelect, setExSelect] = useState("");
 
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const availableExercises = useMemo(() => {
