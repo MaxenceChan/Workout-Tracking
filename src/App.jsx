@@ -1446,25 +1446,29 @@ function TemplatesManager({ user, allExercises, templates, onCreate, onDelete })
     );
   };
 
-  const saveTemplate = async () => {
-    if (!name.trim()) return alert("Donne un nom à la séance.");
-    if (selected.length === 0) return alert("Sélectionne au moins un exercice.");
+const saveTemplate = async () => {
+  if (!name.trim()) return alert("Donne un nom à la séance.");
+  if (selected.length === 0) return alert("Sélectionne au moins un exercice.");
+
+  if (editingId) {
+    const confirmSave = window.confirm(
+      "Voulez-vous sauvegarder vos modifications et écraser l’ancienne séance pré-créée ?"
+    );
+    if (!confirmSave) return;
+  }
 
   await onCreate({
-      id: editingId ?? uuidv4(),   // 👈 garde l’ancien id si édition
-      name: name.trim(),
-      exercises: selected,
-      created_at: editingId
-        ? undefined  // 👈 ne pas réécraser la date de création
-        : new Date().toISOString(),
-    });
+    id: editingId ?? uuidv4(),
+    name: name.trim(),
+    exercises: selected,
+    created_at: editingId ? undefined : new Date().toISOString(),
+  });
 
+  setName("");
+  setSelected([]);
+  setEditingId(null);
+};
 
-    // reset form
-    setName("");
-    setSelected([]);
-    setEditingId(null);
-  };
 
   const startEdit = (tpl) => {
     setName(tpl.name);
@@ -1560,16 +1564,19 @@ function TemplatesManager({ user, allExercises, templates, onCreate, onDelete })
 
           <div className="flex justify-end gap-2">
             {editingId && (
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  setEditingId(null);
-                  setName("");
-                  setSelected([]);
-                }}
-              >
-                Annuler
-              </Button>
+             <Button
+  variant="secondary"
+  onClick={() => {
+    if (window.confirm("Êtes-vous sûr ? Toutes vos modifications ne seront pas prises en compte !")) {
+      setEditingId(null);
+      setName("");
+      setSelected([]);
+    }
+  }}
+>
+  Annuler
+</Button>
+
             )}
             <Button onClick={saveTemplate}>
               {editingId ? "Mettre à jour" : "Enregistrer"}
@@ -1603,12 +1610,17 @@ function TemplatesManager({ user, allExercises, templates, onCreate, onDelete })
                     >
                       Éditer
                     </Button>
-                    <Button
-                      variant="destructive"
-                      onClick={() => onDelete(t.id)}
-                    >
-                      Supprimer
-                    </Button>
+<Button
+  variant="destructive"
+  onClick={() => {
+    if (window.confirm("Voulez-vous vraiment supprimer cette séance pré-créée ?")) {
+      onDelete(t.id);
+    }
+  }}
+>
+  Supprimer
+</Button>
+
                   </div>
                 </div>
               ))}
