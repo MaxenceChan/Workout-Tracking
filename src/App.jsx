@@ -118,21 +118,67 @@ async function deleteSession(uid, id) {
 }
 
 // ───────────────────────────────────────────────────────────────
+// Firestore helpers — TEMPLATES DE SEANCE (par utilisateur)
+// ───────────────────────────────────────────────────────────────
+function subscribeSessionTemplates(uid, onChange, onError) {
+  const q = query(
+    collection(db, "session_templates"),
+    where("user_id", "==", uid),
+    orderBy("name", "asc")
+  );
+  return onSnapshot(
+    q,
+    (snap) => {
+      const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      onChange(rows);
+    },
+    (err) => {
+      console.error("onSnapshot templates error:", err);
+      onError?.(err);
+      alert("Firestore error (templates): " + (err?.message || err));
+    }
+  );
+}
+
+async function upsertSessionTemplate(uid, tpl) {
+  const batch = writeBatch(db);
+  const ref = doc(db, "session_templates", tpl.id);
+  batch.set(
+    ref,
+    {
+      user_id: uid,
+      name: tpl.name,
+      // exercices du template = liste de noms d’exercices
+      exercises: Array.from(new Set(tpl.exercises || [])),
+      updated_at: new Date().toISOString(),
+      created_at: tpl.created_at || new Date().toISOString(),
+    },
+    { merge: true }
+  );
+  await batch.commit();
+}
+
+async function deleteSessionTemplate(id) {
+  await deleteDoc(doc(db, "session_templates", id));
+}
+
+// ───────────────────────────────────────────────────────────────
 // MAIN APP (default export)
 // ───────────────────────────────────────────────────────────────
 export default function App() {
-  const [data, setData] = useState({ sessions: [], customExercises: [] });
+  const [data, setData] = useState({ sessions: [], customExercises: [], sessionTemplates: [] });
   const [tab, setTab] = useState("log");
   const [user, setUser] = useState(undefined); // undefined = loading
 
   useEffect(() => {
     let unsubscribeSessions = null;
+    let unsubscribeTemplates = null;
 
     const unsubAuth = onAuth(async (u) => {
       // Logged out
       if (!u) {
         setUser(null);
-        setData({ sessions: [], customExercises: [] });
+        setData({ sessions: [], customExercises: [], sessionTemplates: [] });
         unsubscribeSessions?.();
         return;
       }
@@ -158,15 +204,36 @@ export default function App() {
             // keep local custom exercises per user
             customExercises: loadDataFor(uid).customExercises || [],
           };
-          setData(hydrated);
+          setData((cur) => ({
+            ...cur,
+            sessions: remoteRows,
+            // garde les exos custom existants pour cet utilisateur
+            customExercises: loadDataFor(uid).customExercises || [],
+          }));
           saveDataFor(uid, hydrated);
         }
       );
+      unsubscribeTemplates?.();
+unsubscribeTemplates = subscribeSessionTemplates(
+  uid,
+  (trows) => {
+    const hydrated = {
+      ...loadDataFor(uid),          // récupère ce qu’il y a déjà en cache
+      sessions: (data.sessions || []), // pas utile si tu n’écris pas dans le cache ici, mais ok
+      customExercises: loadDataFor(uid).customExercises || [],
+      sessionTemplates: trows,
+    };
+    setData((cur) => ({ ...cur, sessionTemplates: trows }));
+    saveDataFor(uid, { ...(loadDataFor(uid) || {}), sessionTemplates: trows });
+  }
+);
+
     });
 
     return () => {
       unsubAuth?.();
       unsubscribeSessions?.();
+      unsubscribeTemplates?.();
     };
   }, []);
 
@@ -200,19 +267,35 @@ export default function App() {
       <main className="max-w-6xl mx-auto p-4">
         <Tabs value={tab} onValueChange={setTab}>
           <TabsList className="grid grid-cols-3 w-full md:w-auto">
+            <TabsTrigger value="tpl">Séances pré-créées</TabsTrigger>
             <TabsTrigger value="log">Saisir une séance</TabsTrigger>
             <TabsTrigger value="sessions">Historique</TabsTrigger>
             <TabsTrigger value="analytics">Datavisualisation</TabsTrigger>
               <TabsTrigger value="last">Dernière séance</TabsTrigger>
           </TabsList>
 
+          <TabsContent value="tpl" className="mt-4">
+            <TemplatesManager
+              user={user}
+              allExercises={getAllExercises(data)}
+              templates={data.sessionTemplates}
+              onCreate={async (tpl) => {
+                await upsertSessionTemplate(user.id, { ...tpl, id: uuidv4() });
+              }}
+              onDelete={async (id) => {
+                await deleteSessionTemplate(id);
+              }}
+            />
+          </TabsContent>
+
           <TabsContent value="log" className="mt-4">
             <SessionForm
               user={user}
-              onSavedLocally={(session) => {
-                // optional optimistic local add (not required because snapshot will update)
-                // setData((cur) => ({ ...cur, sessions: [session, ...cur.sessions] }));
+              sessionTemplates={data.sessionTemplates}
+              onCreateTemplate={async (tpl) => {
+                await upsertSessionTemplate(user.id, tpl);
               }}
+              // ... tes props existantes
               customExercises={data.customExercises}
               onAddCustomExercise={(name) =>
                 setData((cur) => ({ ...cur, customExercises: [...new Set([...(cur.customExercises || []), name])] }))
@@ -326,7 +409,10 @@ function getAllExercises(data) {
   return Array.from(base);
 }
 
-function SessionForm({ user, onSavedLocally, customExercises = [], onAddCustomExercise }) {
+function SessionForm({ user, onSavedLocally, customExercises = [], onAddCustomExercise, sessionTemplates = [], onCreateTemplate }) {
+  const [templateId, setTemplateId] = useState("");
+
+
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [type, setType] = useState("PUSH");
   const [exercises, setExercises] = useState([]);
@@ -367,11 +453,14 @@ function SessionForm({ user, onSavedLocally, customExercises = [], onAddCustomEx
   const removeExercise = (exId) => setExercises((cur) => cur.filter((e) => e.id !== exId));
 
   const saveSession = async () => {
-    if (!date || !type || exercises.length === 0) return alert("Ajoute au moins un exercice.");
+    if (!date || exercises.length === 0) return alert("Ajoute au moins un exercice.");
     const cleaned = exercises.map((ex) => ({ ...ex, sets: ex.sets.filter((s) => s.reps !== "" && s.weight !== "") })).filter((ex) => ex.sets.length > 0);
     if (cleaned.length === 0) return alert("Renseigne au moins une série valide.");
 
-    const session = { id: uuidv4(), date, type, exercises: cleaned, createdAt: new Date().toISOString() };
+    const tplName = templateId
+      ? (sessionTemplates.find(t => t.id === templateId)?.name || "Séance")
+      : "Libre";
+    const session = { id: uuidv4(), date, type: tplName, exercises: cleaned, createdAt: new Date().toISOString() };
 
     // 1) Write to Firestore immediately (source of truth)
     try {
@@ -398,14 +487,54 @@ function SessionForm({ user, onSavedLocally, customExercises = [], onAddCustomEx
             <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           </div>
 
-          <div className="grid gap-2">
-            <Label>Type de séance</Label>
-            <select className="w-full rounded-xl border p-2" value={type} onChange={(e) => setType(e.target.value)}>
-              <option value="PUSH">PUSH</option>
-              <option value="PULL">PULL</option>
-              <option value="FULL">FULL BODY</option>
-            </select>
-          </div>
+<div className="grid gap-2">
+  <Label>Séance (template)</Label>
+  <div className="flex gap-2">
+    <select
+      className="w-full rounded-xl border p-2"
+      value={templateId}
+      onChange={(e) => {
+        const id = e.target.value;
+        setTemplateId(id);
+        if (!id) return;
+        // on applique le template => préremplissage des exercices avec séries vides
+        const tpl = sessionTemplates.find((t) => t.id === id);
+        if (tpl) {
+          setExercises(
+            tpl.exercises.map((name) => ({
+              id: uuidv4(),
+              name,
+              sets: [{ reps: "", weight: "" }, { reps: "", weight: "" }, { reps: "", weight: "" }],
+            }))
+          );
+        }
+      }}
+    >
+      <option value="">— Sélectionner —</option>
+      {sessionTemplates.map((t) => (
+        <option key={t.id} value={t.id}>{t.name}</option>
+      ))}
+    </select>
+    <Button
+      variant="secondary"
+      onClick={() => {
+        const name = window.prompt("Nom de la nouvelle séance ?");
+        if (!name || !name.trim()) return;
+        const chosen = exercises.map((ex) => ex.name);
+        if (chosen.length === 0) {
+          alert("Ajoute d’abord au moins un exercice pour enregistrer un template.");
+          return;
+        }
+        onCreateTemplate?.({ id: uuidv4(), name: name.trim(), exercises: chosen });
+      }}
+      title="Créer à partir des exercices actuels"
+    >
+      Sauver comme séance
+    </Button>
+  </div>
+  <div className="text-xs text-gray-500">Le template pré-remplit la séance et remplace le « type ».</div>
+</div>
+
 
           <div className="grid gap-2">
             <Label>Ajouter un exercice</Label>
@@ -480,14 +609,16 @@ function EmptyState() {
 
 function SessionList({ user, sessions, onDelete, onEdit }) {
   const [filter, setFilter] = useState("ALL"); // ALL | PUSH | PULL | FULL
+  const types = useMemo(() => {
+    const t = new Set(sessions.map(s => s.type || "Libre"));
+    return ["ALL", ...Array.from(t)];
+  }, [sessions]);
+    const filtered = useMemo(() => {
+      if (!sessions) return [];
+      if (filter === "ALL") return sessions;
+      return sessions.filter(s => (s.type || "Libre") === filter);
+    }, [sessions, filter]);
 
-  const filtered = useMemo(() => {
-    if (!sessions) return [];
-    if (filter === "ALL") return sessions;
-    // "FULL BODY" correspond à type "FULL" dans tes données
-    const wanted = filter === "FULL" ? "FULL" : filter; 
-    return sessions.filter((s) => s.type === wanted);
-  }, [sessions, filter]);
 
   if (!sessions || sessions.length === 0) {
     return (
@@ -500,7 +631,7 @@ function SessionList({ user, sessions, onDelete, onEdit }) {
 
   return (
     <div className="space-y-4">
-      <FilterBar filter={filter} setFilter={setFilter} total={filtered.length} />
+    <FilterBar filter={filter} setFilter={setFilter} total={filtered.length} types={types} />
       {filtered.length === 0 ? (
         <Card>
           <CardContent className="p-4 text-sm text-gray-600">
@@ -516,35 +647,20 @@ function SessionList({ user, sessions, onDelete, onEdit }) {
   );
 }
 
-function FilterBar({ filter, setFilter, total }) {
+function FilterBar({ filter, setFilter, total, types }) {
   return (
     <Card>
       <CardContent className="p-3 flex flex-wrap items-center gap-2 justify-between">
-        <div className="flex gap-2">
-          <Button
-            variant={filter === "ALL" ? "default" : "secondary"}
-            onClick={() => setFilter("ALL")}
-          >
-            Tout
-          </Button>
-          <Button
-            variant={filter === "PUSH" ? "default" : "secondary"}
-            onClick={() => setFilter("PUSH")}
-          >
-            PUSH
-          </Button>
-          <Button
-            variant={filter === "PULL" ? "default" : "secondary"}
-            onClick={() => setFilter("PULL")}
-          >
-            PULL
-          </Button>
-          <Button
-            variant={filter === "FULL" ? "default" : "secondary"}
-            onClick={() => setFilter("FULL")}
-          >
-            FULL BODY
-          </Button>
+        <div className="flex gap-2 flex-wrap">
+          {types.map(t => (
+            <Button
+              key={t}
+              variant={filter === t ? "default" : "secondary"}
+              onClick={() => setFilter(t)}
+            >
+              {t === "ALL" ? "Tout" : t}
+            </Button>
+          ))}
         </div>
         {typeof total === "number" && (
           <div className="text-sm text-gray-600">Séances: {total}</div>
@@ -1107,7 +1223,85 @@ function HeatmapCard({ weekdayHM }) {
     </Card>
   );
 }
+function TemplatesManager({ user, allExercises, templates, onCreate, onDelete }) {
+  const [name, setName] = useState("");
+  const [selected, setSelected] = useState([]);
 
+  const toggle = (ex) => {
+    setSelected((cur) =>
+      cur.includes(ex) ? cur.filter((x) => x !== ex) : [...cur, ex]
+    );
+  };
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardContent className="p-4 space-y-3">
+          <h3 className="font-semibold">Créer une séance pré-créée</h3>
+          <div className="grid gap-2">
+            <Label>Nom de la séance</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="ex. PUSH A, PULL B, Full Body, etc."/>
+          </div>
+
+          <div className="grid gap-2">
+            <Label>Exercices</Label>
+            <div className="flex flex-wrap gap-2">
+              {allExercises.map((ex) => (
+                <button
+                  key={ex}
+                  onClick={() => toggle(ex)}
+                  className={cn(
+                    "px-3 py-1 rounded-xl border text-sm",
+                    selected.includes(ex) ? "bg-gray-900 text-white" : "bg-white hover:bg-gray-50"
+                  )}
+                >
+                  {ex}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <Button
+              onClick={async () => {
+                if (!name.trim()) return alert("Donne un nom à la séance.");
+                if (selected.length === 0) return alert("Sélectionne au moins un exercice.");
+                await onCreate({ id: uuidv4(), name: name.trim(), exercises: selected });
+                setName("");
+                setSelected([]);
+              }}
+            >
+              Enregistrer la séance
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="p-4 space-y-3">
+          <h3 className="font-semibold">Mes séances pré-créées</h3>
+          {(!templates || templates.length === 0) ? (
+            <div className="text-sm text-gray-600">Aucune séance pré-créée.</div>
+          ) : (
+            <div className="space-y-2">
+              {templates.map((t) => (
+                <div key={t.id} className="flex items-center justify-between p-2 rounded-xl border bg-gray-50">
+                  <div className="font-medium">{t.name}</div>
+                  <div className="text-xs text-gray-500 truncate max-w-[50%]">
+                    {t.exercises.join(" • ")}
+                  </div>
+                  <Button variant="destructive" onClick={() => onDelete(t.id)}>
+                    <Trash2 className="h-4 w-4 mr-1" /> Supprimer
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
 function LastThreeSessionsSetTonnageChart({ sessions, exerciseName, options = [], onChangeExercise }) {
   const { rows, labels } = useMemo(
     () => buildLast3SessionsSetTonnage(sessions, exerciseName),
