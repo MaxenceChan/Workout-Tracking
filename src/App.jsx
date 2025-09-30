@@ -372,23 +372,7 @@ function AuthScreen() {
               <Label>Email</Label>
               <Input type="email" required value={email} onChange={(e)=>setEmail(e.target.value)} placeholder="toi@email.com" />
             </div>
-            <div className="text-center">
-  <button
-    type="button"
-    className="text-xs sm:text-sm text-blue-600 hover:underline"
-    onClick={async () => {
-      if (!email) return alert("Saisis ton email pour réinitialiser le mot de passe");
-      try {
-        await resetPassword(email);
-        alert("Un email de réinitialisation a été envoyé !");
-      } catch (err) {
-        alert("Erreur : " + (err.message || err));
-      }
-    }}
-  >
-    Mot de passe oublié ?
-  </button>
-</div>
+ 
 
             <div className="grid gap-1.5">
               <Label>Mot de passe</Label>
