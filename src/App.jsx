@@ -1027,6 +1027,12 @@ function computeExerciseShare(sessions) {
   });
   return Object.entries(map).map(([name, value]) => ({ name, value }));
 }
+function getUserExercises(data) {
+  const fromSessions = data.sessions.flatMap((s) => s.exercises.map((ex) => ex.name));
+  const fromCustom = data.customExercises || [];
+  const all = [...fromSessions, ...fromCustom];
+  return Array.from(new Set(all));
+}
 // App.jsx (Bloc 5)
 
 // ───────────────────────────────────────────────────────────────
