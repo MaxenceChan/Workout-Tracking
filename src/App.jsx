@@ -1412,29 +1412,44 @@ function buildWeekdayHeatmapData(sessions) {
 // Composants visuels utilisés dans Analytics
 // ───────────────────────────────────────────────────────────────
 
-// Calendrier mensuel
+// ──────────────────────────────────────────────
+// Calendrier des séances (jours colorés)
+// ──────────────────────────────────────────────
 function MonthlyCalendar({ sessions }) {
-  const days = {};
-  sessions.forEach(s => { days[s.date] = true; });
   const today = new Date();
   const year = today.getFullYear();
   const month = today.getMonth();
-  const last = new Date(year, month + 1, 0);
-  const rows = [];
-  for (let d = 1; d <= last.getDate(); d++) {
-    const iso = `${year}-${String(month+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
-    rows.push({ day: d, active: days[iso] });
-  }
+
+  // Jours de ce mois
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  // Convertir sessions en set de dates
+  const sessionDays = new Set(
+    sessions.map(s =>
+      new Date(s.date).toISOString().slice(0, 10)
+    )
+  );
+
   return (
     <Card>
-      <CardContent className="p-4">
+      <CardContent className="p-4 space-y-3">
         <h3 className="font-semibold">Calendrier du mois</h3>
-        <div className="grid grid-cols-7 gap-1 text-center mt-2">
-          {rows.map(r => (
-            <div key={r.day} className={cn("p-2 rounded", r.active ? "bg-green-400 text-white" : "bg-gray-100")}>
-              {r.day}
-            </div>
-          ))}
+        <div className="grid grid-cols-7 gap-1 text-center text-xs">
+          {Array.from({ length: daysInMonth }, (_, i) => {
+            const day = i + 1;
+            const dateStr = new Date(year, month, day).toISOString().slice(0, 10);
+            const hasSession = sessionDays.has(dateStr);
+            return (
+              <div
+                key={day}
+                className={`h-8 w-8 flex items-center justify-center rounded-full ${
+                  hasSession ? "bg-blue-500 text-white" : "bg-gray-100 text-gray-600"
+                }`}
+              >
+                {day}
+              </div>
+            );
+          })}
         </div>
       </CardContent>
     </Card>
@@ -1460,35 +1475,69 @@ function HeatmapCard({ weekdayHM }) {
   );
 }
 
-// Graphique des 3 dernières séances d’un exercice
+// ──────────────────────────────────────────────
+// Graphique des 3 dernières séances d’un exo
+// ──────────────────────────────────────────────
 function LastThreeSessionsSetTonnageChart({ sessions, exerciseName, options, onChangeExercise }) {
-  const filtered = sessions.filter(s => s.exercises.some(ex => ex.name === exerciseName)).slice(0,3);
-  const data = filtered.map(s => ({
-    date: shortFR(s.date),
-    tonnage: s.exercises.filter(ex => ex.name === exerciseName).flatMap(ex => ex.sets)
-      .reduce((acc,set)=>acc+Number(set.reps||0)*Number(set.weight||0),0)
-  }));
+  // Filtrer uniquement les séances qui contiennent l'exercice choisi
+  const filtered = sessions
+    .filter(s => s.exercises.some(ex => ex.name === exerciseName))
+    .slice(0, 3) // 3 dernières
+    .map(s => ({
+      date: s.date,
+      sets: s.exercises.find(ex => ex.name === exerciseName).sets
+    }));
+
+  // Transformer en format série
+  const chartData = [];
+  filtered.forEach((s, idx) => {
+    s.sets.forEach((set, i) => {
+      const tonnage = (Number(set.reps) || 0) * (Number(set.weight) || 0);
+      if (!chartData[i]) chartData[i] = { serie: i + 1 };
+      chartData[i][s.date] = tonnage;
+    });
+  });
+
   return (
     <Card>
-      <CardContent className="p-4 space-y-2">
-        <div className="flex items-center justify-between">
-          <h3 className="font-semibold">3 dernières séances – {exerciseName}</h3>
-          <select className="border rounded p-1" value={exerciseName} onChange={(e)=>onChangeExercise(e.target.value)}>
-            {options.map(o => <option key={o} value={o}>{o}</option>)}
+      <CardContent className="p-4 space-y-3">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <h3 className="font-semibold">Évolution du tonnage – 3 dernières séances</h3>
+          <select
+            className="border rounded-xl p-2"
+            value={exerciseName}
+            onChange={(e) => onChangeExercise(e.target.value)}
+          >
+            {options.map((e) => <option key={e} value={e}>{e}</option>)}
           </select>
         </div>
-        <div className="h-64 md:h-80">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data}>
-              <CartesianGrid strokeDasharray="3 3"/>
-              <XAxis dataKey="date"/>
-              <YAxis/>
-              <Tooltip/>
-              <Bar dataKey="tonnage"/>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+
+        {filtered.length === 0 ? (
+          <div className="text-sm text-gray-600">Pas encore de données.</div>
+        ) : (
+          <div className="h-64 md:h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="serie" />
+                <YAxis />
+                <Tooltip />
+                {filtered.map((s, idx) => (
+                  <Line
+                    key={s.date}
+                    type="monotone"
+                    dataKey={s.date}
+                    stroke={colors[idx % colors.length]}
+                    strokeWidth={2}
+                    dot
+                  />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
 }
+
