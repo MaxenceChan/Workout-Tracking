@@ -911,7 +911,11 @@ function SessionCard({ session, onDelete, onEdit }) {
 
 function Analytics({ sessions }) {
   // Exos filtrés : uniquement ceux avec des données
-  const allExercises = useMemo(() => getExercisesWithData(sessions), [sessions]);
+  const allExercises = useMemo(() => {
+    if (!sessions || sessions.length === 0) return [];
+    const names = sessions.flatMap(s => s.exercises.map(ex => ex.name));
+    return Array.from(new Set(names));
+  }, [sessions]);
 
   // Sélecteurs initiaux
   const [exerciseTS, setExerciseTS] = useState(allExercises[0] || "");
