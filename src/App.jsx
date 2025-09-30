@@ -908,153 +908,149 @@ function SessionCard({ session, onDelete, onEdit }) {
 // ───────────────────────────────────────────────────────────────
 // Analytics (graphiques + calendrier)
 // ───────────────────────────────────────────────────────────────
+
 function Analytics({ sessions }) {
-  const [month, setMonth] = useState(() => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  });
+  // Exos filtrés : uniquement ceux avec des données
+  const allExercises = useMemo(() => getExercisesWithData(sessions), [sessions]);
 
-  const monthSessions = useMemo(() => {
-    return sessions.filter((s) => (s.date || "").startsWith(month));
-  }, [sessions, month]);
+  // Sélecteurs initiaux
+  const [exerciseTS, setExerciseTS] = useState(allExercises[0] || "");
+  const [exerciseSetTon, setExerciseSetTon] = useState(allExercises[0] || "");
 
-  const volumeByDay = useMemo(() => {
-    const map = {};
-    monthSessions.forEach((s) => {
-      map[s.date] = (map[s.date] || 0) + computeSessionTonnage(s);
-    });
-    return Object.entries(map).map(([date, tonnage]) => ({ date, tonnage }));
-  }, [monthSessions]);
+  useEffect(() => {
+    if (!exerciseTS && allExercises.length) setExerciseTS(allExercises[0]);
+    if (!exerciseSetTon && allExercises.length) setExerciseSetTon(allExercises[0]);
+  }, [allExercises, exerciseTS, exerciseSetTon]);
 
-  const exercises = useMemo(() => {
-    const set = new Set();
-    sessions.forEach((s) => s.exercises.forEach((ex) => set.add(ex.name)));
-    return Array.from(set);
-  }, [sessions]);
+  // Données calculées
+  const intensitySeries = useMemo(() => buildAvgIntensitySeries(sessions), [sessions]);
+  const weeklyFreq     = useMemo(() => buildSessionsPerWeekSeries(sessions), [sessions]);
+  const splitRecent    = useMemo(() => buildTypeSplitLastNDays(sessions, 30), [sessions]);
+  const topSet         = useMemo(() => buildTopSetSeriesByExercise(sessions, exerciseTS), [sessions, exerciseTS]);
+  const setTonnage     = useMemo(() => buildExerciseSetTonnageSeries(sessions, exerciseSetTon), [sessions, exerciseSetTon]);
+  const weekdayHM      = useMemo(() => buildWeekdayHeatmapData(sessions), [sessions]);
 
-  const [selectedEx, setSelectedEx] = useState("");
-  const progressData = useMemo(() => {
-    if (!selectedEx) return [];
-    const rows = [];
-    sessions.forEach((s) => {
-      s.exercises.forEach((ex) => {
-        if (ex.name === selectedEx) {
-          ex.sets.forEach((set) => {
-            rows.push({
-              date: s.date,
-              weight: Number(set.weight || 0),
-              reps: Number(set.reps || 0),
-              est1RM: epley1RM(Number(set.weight || 0), Number(set.reps || 0)),
-            });
-          });
-        }
-      });
-    });
-    return rows.sort((a, b) => a.date.localeCompare(b.date));
-  }, [sessions, selectedEx]);
-
-  const prevMonth = () => {
-    const d = new Date(month + "-01");
-    d.setMonth(d.getMonth() - 1);
-    setMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
-  };
-  const nextMonth = () => {
-    const d = new Date(month + "-01");
-    d.setMonth(d.getMonth() + 1);
-    setMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
-  };
-
+  const [exerciseLast3, setExerciseLast3] = useState(allExercises[0] || "");
+  useEffect(() => {
+    if (!exerciseLast3 && allExercises.length) setExerciseLast3(allExercises[0]);
+  }, [allExercises, exerciseLast3]);
+  
   return (
-    <div className="space-y-4 sm:space-y-6">
-      {/* Volume mensuel */}
-      <Card>
-        <CardContent className="space-y-3 sm:space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <h3 className="font-semibold text-sm sm:text-lg">Volume du mois</h3>
-            <div className="flex gap-2">
-              <Button variant="secondary" onClick={prevMonth}>←</Button>
-              <div className="text-xs sm:text-sm">{month}</div>
-              <Button variant="secondary" onClick={nextMonth}>→</Button>
-            </div>
-          </div>
-          <div className="w-full h-64 sm:h-72 md:h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={volumeByDay}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" tickFormatter={shortFR} />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="tonnage" fill="#8884d8" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
+    <div className="space-y-6">
+      {/* Bloc 1 : Calendrier + Heatmap */}
+      <div className="grid md:grid-cols-2 gap-4">
+        <MonthlyCalendar sessions={sessions} />
+        <HeatmapCard weekdayHM={weekdayHM} />
+      </div>
 
-      {/* Progression exo */}
-      <Card>
-        <CardContent className="space-y-3 sm:space-y-4">
-          <div className="grid gap-2">
-            <Label>Suivi d’un exercice</Label>
-            <select
-              className="w-full border rounded-lg p-2 text-sm"
-              value={selectedEx}
-              onChange={(e) => setSelectedEx(e.target.value)}
-            >
-              <option value="">— Choisir —</option>
-              {exercises.map((e) => (<option key={e} value={e}>{e}</option>))}
-            </select>
-          </div>
-          {progressData.length === 0 ? (
-            <div className="text-xs sm:text-sm text-gray-600">Aucune donnée pour cet exercice.</div>
-          ) : (
-            <div className="w-full h-64 sm:h-72 md:h-80">
+      {/* Bloc 2 : Intensité + Fréquence */}
+      <div className="grid md:grid-cols-2 gap-4">
+        {/* Intensité */}
+        <Card>
+          <CardContent className="p-4 space-y-3">
+            <h3 className="font-semibold">Intensité moyenne par séance (kg / rep)</h3>
+            <div className="h-64 md:h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={progressData}>
+                <LineChart data={intensitySeries}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" tickFormatter={shortFR} />
+                  <XAxis dataKey="date" />
                   <YAxis />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="weight" stroke="#8884d8" name="Poids" />
-                  <Line type="monotone" dataKey="est1RM" stroke="#82ca9d" name="Est. 1RM" />
+                  <Tooltip formatter={(v) => [`${(Number(v) || 0).toFixed(1)} kg/rep`, "Intensité"]} />
+                  <Line type="monotone" dataKey="intensity" strokeWidth={2} dot />
                 </LineChart>
               </ResponsiveContainer>
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
-      {/* Répartition exercices */}
-      <Card>
-        <CardContent className="space-y-3 sm:space-y-4">
-          <h3 className="font-semibold text-sm sm:text-lg">Répartition des exercices</h3>
-          <div className="w-full h-64 sm:h-72 md:h-80">
-            <ResponsiveContainer>
-              <PieChart>
-                <Pie
-                  data={computeExerciseShare(sessions)}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius="70%"
-                  fill="#8884d8"
-                  label
-                >
-                  {computeExerciseShare(sessions).map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
-                  ))}
-                </Pie>
-                <Legend />
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
+        {/* Fréquence */}
+        <Card>
+          <CardContent className="p-4 space-y-3">
+            <h3 className="font-semibold">Fréquence des séances par semaine</h3>
+            <div className="h-64 md:h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={weeklyFreq}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="weekLabel" />
+                  <YAxis allowDecimals={false} />
+                  <Tooltip formatter={(v) => [`${v}`, "Séances"]} />
+                  <Bar dataKey="count" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Bloc 3 : Top set + 3 dernières séances */}
+      <div className="grid md:grid-cols-2 gap-4">
+        <Card>
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <h3 className="font-semibold">Top set (1RM estimé) – par exercice</h3>
+              <select className="border rounded-xl p-2" value={exerciseTS} onChange={(e) => setExerciseTS(e.target.value)}>
+                {allExercises.map((e) => <option key={e} value={e}>{e}</option>)}
+              </select>
+            </div>
+
+            {topSet.series.length === 0 ? (
+              <div className="text-sm text-gray-600">Pas encore de données pour cet exercice.</div>
+            ) : (
+              <>
+                <div className="text-sm text-gray-600">
+                  Record: <span className="font-semibold">{Math.round(topSet.record.oneRM)} kg</span>
+                  {" "}({topSet.record.weight} kg × {topSet.record.reps} reps) le {topSet.record.date}
+                </div>
+                <div className="h-64 md:h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={topSet.series}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" />
+                      <YAxis />
+                      <Tooltip formatter={(v) => [`${Math.round(v)} kg`, "1RM estimé"]} />
+                      <Line type="monotone" dataKey="oneRM" strokeWidth={2} dot />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        <LastThreeSessionsSetTonnageChart
+          sessions={sessions}
+          exerciseName={exerciseLast3}
+          options={allExercises}
+          onChangeExercise={setExerciseLast3}
+        />
+      </div>
+
+      {/* Bloc 4 : Répartition PUSH/PULL/FULL */}
+      <div className="grid md:grid-cols-2 gap-4">
+        <Card className="md:col-span-2">
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold">Répartition des séances (30 derniers jours)</h3>
+              <div className="text-sm text-gray-500">PUSH / PULL / FULL</div>
+            </div>
+            <div className="h-64 md:h-80 grid place-items-center">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={splitRecent} dataKey="value" nameKey="name" innerRadius={60} outerRadius={90} label>
+                    {splitRecent.map((_, i) => <Cell key={i} />)}
+                  </Pie>
+                  <Legend />
+                  <Tooltip formatter={(v) => [`${v}`, "Séances"]} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
+
 
 // ───────────────────────────────────────────────────────────────
 // Helpers Analytics
