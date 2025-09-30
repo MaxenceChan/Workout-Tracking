@@ -1288,25 +1288,40 @@ function TemplatesManager({ user, allExercises, templates, onCreate, onDelete })
             />
           </div>
 
-          <div className="grid gap-2">
-            <Label>Exercices</Label>
-            <div className="flex flex-wrap gap-2">
-              {allExercises.map((ex) => (
-                <button
-                  key={ex}
-                  onClick={() => toggle(ex)}
-                  className={cn(
-                    "px-3 py-1 rounded-xl border text-sm",
-                    selected.includes(ex)
-                      ? "bg-gray-900 text-white"
-                      : "bg-white hover:bg-gray-50"
-                  )}
-                >
-                  {ex}
-                </button>
-              ))}
-            </div>
-          </div>
+<div className="grid gap-2">
+  <Label>Exercices choisis</Label>
+  {selected.length === 0 ? (
+    <div className="text-sm text-gray-500">Aucun exercice sélectionné.</div>
+  ) : (
+    <div className="space-y-2">
+      {selected.map((ex, i) => (
+        <div
+          key={i}
+          className="flex items-center justify-between border rounded-lg p-2 bg-white"
+        >
+          <input
+            className="flex-1 px-2 py-1 border rounded"
+            value={ex}
+            onChange={(e) =>
+              setSelected((cur) =>
+                cur.map((x, j) => (j === i ? e.target.value : x))
+              )
+            }
+          />
+          <Button
+            variant="destructive"
+            onClick={() =>
+              setSelected((cur) => cur.filter((_, j) => j !== i))
+            }
+          >
+            Supprimer
+          </Button>
+        </div>
+      ))}
+    </div>
+  )}
+</div>
+
 
           <div className="flex justify-end gap-2">
             {editingId && (
