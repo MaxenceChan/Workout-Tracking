@@ -1335,8 +1335,10 @@ function getLastSessionByType(sessions, type) {
 }
 
 // ───────────────────────────────────────────────────────────────
-// Helpers pour Analytics (données et composants)
+// Helpers pour Analytics (calculs et composants)
 // ───────────────────────────────────────────────────────────────
+
+// Moyenne intensité kg/rep par séance
 function buildAvgIntensitySeries(sessions) {
   return sessions.map(s => {
     const totalReps = s.exercises.flatMap(ex => ex.sets).reduce((acc, set) => acc + Number(set.reps || 0), 0);
@@ -1345,6 +1347,7 @@ function buildAvgIntensitySeries(sessions) {
   });
 }
 
+// Nombre de séances par semaine
 function buildSessionsPerWeekSeries(sessions) {
   const map = {};
   sessions.forEach(s => {
@@ -1355,8 +1358,10 @@ function buildSessionsPerWeekSeries(sessions) {
   return Object.entries(map).map(([weekLabel, count]) => ({ weekLabel, count }));
 }
 
+// Répartition PUSH/PULL/FULL derniers n jours
 function buildTypeSplitLastNDays(sessions, n) {
-  const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - n);
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - n);
   const counts = { PUSH: 0, PULL: 0, FULL: 0 };
   sessions.filter(s => new Date(s.date) >= cutoff).forEach(s => {
     if (s.type?.toUpperCase().includes("PUSH")) counts.PUSH++;
@@ -1366,6 +1371,7 @@ function buildTypeSplitLastNDays(sessions, n) {
   return Object.entries(counts).map(([name, value]) => ({ name, value }));
 }
 
+// Top set (1RM estimé)
 function buildTopSetSeriesByExercise(sessions, exName) {
   const rows = [];
   sessions.forEach(s => {
@@ -1381,6 +1387,7 @@ function buildTopSetSeriesByExercise(sessions, exName) {
   return { series: rows, record };
 }
 
+// Tonnage par exercice
 function buildExerciseSetTonnageSeries(sessions, exName) {
   return sessions.map(s => {
     const volume = s.exercises.filter(ex => ex.name === exName)
@@ -1390,6 +1397,7 @@ function buildExerciseSetTonnageSeries(sessions, exName) {
   });
 }
 
+// Heatmap : répartition par jour de semaine
 function buildWeekdayHeatmapData(sessions) {
   const counts = Array(7).fill(0);
   sessions.forEach(s => counts[new Date(s.date).getDay()]++);
@@ -1397,16 +1405,16 @@ function buildWeekdayHeatmapData(sessions) {
 }
 
 // ───────────────────────────────────────────────────────────────
-// Composants pour Analytics
+// Composants visuels utilisés dans Analytics
 // ───────────────────────────────────────────────────────────────
+
+// Calendrier mensuel
 function MonthlyCalendar({ sessions }) {
-  // Simplifié : affiche juste les jours avec séance
   const days = {};
   sessions.forEach(s => { days[s.date] = true; });
   const today = new Date();
   const year = today.getFullYear();
   const month = today.getMonth();
-  const first = new Date(year, month, 1);
   const last = new Date(year, month + 1, 0);
   const rows = [];
   for (let d = 1; d <= last.getDate(); d++) {
@@ -1419,7 +1427,9 @@ function MonthlyCalendar({ sessions }) {
         <h3 className="font-semibold">Calendrier du mois</h3>
         <div className="grid grid-cols-7 gap-1 text-center mt-2">
           {rows.map(r => (
-            <div key={r.day} className={cn("p-2 rounded", r.active ? "bg-green-400 text-white" : "bg-gray-100")}>{r.day}</div>
+            <div key={r.day} className={cn("p-2 rounded", r.active ? "bg-green-400 text-white" : "bg-gray-100")}>
+              {r.day}
+            </div>
           ))}
         </div>
       </CardContent>
@@ -1427,6 +1437,7 @@ function MonthlyCalendar({ sessions }) {
   );
 }
 
+// Heatmap par jour de la semaine
 function HeatmapCard({ weekdayHM }) {
   return (
     <Card>
@@ -1445,6 +1456,7 @@ function HeatmapCard({ weekdayHM }) {
   );
 }
 
+// Graphique des 3 dernières séances d’un exercice
 function LastThreeSessionsSetTonnageChart({ sessions, exerciseName, options, onChangeExercise }) {
   const filtered = sessions.filter(s => s.exercises.some(ex => ex.name === exerciseName)).slice(0,3);
   const data = filtered.map(s => ({
