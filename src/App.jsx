@@ -381,6 +381,24 @@ function AuthScreen() {
               {mode==="login" ? "Se connecter" : "Créer le compte"}
             </Button>
           </form>
+          <Button
+  variant="ghost"
+  className="w-full text-xs sm:text-sm text-blue-600 hover:underline"
+  onClick={async () => {
+    if (!email) {
+      alert("Entre ton email pour réinitialiser le mot de passe.");
+      return;
+    }
+    try {
+      await resetPassword(email);
+      alert("Un email de réinitialisation a été envoyé à " + email);
+    } catch (err) {
+      alert("Erreur : " + (err.message || err));
+    }
+  }}
+>
+  Mot de passe oublié ?
+</Button>
 
           <div className="relative">
             <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
