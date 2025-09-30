@@ -266,6 +266,11 @@ export default function App() {
               onDelete={async (id) => { await deleteSessionTemplate(id); }}
             />
           </TabsContent>
+           </Tabs>
+      </main>
+    </div>
+  );
+}
 // App.jsx (Bloc 2)
 
 // ───────────────────────────────────────────────────────────────
