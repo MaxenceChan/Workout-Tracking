@@ -180,12 +180,20 @@ export default function App() {
 
     const unsubAuth = onAuth(async (u) => {
       // Logged out
-      if (!u) {
-        setUser(null);
-        setData({ sessions: [], customExercises: [], sessionTemplates: [] });
-        unsubscribeSessions?.();
-        return;
-      }
+if (!u) {
+  setUser(null);
+  setData({ sessions: [], customExercises: [], sessionTemplates: [] });
+  unsubscribeSessions?.();
+  unsubscribeTemplates?.();
+  try {
+    localStorage.removeItem(keyFor("anon"));   // nettoie éventuel cache anon
+    localStorage.removeItem(keyFor(user?.id)); // nettoie cache précédent si existait
+  } catch (e) {
+    console.warn("Erreur nettoyage cache local:", e);
+  }
+  return;
+}
+
 
       // Logged in
       const uid = u.uid;
