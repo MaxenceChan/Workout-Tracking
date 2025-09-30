@@ -514,7 +514,11 @@ function SessionForm({ user, onSavedLocally, customExercises = [], onAddCustomEx
         tpl.exercises.map((name) => ({
           id: uuidv4(),
           name,
-          sets: [{ reps: "", weight: "" }, { reps: "", weight: "" }, { reps: "", weight: "" }],
+          sets: [
+            { reps: "", weight: "" },
+            { reps: "", weight: "" },
+            { reps: "", weight: "" }
+          ],
         }))
       );
     }
@@ -527,11 +531,6 @@ function SessionForm({ user, onSavedLocally, customExercises = [], onAddCustomEx
   <option value="__custom__">+ Créer un nouvel exercice</option>
 </select>
 
-      <option value="">— Sélectionner —</option>
-      {sessionTemplates.map((t) => (
-        <option key={t.id} value={t.id}>{t.name}</option>
-      ))}
-    </select>
     <Button
       variant="secondary"
       onClick={() => {
