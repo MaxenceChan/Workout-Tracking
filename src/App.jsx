@@ -114,6 +114,26 @@ async function upsertSessionTemplate(uid, tpl) {
   await batch.commit();
 }
 
+async function upsertSessions(uid, sessions) {
+  const batch = writeBatch(db);
+
+  sessions.forEach((s) => {
+    const ref = doc(db, "sessions", s.id);
+    batch.set(
+      ref,
+      {
+        ...s,
+        user_id: uid,
+        updated_at: new Date().toISOString(),
+        created_at: s.created_at || new Date().toISOString(),
+      },
+      { merge: true } // 👈 met à jour si existe déjà, sinon crée
+    );
+  });
+
+  await batch.commit();
+}
+
 async function deleteSession(uid, id) {
   // Rules must allow delete if resource.user_id == request.auth.uid
   await deleteDoc(doc(db, "sessions", id));
