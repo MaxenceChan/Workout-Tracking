@@ -1333,3 +1333,146 @@ function getLastSessionByType(sessions, type) {
   rows.sort((a, b) => (a.date < b.date ? 1 : -1));
   return rows[0];
 }
+
+// ───────────────────────────────────────────────────────────────
+// Helpers pour Analytics (données et composants)
+// ───────────────────────────────────────────────────────────────
+function buildAvgIntensitySeries(sessions) {
+  return sessions.map(s => {
+    const totalReps = s.exercises.flatMap(ex => ex.sets).reduce((acc, set) => acc + Number(set.reps || 0), 0);
+    const totalWeight = s.exercises.flatMap(ex => ex.sets).reduce((acc, set) => acc + Number(set.reps || 0) * Number(set.weight || 0), 0);
+    return { date: shortFR(s.date), intensity: totalReps ? totalWeight / totalReps : 0 };
+  });
+}
+
+function buildSessionsPerWeekSeries(sessions) {
+  const map = {};
+  sessions.forEach(s => {
+    const d = new Date(s.date);
+    const week = `${d.getFullYear()}-W${Math.ceil((d.getDate() + ((d.getDay() + 6) % 7)) / 7)}`;
+    map[week] = (map[week] || 0) + 1;
+  });
+  return Object.entries(map).map(([weekLabel, count]) => ({ weekLabel, count }));
+}
+
+function buildTypeSplitLastNDays(sessions, n) {
+  const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - n);
+  const counts = { PUSH: 0, PULL: 0, FULL: 0 };
+  sessions.filter(s => new Date(s.date) >= cutoff).forEach(s => {
+    if (s.type?.toUpperCase().includes("PUSH")) counts.PUSH++;
+    else if (s.type?.toUpperCase().includes("PULL")) counts.PULL++;
+    else counts.FULL++;
+  });
+  return Object.entries(counts).map(([name, value]) => ({ name, value }));
+}
+
+function buildTopSetSeriesByExercise(sessions, exName) {
+  const rows = [];
+  sessions.forEach(s => {
+    s.exercises.filter(ex => ex.name === exName).forEach(ex => {
+      ex.sets.forEach(set => {
+        const oneRM = epley1RM(Number(set.weight), Number(set.reps));
+        rows.push({ date: shortFR(s.date), oneRM, weight: Number(set.weight), reps: Number(set.reps) });
+      });
+    });
+  });
+  if (rows.length === 0) return { series: [], record: {} };
+  const record = rows.reduce((best, r) => (r.oneRM > (best.oneRM || 0) ? r : best), {});
+  return { series: rows, record };
+}
+
+function buildExerciseSetTonnageSeries(sessions, exName) {
+  return sessions.map(s => {
+    const volume = s.exercises.filter(ex => ex.name === exName)
+      .flatMap(ex => ex.sets)
+      .reduce((acc, set) => acc + Number(set.reps || 0) * Number(set.weight || 0), 0);
+    return { date: shortFR(s.date), volume };
+  });
+}
+
+function buildWeekdayHeatmapData(sessions) {
+  const counts = Array(7).fill(0);
+  sessions.forEach(s => counts[new Date(s.date).getDay()]++);
+  return counts.map((c, i) => ({ day: ["Dim","Lun","Mar","Mer","Jeu","Ven","Sam"][i], value: c }));
+}
+
+// ───────────────────────────────────────────────────────────────
+// Composants pour Analytics
+// ───────────────────────────────────────────────────────────────
+function MonthlyCalendar({ sessions }) {
+  // Simplifié : affiche juste les jours avec séance
+  const days = {};
+  sessions.forEach(s => { days[s.date] = true; });
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = today.getMonth();
+  const first = new Date(year, month, 1);
+  const last = new Date(year, month + 1, 0);
+  const rows = [];
+  for (let d = 1; d <= last.getDate(); d++) {
+    const iso = `${year}-${String(month+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+    rows.push({ day: d, active: days[iso] });
+  }
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <h3 className="font-semibold">Calendrier du mois</h3>
+        <div className="grid grid-cols-7 gap-1 text-center mt-2">
+          {rows.map(r => (
+            <div key={r.day} className={cn("p-2 rounded", r.active ? "bg-green-400 text-white" : "bg-gray-100")}>{r.day}</div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function HeatmapCard({ weekdayHM }) {
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <h3 className="font-semibold">Répartition par jour de la semaine</h3>
+        <div className="flex gap-1 justify-around mt-3">
+          {weekdayHM.map((d,i) => (
+            <div key={i} className="flex flex-col items-center text-xs">
+              <div className="w-6 h-6 rounded" style={{ backgroundColor: d.value ? "#4ade80" : "#e5e7eb" }} />
+              <span>{d.day}</span>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function LastThreeSessionsSetTonnageChart({ sessions, exerciseName, options, onChangeExercise }) {
+  const filtered = sessions.filter(s => s.exercises.some(ex => ex.name === exerciseName)).slice(0,3);
+  const data = filtered.map(s => ({
+    date: shortFR(s.date),
+    tonnage: s.exercises.filter(ex => ex.name === exerciseName).flatMap(ex => ex.sets)
+      .reduce((acc,set)=>acc+Number(set.reps||0)*Number(set.weight||0),0)
+  }));
+  return (
+    <Card>
+      <CardContent className="p-4 space-y-2">
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold">3 dernières séances – {exerciseName}</h3>
+          <select className="border rounded p-1" value={exerciseName} onChange={(e)=>onChangeExercise(e.target.value)}>
+            {options.map(o => <option key={o} value={o}>{o}</option>)}
+          </select>
+        </div>
+        <div className="h-64 md:h-80">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={data}>
+              <CartesianGrid strokeDasharray="3 3"/>
+              <XAxis dataKey="date"/>
+              <YAxis/>
+              <Tooltip/>
+              <Bar dataKey="tonnage"/>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
