@@ -1594,7 +1594,23 @@ function LastThreeSessionsSetTonnageChart({ sessions, exerciseName, options, onC
   tickFormatter={(value) => `Série ${value}`}
 />
                 <YAxis />
-                <Tooltip />
+                <Tooltip
+  content={({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-white p-2 border rounded text-xs shadow">
+          <div><strong>Série {label}</strong></div>
+          {payload.map((entry, index) => (
+            <div key={index} style={{ color: entry.color }}>
+              {entry.name} : {entry.value} kg
+            </div>
+          ))}
+        </div>
+      );
+    }
+    return null;
+  }}
+/>
                 <Legend /> {/* <── Ajout de la légende */}
                 {filtered.map((s, idx) => (
                   <Line
