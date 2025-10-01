@@ -683,14 +683,22 @@ function SessionList({ user, sessions, onDelete, onEdit }) {
     return sessions.filter(s => (s.type || "Libre") === filter);
   }, [sessions, filter]);
 
-  if (!sessions || sessions.length === 0) {
-    return (
-      <div className="space-y-3 sm:space-y-4">
-        <FilterBar filter={filter} setFilter={setFilter} />
-        <EmptyState />
-      </div>
-    );
-  }
+if (!sessions || sessions.length === 0) {
+  return (
+    <div className="min-h-[300px] flex flex-col items-center justify-center text-center space-y-4">
+      <Dumbbell className="h-10 w-10 text-gray-400" />
+      <h3 className="text-lg font-semibold text-gray-700">Aucun historique disponible</h3>
+      <p className="text-sm text-gray-500 max-w-sm">
+        Tu n’as pas encore enregistré de séance. Commence dès maintenant en cliquant sur 
+        <span className="font-semibold"> "Saisir une séance"</span> dans le menu.
+      </p>
+      <Button variant="default" onClick={() => window.scrollTo(0, 0)}>
+        + Enregistrer ma première séance
+      </Button>
+    </div>
+  );
+}
+
 
   return (
     <div className="space-y-3 sm:space-y-4">
