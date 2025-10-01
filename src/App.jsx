@@ -1508,9 +1508,11 @@ function MonthlyCalendar({ sessions }) {
 
   const todayStr = new Date().toISOString().slice(0, 10);
   const sessionDays = new Set(
-    sessions.map(s => new Date(s.date).toISOString().slice(0, 10))
+    sessions.map(s => {
+      const d = new Date(s.date);
+      return d.toLocaleDateString("fr-CA"); // format YYYY-MM-DD local
+    })
   );
-
   const prevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
   const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
 
@@ -1538,7 +1540,7 @@ function MonthlyCalendar({ sessions }) {
           ))}
           {Array.from({ length: daysInMonth }, (_, i) => {
             const day = i + 1;
-            const dateStr = new Date(year, month, day).toISOString().slice(0, 10);
+            const dateStr = new Date(year, month, day).toLocaleDateString("fr-CA");
             const hasSession = sessionDays.has(dateStr);
             const isToday = dateStr === todayStr;
 
