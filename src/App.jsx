@@ -288,25 +288,26 @@ export default function App() {
 </TabsContent>
 
 <TabsContent value="sessions" className="mt-3 sm:mt-4">
-  <SessionList
-    user={user}
-    sessions={data.sessions}
-    onDelete={async (id) => {
-      try {
-        await deleteSession(user.id, id);
-        setData((cur) => ({
-          ...cur,
-          sessions: cur.sessions.filter((s) => s.id !== id),
-        }));
-      } catch (e) {
-        console.error("Erreur suppression Firestore:", e);
-        alert("Impossible de supprimer la séance : " + (e?.message || e));
-      }
-    }}
-    onEdit={async (s) => {
-      await upsertSessions(user.id, [s]);
-    }}
-  />
+<SessionList
+  user={user}
+  sessions={data.sessions}
+  onDelete={async (id) => {
+    try {
+      await deleteSession(user.id, id);
+      setData((cur) => ({
+        ...cur,
+        sessions: cur.sessions.filter((s) => s.id !== id), // ⬅ supprime aussi côté state
+      }));
+    } catch (e) {
+      console.error("Erreur suppression séance:", e);
+      alert("Impossible de supprimer la séance : " + (e?.message || e));
+    }
+  }}
+  onEdit={async (s) => {
+    await upsertSessions(user.id, [s]);
+  }}
+/>
+
 </TabsContent>
 
 
@@ -749,10 +750,12 @@ function FilterBar({ filter, setFilter, total, types }) {
 // SessionCard (affichage + édition séance individuelle)
 // ───────────────────────────────────────────────────────────────
 function SessionCard({ session, onDelete, onEdit }) {
-  if (!session) return null; // ← Évite écran blanc si la session n’existe plus
+  if (!session) return null;   // ⬅ sécurité anti-écran blanc
+
   const [editing, setEditing] = useState(false);
   const [local, setLocal] = useState(session);
-  useEffect(() => setLocal(session), [session]); // keep sync with snapshot
+
+  useEffect(() => setLocal(session), [session]);
   const tonnage = useMemo(() => computeSessionTonnage(local), [local]);
 
   const save = async () => {
