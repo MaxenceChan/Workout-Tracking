@@ -672,7 +672,7 @@ function EmptyState() {
 // ───────────────────────────────────────────────────────────────
 // SessionList (Historique des séances)
 // ───────────────────────────────────────────────────────────────
-function SessionList({ user, sessions, onDelete, onEdit }) {
+function SessionList({ user, sessions, onDelete, onEdit, setTab }) {
   const [filter, setFilter] = useState("ALL"); // ALL | PUSH | PULL | FULL
   const types = useMemo(() => {
     const t = new Set(sessions.map(s => s.type || "Libre"));
