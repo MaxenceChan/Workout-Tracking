@@ -1589,7 +1589,10 @@ function LastThreeSessionsSetTonnageChart({ sessions, exerciseName, options, onC
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="serie" />
+                <XAxis
+  dataKey="serie"
+  tickFormatter={(value) => `Série ${value}`}
+/>
                 <YAxis />
                 <Tooltip />
                 <Legend /> {/* <── Ajout de la légende */}
