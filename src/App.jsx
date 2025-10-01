@@ -306,6 +306,8 @@ export default function App() {
   onEdit={async (s) => {
     await upsertSessions(user.id, [s]);
   }}
+  setTab={setTab}   // 👈 ajouté ici
+
 />
 
 </TabsContent>
@@ -692,7 +694,7 @@ if (!sessions || sessions.length === 0) {
         Tu n’as pas encore enregistré de séance. Commence dès maintenant en cliquant sur 
         <span className="font-semibold"> "Saisir une séance"</span> dans le menu.
       </p>
-      <Button variant="default" onClick={() => window.scrollTo(0, 0)}>
+      <Button variant="default" onClick={() => setTab("log")}>
         + Enregistrer ma première séance
       </Button>
     </div>
