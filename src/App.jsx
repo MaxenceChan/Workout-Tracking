@@ -1134,9 +1134,12 @@ function computeExerciseShare(sessions) {
 function getUserExercises(data) {
   const fromSessions = data.sessions.flatMap((s) => s.exercises.map((ex) => ex.name));
   const fromCustom = data.customExercises || [];
-  const all = [...fromSessions, ...fromCustom];
-  return Array.from(new Set(all));
+  const fromTemplates = data.sessionTemplates.flatMap((tpl) => tpl.exercises || []);
+
+  const all = [...fromSessions, ...fromCustom, ...fromTemplates];
+  return Array.from(new Set(all)); // supprime les doublons
 }
+
 // App.jsx (Bloc 5)
 
 // ───────────────────────────────────────────────────────────────
