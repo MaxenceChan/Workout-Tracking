@@ -727,7 +727,7 @@ function SessionForm({ user, onSavedLocally, customExercises = [], onAddCustomEx
     <Chrono exId={ex.id} timers={timers} setTimers={setTimers} />
   </CardContent>
 </Card>
-)
+))
         )}
       </div>
     </div>
