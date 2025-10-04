@@ -1457,12 +1457,21 @@ function LastSession({ sessions }) {
               <div className="space-y-3 sm:space-y-4">
                 {last.exercises.map((ex) => (
                   <div key={ex.id} className="border rounded-xl p-2 sm:p-3 bg-gray-50">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-2">
-                      <div className="font-medium text-sm sm:text-base">{ex.name}</div>
-                      <div className="text-xs sm:text-sm">
-                        Sous-total: <span className="font-semibold">{Math.round(volumeOfSets(ex.sets))} kg</span>
-                      </div>
-                    </div>
+<div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-2">
+  <div className="font-medium text-sm sm:text-base">{ex.name}</div>
+  <div className="flex flex-col sm:items-end">
+    {/* ⏱️ Temps total de l’exercice, si disponible */}
+    {last.exerciseDurations?.[ex.id] && (
+      <div className="text-xs text-gray-500 mb-1">
+        ⏱️ Temps : {Math.floor(last.exerciseDurations[ex.id] / 60)} min {last.exerciseDurations[ex.id] % 60}s
+      </div>
+    )}
+    <div className="text-xs sm:text-sm">
+      Sous-total : <span className="font-semibold">{Math.round(volumeOfSets(ex.sets))} kg</span>
+    </div>
+  </div>
+</div>
+
 
                     <div className="grid grid-cols-3 gap-2 text-xs sm:text-sm font-medium text-gray-600 mb-2">
                       <div>Série</div><div>Réps</div><div>Poids</div>
