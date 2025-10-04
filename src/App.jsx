@@ -509,8 +509,9 @@ function SessionForm({ user, onSavedLocally, customExercises = [], onAddCustomEx
       exerciseDurations[exId] = t.seconds || 0;
     });
     
-    // 🧮 Durée totale = somme des durées individuelles des exos
-    const totalDuration = Object.values(exerciseDurations).reduce((sum, val) => sum + val, 0);
+    // 🧮 Durée totale = chrono global de la séance
+    const totalDuration = globalTimer.seconds;
+
     
     const session = {
       id: uuidv4(),
@@ -1447,6 +1448,11 @@ function LastSession({ sessions }) {
                 <div className="text-xs sm:text-sm text-gray-500">{prettyDate(last.date)} • {last.type}</div>
                 <div className="text-lg sm:text-2xl font-semibold">{Math.round(tonnage)} kg</div>
               </div>
+              {last.totalDuration !== undefined && (
+                <div className="text-xs sm:text-sm text-gray-600">
+                  ⏱️ Durée totale : {Math.floor(last.totalDuration / 60)} min {last.totalDuration % 60}s
+                </div>
+              )}
 
               <div className="space-y-3 sm:space-y-4">
                 {last.exercises.map((ex) => (
