@@ -838,11 +838,8 @@ function FilterBar({ filter, setFilter, total, types }) {
 // ───────────────────────────────────────────────────────────────
 // SessionCard (affichage + édition séance individuelle)
 // ───────────────────────────────────────────────────────────────
-// ───────────────────────────────────────────────────────────────
-// SessionCard (affichage + édition séance individuelle)
-// ───────────────────────────────────────────────────────────────
 function SessionCard({ session, onDelete, onEdit }) {
-  if (!session) return null; // sécurité anti-écran blanc
+  if (!session) return null;   // ⬅ sécurité anti-écran blanc
 
   const [editing, setEditing] = useState(false);
   const [local, setLocal] = useState(session);
@@ -861,30 +858,20 @@ function SessionCard({ session, onDelete, onEdit }) {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
-            <div className="text-xs sm:text-sm text-gray-500">
-              {prettyDate(local.date)} • {local.type}
-            </div>
-            <div className="text-lg sm:text-2xl font-semibold">
-              {Math.round(tonnage)} kg
-            </div>
+            <div className="text-xs sm:text-sm text-gray-500">{prettyDate(local.date)} • {local.type}</div>
+            <div className="text-lg sm:text-2xl font-semibold">{Math.round(tonnage)} kg</div>
             {local.totalDuration !== undefined && (
               <div className="text-xs sm:text-sm text-gray-600">
-                ⏱️ Durée totale : {Math.floor(local.totalDuration / 60)} min{" "}
-                {local.totalDuration % 60}s
+                ⏱️ Durée totale : {Math.floor(local.totalDuration / 60)} min {local.totalDuration % 60}s
               </div>
             )}
           </div>
-
           <div className="flex flex-wrap gap-2">
             {editing ? (
               <>
                 <Button
                   onClick={() => {
-                    if (
-                      window.confirm(
-                        "Voulez-vous sauvegarder vos modifications et écraser les anciennes saisies ?"
-                      )
-                    ) {
+                    if (window.confirm("Voulez-vous sauvegarder vos modifications et écraser les anciennes saisies ?")) {
                       save();
                     }
                   }}
@@ -894,11 +881,7 @@ function SessionCard({ session, onDelete, onEdit }) {
                 <Button
                   variant="secondary"
                   onClick={() => {
-                    if (
-                      window.confirm(
-                        "Êtes-vous sûrs ? Toutes vos modifications ne seront pas prises en compte !"
-                      )
-                    ) {
+                    if (window.confirm("Êtes-vous sûrs ? Toutes vos modifications ne seront pas prises en compte !")) {
                       setLocal(session);
                       setEditing(false);
                     }
@@ -912,22 +895,16 @@ function SessionCard({ session, onDelete, onEdit }) {
                 <Edit3 className="h-4 w-4 mr-1" /> Éditer
               </Button>
             )}
-
             <Button
               variant="destructive"
               onClick={() => {
-                if (
-                  window.confirm(
-                    "Voulez-vous vraiment supprimer cette séance ?"
-                  )
-                ) {
+                if (window.confirm("Voulez-vous vraiment supprimer cette séance ?")) {
                   onDelete();
                 }
               }}
             >
               <Trash2 className="h-4 w-4 mr-1" /> Supprimer
             </Button>
-
             {editing && (
               <Button
                 variant="secondary"
@@ -938,9 +915,7 @@ function SessionCard({ session, onDelete, onEdit }) {
                       ...cur.exercises,
                       {
                         id: uuidv4(),
-                        name:
-                          window.prompt("Nom du nouvel exercice ?") ||
-                          "Nouvel exercice",
+                        name: window.prompt("Nom du nouvel exercice ?") || "Nouvel exercice",
                         sets: [{ reps: "", weight: "" }],
                       },
                     ],
@@ -953,43 +928,29 @@ function SessionCard({ session, onDelete, onEdit }) {
           </div>
         </div>
 
-        {/* Liste des exercices */}
+        {/* Liste exercices */}
         <div className="space-y-3 sm:space-y-4">
           {local.exercises.map((ex, idx) => (
-            <div
-              key={ex.id}
-              className="border rounded-lg sm:rounded-xl p-2 sm:p-3 bg-gray-50"
-            >
+            <div key={ex.id} className="border rounded-lg sm:rounded-xl p-2 sm:p-3 bg-gray-50">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-2 gap-1">
                 <div className="font-medium text-sm sm:text-base">{ex.name}</div>
                 {local.exerciseDurations?.[ex.id] && (
                   <div className="text-xs text-gray-500">
-                    Temps :{" "}
-                    {Math.floor(local.exerciseDurations[ex.id] / 60)} min{" "}
-                    {local.exerciseDurations[ex.id] % 60}s
+                    Temps : {Math.floor(local.exerciseDurations[ex.id] / 60)} min {local.exerciseDurations[ex.id] % 60}s
                   </div>
                 )}
                 <div className="text-xs sm:text-sm">
-                  Sous-total :{" "}
-                  <span className="font-semibold">
-                    {Math.round(volumeOfSets(ex.sets))} kg
-                  </span>
+                  Sous-total: <span className="font-semibold">{Math.round(volumeOfSets(ex.sets))} kg</span>
                 </div>
               </div>
 
               {editing ? (
                 <>
-                  {/* Mode édition */}
                   <div className="grid grid-cols-3 gap-2 text-xs sm:text-sm font-medium text-gray-600 mb-1">
-                    <div>Série</div>
-                    <div>Réps</div>
-                    <div>Poids</div>
+                    <div>Série</div><div>Réps</div><div>Poids</div>
                   </div>
                   {ex.sets.map((s, i) => (
-                    <div
-                      key={i}
-                      className="grid grid-cols-4 gap-2 items-center mb-1"
-                    >
+                    <div key={i} className="grid grid-cols-4 gap-2 items-center mb-1">
                       <div className="text-gray-600">{i + 1}</div>
                       <Input
                         value={s.reps}
@@ -998,14 +959,7 @@ function SessionCard({ session, onDelete, onEdit }) {
                             ...cur,
                             exercises: cur.exercises.map((e2, j) =>
                               j === idx
-                                ? {
-                                    ...e2,
-                                    sets: e2.sets.map((ss, k) =>
-                                      k === i
-                                        ? { ...ss, reps: e.target.value }
-                                        : ss
-                                    ),
-                                  }
+                                ? { ...e2, sets: e2.sets.map((ss, k) => (k === i ? { ...ss, reps: e.target.value } : ss)) }
                                 : e2
                             ),
                           }))
@@ -1018,14 +972,7 @@ function SessionCard({ session, onDelete, onEdit }) {
                             ...cur,
                             exercises: cur.exercises.map((e2, j) =>
                               j === idx
-                                ? {
-                                    ...e2,
-                                    sets: e2.sets.map((ss, k) =>
-                                      k === i
-                                        ? { ...ss, weight: e.target.value }
-                                        : ss
-                                    ),
-                                  }
+                                ? { ...e2, sets: e2.sets.map((ss, k) => (k === i ? { ...ss, weight: e.target.value } : ss)) }
                                 : e2
                             ),
                           }))
@@ -1038,10 +985,7 @@ function SessionCard({ session, onDelete, onEdit }) {
                             ...cur,
                             exercises: cur.exercises.map((e2, j) =>
                               j === idx
-                                ? {
-                                    ...e2,
-                                    sets: e2.sets.filter((_, k) => k !== i),
-                                  }
+                                ? { ...e2, sets: e2.sets.filter((_, k) => k !== i) }
                                 : e2
                             ),
                           }))
@@ -1051,7 +995,6 @@ function SessionCard({ session, onDelete, onEdit }) {
                       </Button>
                     </div>
                   ))}
-
                   <div className="flex justify-end mt-1">
                     <Button
                       variant="secondary"
@@ -1060,10 +1003,7 @@ function SessionCard({ session, onDelete, onEdit }) {
                           ...cur,
                           exercises: cur.exercises.map((e2, j) =>
                             j === idx
-                              ? {
-                                  ...e2,
-                                  sets: [...e2.sets, { reps: "", weight: "" }],
-                                }
+                              ? { ...e2, sets: [...e2.sets, { reps: "", weight: "" }] }
                               : e2
                           ),
                         }))
@@ -1072,44 +1012,38 @@ function SessionCard({ session, onDelete, onEdit }) {
                       + Ajouter une série
                     </Button>
                   </div>
-
-                  {/* Champ commentaire (éditable) */}
-                  <div className="mt-2">
-                    <Label>Commentaire</Label>
-                    <Input
-                      value={ex.comment || ""}
-                      onChange={(e) =>
-                        setLocal((cur) => ({
-                          ...cur,
-                          exercises: cur.exercises.map((e2, j) =>
-                            j === idx
-                              ? { ...e2, comment: e.target.value }
-                              : e2
-                          ),
-                        }))
-                      }
-                    />
-                  </div>
                 </>
               ) : (
                 <>
-                  {/* Mode lecture */}
                   {ex.sets.map((s, i) => (
-                    <div
-                      key={i}
-                      className="grid grid-cols-3 gap-2 items-center mb-1 text-xs sm:text-sm"
-                    >
+                    <div key={i} className="grid grid-cols-3 gap-2 items-center mb-1 text-xs sm:text-sm">
                       <div className="text-gray-600">{i + 1}</div>
                       <div>{s.reps}</div>
                       <div>{s.weight} kg</div>
                     </div>
                   ))}
 
-                  {ex.comment && (
-                    <div className="mt-2 text-xs sm:text-sm text-gray-700 italic">
-                      💬 {ex.comment}
-                    </div>
-                  )}
+                  {/* Champ commentaire visible / éditable */}
+                  <div className="mt-2">
+                    <Label>Commentaire</Label>
+                    {editing ? (
+                      <Input
+                        value={ex.comment || ""}
+                        onChange={(e) =>
+                          setLocal((cur) => ({
+                            ...cur,
+                            exercises: cur.exercises.map((e2, j) =>
+                              j === idx ? { ...e2, comment: e.target.value } : e2
+                            ),
+                          }))
+                        }
+                      />
+                    ) : (
+                      <div className="text-xs sm:text-sm text-gray-700 italic">
+                        {ex.comment || "— Aucun commentaire —"}
+                      </div>
+                    )}
+                  </div>
                 </>
               )}
 
@@ -1135,6 +1069,7 @@ function SessionCard({ session, onDelete, onEdit }) {
     </Card>
   );
 }
+
 
 // App.jsx (Bloc 4)
 
