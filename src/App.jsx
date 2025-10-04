@@ -616,36 +616,41 @@ function SessionForm({ user, onSavedLocally, customExercises = [], onAddCustomEx
           <Button className="w-full" onClick={saveSession}>
             <Save className="h-4 w-4 mr-2" /> Enregistrer la séance
           </Button>
-          {/* Chronomètre global de la séance */}
-<div className="border rounded-lg p-2 sm:p-3 bg-gray-50">
-  <div className="text-xs sm:text-sm text-gray-600">Chronomètre total</div>
-  <div className="flex items-center gap-2 mt-1">
-    <div className="font-mono text-sm sm:text-base">
-      {String(Math.floor(globalTimer.seconds / 60)).padStart(2, "0")}:
-      {String(globalTimer.seconds % 60).padStart(2, "0")}
-    </div>
-    <Button
-      variant={globalTimer.running ? "destructive" : "secondary"}
-      onClick={() =>
-        setGlobalTimer((cur) => ({ ...cur, running: !cur.running }))
-      }
-    >
-      {globalTimer.running ? "Pause" : "Start"}
-    </Button>
-    <Button
-      variant="ghost"
-      onClick={() => setGlobalTimer({ running: false, seconds: 0 })}
-    >
-      Reset
-    </Button>
-  </div>
-</div>
-
         </CardContent>
       </Card>
 
       {/* Colonne droite (liste exos) */}
       <div className="lg:col-span-2 space-y-3 sm:space-y-4">
+        {/* Chrono global - affiché uniquement si au moins un exercice ou template sélectionné */}
+{(templateId || exercises.length > 0) && (
+  <div className="border rounded-lg p-3 sm:p-4 bg-gray-50 mb-4">
+    <div className="text-sm sm:text-base font-medium text-gray-700 mb-2">
+      ⏱️ Chrono de la séance :
+      <span className="ml-1 font-mono font-semibold">
+        {String(Math.floor(globalTimer.seconds / 60)).padStart(2, "0")} minutes,{" "}
+        {String(globalTimer.seconds % 60).padStart(2, "0")} secondes
+      </span>
+    </div>
+
+    <div className="flex flex-wrap items-center gap-2">
+      <Button
+        variant={globalTimer.running ? "destructive" : "secondary"}
+        onClick={() =>
+          setGlobalTimer((cur) => ({ ...cur, running: !cur.running }))
+        }
+      >
+        {globalTimer.running ? "Mettre pause sur le chrono" : "Lancer le chrono"}
+      </Button>
+      <Button
+        variant="ghost"
+        onClick={() => setGlobalTimer({ running: false, seconds: 0 })}
+      >
+        Réinitialiser le chrono
+      </Button>
+    </div>
+  </div>
+)}
+
         {exercises.length === 0 ? (
           <EmptyState />
         ) : (
@@ -1747,7 +1752,7 @@ function Chrono({ exId, timers, setTimers }) {
       interval = setInterval(() => {
         setTimers((cur) => ({
           ...cur,
-          [exId]: { ...cur[exId], seconds: cur[exId].seconds + 1 },
+          [exId]: { ...cur[exId], seconds: (cur[exId]?.seconds || 0) + 1 },
         }));
       }, 1000);
     }
@@ -1768,17 +1773,31 @@ function Chrono({ exId, timers, setTimers }) {
     }));
   };
 
-  const mm = String(Math.floor(timer.seconds / 60)).padStart(2, "0");
-  const ss = String(timer.seconds % 60).padStart(2, "0");
+  const minutes = Math.floor(timer.seconds / 60);
+  const seconds = timer.seconds % 60;
 
   return (
-    <div className="flex items-center gap-2 mt-1">
-      <div className="font-mono text-sm">{mm}:{ss}</div>
-      <Button variant={timer.running ? "destructive" : "secondary"} onClick={toggle}>
-        {timer.running ? "Pause" : "Start"}
-      </Button>
-      <Button variant="ghost" onClick={reset}>Reset</Button>
+    <div className="mt-3 p-3 rounded-lg bg-gray-50 border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+      <div className="text-sm text-gray-700">
+        Chrono de l’exercice :
+        <span className="ml-1 font-mono font-semibold">
+          {minutes} minutes, {seconds} secondes
+        </span>
+      </div>
+
+      <div className="flex gap-2">
+        <Button
+          variant={timer.running ? "destructive" : "secondary"}
+          onClick={toggle}
+        >
+          {timer.running
+            ? "Mettre pause sur le chrono"
+            : "Lancer le chrono"}
+        </Button>
+        <Button variant="ghost" onClick={reset}>
+          Réinitialiser le chrono
+        </Button>
+      </div>
     </div>
   );
 }
-
