@@ -509,15 +509,19 @@ function SessionForm({ user, onSavedLocally, customExercises = [], onAddCustomEx
       exerciseDurations[exId] = t.seconds || 0;
     });
     
+    // 🧮 Durée totale = somme des durées individuelles des exos
+    const totalDuration = Object.values(exerciseDurations).reduce((sum, val) => sum + val, 0);
+    
     const session = {
       id: uuidv4(),
       date,
       type: tplName,
       exercises: cleaned,
       createdAt: new Date().toISOString(),
-      totalDuration: globalTimer.seconds,     // ⏱️ Durée totale de la séance
-      exerciseDurations,                      // ⏱️ Temps par exo
+      totalDuration,          // ✅ somme de tous les chronos d’exo
+      exerciseDurations,      // ⏱️ chronos individuels
     };
+
 
     try {
       await upsertSessions(user.id, [session]);
