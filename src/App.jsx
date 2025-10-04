@@ -443,6 +443,17 @@ function SessionForm({ user, onSavedLocally, customExercises = [], onAddCustomEx
   const [exercises, setExercises] = useState([]);
   const [exSelect, setExSelect] = useState("");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [timers, setTimers] = useState({});
+  const [globalTimer, setGlobalTimer] = useState({ running: false, seconds: 0 });
+  useEffect(() => {
+    let interval = null;
+    if (globalTimer.running) {
+      interval = setInterval(() => {
+        setGlobalTimer((cur) => ({ ...cur, seconds: cur.seconds + 1 }));
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [globalTimer.running]);
 
   const availableExercises = useMemo(() => {
     const tpl = sessionTemplates.find((t) => t.id === templateId);
@@ -492,7 +503,21 @@ function SessionForm({ user, onSavedLocally, customExercises = [], onAddCustomEx
     const tplName = templateId
       ? (sessionTemplates.find(t => t.id === templateId)?.name || "Séance")
       : "Libre";
-    const session = { id: uuidv4(), date, type: tplName, exercises: cleaned, createdAt: new Date().toISOString() };
+    // Calcul du temps par exercice
+    const exerciseDurations = {};
+    Object.entries(timers).forEach(([exId, t]) => {
+      exerciseDurations[exId] = t.seconds || 0;
+    });
+    
+    const session = {
+      id: uuidv4(),
+      date,
+      type: tplName,
+      exercises: cleaned,
+      createdAt: new Date().toISOString(),
+      totalDuration: globalTimer.seconds,     // ⏱️ Durée totale de la séance
+      exerciseDurations,                      // ⏱️ Temps par exo
+    };
 
     try {
       await upsertSessions(user.id, [session]);
@@ -587,6 +612,31 @@ function SessionForm({ user, onSavedLocally, customExercises = [], onAddCustomEx
           <Button className="w-full" onClick={saveSession}>
             <Save className="h-4 w-4 mr-2" /> Enregistrer la séance
           </Button>
+          {/* Chronomètre global de la séance */}
+<div className="border rounded-lg p-2 sm:p-3 bg-gray-50">
+  <div className="text-xs sm:text-sm text-gray-600">Chronomètre total</div>
+  <div className="flex items-center gap-2 mt-1">
+    <div className="font-mono text-sm sm:text-base">
+      {String(Math.floor(globalTimer.seconds / 60)).padStart(2, "0")}:
+      {String(globalTimer.seconds % 60).padStart(2, "0")}
+    </div>
+    <Button
+      variant={globalTimer.running ? "destructive" : "secondary"}
+      onClick={() =>
+        setGlobalTimer((cur) => ({ ...cur, running: !cur.running }))
+      }
+    >
+      {globalTimer.running ? "Pause" : "Start"}
+    </Button>
+    <Button
+      variant="ghost"
+      onClick={() => setGlobalTimer({ running: false, seconds: 0 })}
+    >
+      Reset
+    </Button>
+  </div>
+</div>
+
         </CardContent>
       </Card>
 
@@ -646,6 +696,7 @@ function SessionForm({ user, onSavedLocally, customExercises = [], onAddCustomEx
                     <Plus className="h-4 w-4 mr-1" /> Ajouter une série
                   </Button>
                 </div>
+                <Chrono exId={ex.id} timers={timers} setTimers={setTimers} />
               </CardContent>
             </Card>
           ))
@@ -781,6 +832,12 @@ function SessionCard({ session, onDelete, onEdit }) {
           <div>
             <div className="text-xs sm:text-sm text-gray-500">{prettyDate(local.date)} • {local.type}</div>
             <div className="text-lg sm:text-2xl font-semibold">{Math.round(tonnage)} kg</div>
+            {local.totalDuration !== undefined && (
+  <div className="text-xs sm:text-sm text-gray-600">
+    ⏱️ Durée totale : {Math.floor(local.totalDuration / 60)} min {local.totalDuration % 60}s
+  </div>
+)}
+
           </div>
           <div className="flex flex-wrap gap-2">
             {editing ? (
@@ -850,6 +907,12 @@ function SessionCard({ session, onDelete, onEdit }) {
             <div key={ex.id} className="border rounded-lg sm:rounded-xl p-2 sm:p-3 bg-gray-50">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-2 gap-1">
                 <div className="font-medium text-sm sm:text-base">{ex.name}</div>
+                {local.exerciseDurations?.[ex.id] && (
+  <div className="text-xs text-gray-500">
+    Temps : {Math.floor(local.exerciseDurations[ex.id] / 60)} min {local.exerciseDurations[ex.id] % 60}s
+  </div>
+)}
+
                 <div className="text-xs sm:text-sm">
                   Sous-total: <span className="font-semibold">{Math.round(volumeOfSets(ex.sets))} kg</span>
                 </div>
@@ -1667,3 +1730,51 @@ function LastThreeSessionsSetTonnageChart({ sessions, exerciseName, options, onC
     </Card>
   );
 }
+
+// ───────────────────────────────────────────────
+// Composant Chrono pour le temps de repos
+// ───────────────────────────────────────────────
+function Chrono({ exId, timers, setTimers }) {
+  const timer = timers[exId] || { running: false, seconds: 0 };
+
+  useEffect(() => {
+    let interval = null;
+    if (timer.running) {
+      interval = setInterval(() => {
+        setTimers((cur) => ({
+          ...cur,
+          [exId]: { ...cur[exId], seconds: cur[exId].seconds + 1 },
+        }));
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [timer.running, exId, setTimers]);
+
+  const toggle = () => {
+    setTimers((cur) => ({
+      ...cur,
+      [exId]: { ...timer, running: !timer.running },
+    }));
+  };
+
+  const reset = () => {
+    setTimers((cur) => ({
+      ...cur,
+      [exId]: { running: false, seconds: 0 },
+    }));
+  };
+
+  const mm = String(Math.floor(timer.seconds / 60)).padStart(2, "0");
+  const ss = String(timer.seconds % 60).padStart(2, "0");
+
+  return (
+    <div className="flex items-center gap-2 mt-1">
+      <div className="font-mono text-sm">{mm}:{ss}</div>
+      <Button variant={timer.running ? "destructive" : "secondary"} onClick={toggle}>
+        {timer.running ? "Pause" : "Start"}
+      </Button>
+      <Button variant="ghost" onClick={reset}>Reset</Button>
+    </div>
+  );
+}
+
