@@ -655,61 +655,79 @@ function SessionForm({ user, onSavedLocally, customExercises = [], onAddCustomEx
         {exercises.length === 0 ? (
           <EmptyState />
         ) : (
-          exercises.map((ex) => (
-            <Card key={ex.id}>
-              <CardContent>
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-semibold text-sm sm:text-lg">{ex.name}</h3>
-                  <Button variant="destructive" onClick={() => removeExercise(ex.id)}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
+<Card key={ex.id}>
+  <CardContent>
+    <div className="flex items-center justify-between mb-2">
+      <h3 className="font-semibold text-sm sm:text-lg">{ex.name}</h3>
+      <Button variant="destructive" onClick={() => removeExercise(ex.id)}>
+        <Trash2 className="h-4 w-4" />
+      </Button>
+    </div>
 
-                <div className="grid grid-cols-3 gap-2 text-xs sm:text-sm font-medium text-gray-600 mb-1">
-                  <div>Série</div><div>Réps</div><div>Poids (kg)</div>
-                </div>
+    {/* Table séries */}
+    <div className="grid grid-cols-3 gap-2 text-xs sm:text-sm font-medium text-gray-600 mb-1">
+      <div>Série</div><div>Réps</div><div>Poids (kg)</div>
+    </div>
 
-                {ex.sets.map((s, i) => (
-                  <div key={i} className="grid grid-cols-4 gap-2 mb-1 items-center">
-                    <div className="text-gray-600">{i + 1}</div>
-                    <Input
-                      inputMode="numeric"
-                      placeholder="10"
-                      value={s.reps}
-                      onChange={(e) => updateSet(ex.id, i, "reps", e.target.value.replace(/[^0-9]/g, ""))}
-                    />
-                    <Input
-                      inputMode="decimal"
-                      placeholder="40"
-                      value={s.weight}
-                      onChange={(e) => updateSet(ex.id, i, "weight", e.target.value.replace(/[^0-9.]/g, ""))}
-                    />
-                    <Button
-                      variant="destructive"
-                      onClick={() =>
-                        setExercises((cur) =>
-                          cur.map((e2) =>
-                            e2.id === ex.id
-                              ? { ...e2, sets: e2.sets.filter((_, j) => j !== i) }
-                              : e2
-                          )
-                        )
-                      }
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
+    {ex.sets.map((s, i) => (
+      <div key={i} className="grid grid-cols-4 gap-2 mb-1 items-center">
+        <div className="text-gray-600">{i + 1}</div>
+        <Input
+          inputMode="numeric"
+          placeholder="10"
+          value={s.reps}
+          onChange={(e) => updateSet(ex.id, i, "reps", e.target.value.replace(/[^0-9]/g, ""))}
+        />
+        <Input
+          inputMode="decimal"
+          placeholder="40"
+          value={s.weight}
+          onChange={(e) => updateSet(ex.id, i, "weight", e.target.value.replace(/[^0-9.]/g, ""))}
+        />
+        <Button
+          variant="destructive"
+          onClick={() =>
+            setExercises((cur) =>
+              cur.map((e2) =>
+                e2.id === ex.id
+                  ? { ...e2, sets: e2.sets.filter((_, j) => j !== i) }
+                  : e2
+              )
+            )
+          }
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </div>
+    ))}
 
-                <div className="flex justify-end mt-2">
-                  <Button variant="secondary" onClick={() => addSetRow(ex.id)}>
-                    <Plus className="h-4 w-4 mr-1" /> Ajouter une série
-                  </Button>
-                </div>
-                <Chrono exId={ex.id} timers={timers} setTimers={setTimers} />
-              </CardContent>
-            </Card>
-          ))
+    {/* Ajout série */}
+    <div className="flex justify-end mt-2">
+      <Button variant="secondary" onClick={() => addSetRow(ex.id)}>
+        <Plus className="h-4 w-4 mr-1" /> Ajouter une série
+      </Button>
+    </div>
+
+    {/* 🗒️ Champ commentaire */}
+    <div className="mt-3">
+      <Label>Commentaire</Label>
+      <Input
+        placeholder="Ex: ressenti, charge perçue, douleur, note de la séance..."
+        value={ex.comment || ""}
+        onChange={(e) =>
+          setExercises((cur) =>
+            cur.map((e2) =>
+              e2.id === ex.id ? { ...e2, comment: e.target.value } : e2
+            )
+          )
+        }
+      />
+    </div>
+
+    <Chrono exId={ex.id} timers={timers} setTimers={setTimers} />
+  </CardContent>
+</Card>
+)
         )}
       </div>
     </div>
@@ -960,6 +978,8 @@ function SessionCard({ session, onDelete, onEdit }) {
                                 : e2
                             ),
                           }))
+
+
                         }
                       />
                       <Button
@@ -1005,6 +1025,28 @@ function SessionCard({ session, onDelete, onEdit }) {
                     <div>{s.weight} kg</div>
                   </div>
                 ))
+              {/* Champ commentaire visible / éditable */}
+<div className="mt-2">
+  <Label>Commentaire</Label>
+  {editing ? (
+    <Input
+      value={ex.comment || ""}
+      onChange={(e) =>
+        setLocal((cur) => ({
+          ...cur,
+          exercises: cur.exercises.map((e2, j) =>
+            j === idx ? { ...e2, comment: e.target.value } : e2
+          ),
+        }))
+      }
+    />
+  ) : (
+    <div className="text-xs sm:text-sm text-gray-700 italic">
+      {ex.comment || "— Aucun commentaire —"}
+    </div>
+  )}
+</div>
+
               )}
               {editing && (
                 <div className="mt-2 flex">
@@ -1485,6 +1527,13 @@ function LastSession({ sessions }) {
                     ))}
                   </div>
                 ))}
+                {/* Commentaire de l'exercice */}
+{ex.comment && (
+  <div className="mt-2 text-xs sm:text-sm text-gray-700 italic">
+    💬 {ex.comment}
+  </div>
+)}
+
               </div>
             </>
           )}
