@@ -85,8 +85,16 @@ const Input = ({ className, ...props }) => (
   />
 );
 
-const Label = ({ className, children }) =>
-  <label className={cn("text-xs sm:text-sm font-medium text-gray-800", className)}>{children}</label>;
+const Label = ({ className, children }) => (
+  <label
+    className={cn(
+      "text-xs sm:text-sm font-medium text-gray-800 dark:text-white transition-colors duration-300",
+      className
+    )}
+  >
+    {children}
+  </label>
+);
 
 // Tabs
 const TabsCtx = createContext(null);
@@ -270,7 +278,8 @@ function App() {
         saveDataFor(uid, hydrated);
       });
     });
-    return () => {
+    return () =
+      > {
       unsubAuth?.(); unsubscribeSessions?.(); unsubscribeTemplates?.();
     };
   }, []);
