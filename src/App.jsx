@@ -1752,7 +1752,7 @@ const exportLastSession = async () => {
       return;
     }
 
-    // Capture fidèle au thème (image PNG)
+    // Capture la card
     const canvas = await html2canvas(cardRef.current, {
       scale: 3,
       useCORS: true,
@@ -1761,32 +1761,36 @@ const exportLastSession = async () => {
     });
 
     const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
-    const file = new File([blob], `seance-${t || "Libre"}-${last?.date || "sans-date"}.png`, {
-      type: "image/png",
-    });
+    const file = new File(
+      [blob],
+      `seance-${t || "Libre"}-${last?.date || "sans-date"}.png`,
+      { type: "image/png" }
+    );
 
-    // 📱 Si la Web Share API est dispo (mobile)
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    // 📱 Détection mobile simple
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+    if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
+      // ✅ Partage natif sur mobile
       await navigator.share({
         title: `🏋️ Ma séance ${t}`,
         text: `Voici ma dernière séance ${t} sur Workout Tracker 💪`,
         files: [file],
       });
-      console.log("✅ Partage réussi !");
+      console.log("✅ Partage réussi via le menu mobile !");
     } else {
-      // 💾 Sinon fallback : téléchargement local
+      // 💻 Téléchargement direct sur PC
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
       link.download = file.name;
       link.click();
-      alert("Partage non supporté — image téléchargée à la place ✅");
+      alert("💾 Image téléchargée sur ton ordinateur ✅");
     }
   } catch (e) {
     console.error("Erreur export :", e);
     alert("❌ Impossible d’exporter ou de partager la séance (voir console).");
   }
 };
-
 
   return (
     <div className="space-y-4 sm:space-y-6">
