@@ -1740,33 +1740,48 @@ function LastSession({ sessions }) {
   const last = useMemo(() => getLastSessionByType(sessions, t), [sessions, t]);
   const tonnage = useMemo(() => (last ? computeSessionTonnage(last) : 0), [last]);
   const cardRef = React.useRef(null);
-  const exportLastSession = async () => {
+const exportLastSession = async () => {
   try {
     if (!cardRef.current) {
       alert("Impossible de trouver la dernière séance à exporter.");
       return;
     }
 
-    // Capture visuelle fidèle au thème
+    // Capture fidèle au thème (image PNG)
     const canvas = await html2canvas(cardRef.current, {
       scale: 3,
       useCORS: true,
       backgroundColor: getComputedStyle(document.body).backgroundColor,
-      windowWidth: document.documentElement.scrollWidth,
-      windowHeight: document.documentElement.scrollHeight,
       logging: false,
     });
 
-    const imageData = canvas.toDataURL("image/png");
-    const link = document.createElement("a");
-    link.href = imageData;
-    link.download = `derniere-seance-${t || "Libre"}-${last?.date || "sans-date"}.png`;
-    link.click();
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+    const file = new File([blob], `seance-${t || "Libre"}-${last?.date || "sans-date"}.png`, {
+      type: "image/png",
+    });
+
+    // 📱 Si la Web Share API est dispo (mobile)
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({
+        title: `🏋️ Ma séance ${t}`,
+        text: `Voici ma dernière séance ${t} sur Workout Tracker 💪`,
+        files: [file],
+      });
+      console.log("✅ Partage réussi !");
+    } else {
+      // 💾 Sinon fallback : téléchargement local
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = file.name;
+      link.click();
+      alert("Partage non supporté — image téléchargée à la place ✅");
+    }
   } catch (e) {
     console.error("Erreur export :", e);
-    alert("❌ Impossible d’exporter la dernière séance (voir console).");
+    alert("❌ Impossible d’exporter ou de partager la séance (voir console).");
   }
 };
+
 
   return (
     <div className="space-y-4 sm:space-y-6">
