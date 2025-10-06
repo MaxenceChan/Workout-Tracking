@@ -362,28 +362,6 @@ function App() {
   </div>
 </header>
 
-  <div className="max-w-6xl mx-auto px-3 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-    <div className="flex items-center gap-2">
-      <Dumbbell className="h-5 w-5 text-white" />
-      <h1 className="text-lg sm:text-xl md:text-2xl font-bold tracking-tight">Workout Tracker</h1>
-      <div className="hidden sm:block text-xs text-white/70">UID: {user?.id}</div>
-    </div>
-
-    <div className="flex items-center gap-3">
-      <div className="text-xs sm:text-sm text-white/90 truncate">{user.email}</div>
-      <ThemeToggleButton />
-      <Button
-        variant="ghost"
-        onClick={() => signOutUser()}
-        title="Se déconnecter"
-        className="text-white hover:bg-white/20"
-      >
-        <LogOut className="h-4 w-4" /> Déconnexion
-      </Button>
-    </div>
-  </div>
-</header>
-
       <main className="max-w-6xl mx-auto p-2 sm:p-4">
         <Tabs value={tab} onValueChange={setTab}>
           <TabsList className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 w-full text-xs sm:text-sm">
