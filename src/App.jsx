@@ -1062,14 +1062,16 @@ function SessionCard({ session, onDelete, onEdit }) {
   };
 
   // 📸 Fonction d'export en image de la carte séance
-const exportSessionAsImage = async (session) => {
+const exportSessionAsImage = async (s) => {
   try {
-    const element = document.getElementById(`session-${session.id || session.localId || session.date}`);
-    const fallback = document.querySelector(`[data-session-id="${session.id || session.localId}"]`);
-    const card = element || fallback;
+    const id = s.id || s.localId || local.id;
+    const card =
+      document.getElementById(`session-${id}`) ||
+      document.querySelector(`[data-session-id="${id}"]`);
 
     if (!card) {
       alert("Impossible de trouver la séance à exporter.");
+      console.error("❌ ID non trouvé :", id, "Sessions disponibles :", document.querySelectorAll("[data-session-id]"));
       return;
     }
 
@@ -1082,7 +1084,7 @@ const exportSessionAsImage = async (session) => {
     });
 
     const link = document.createElement("a");
-    link.download = `seance-${session.type || "Libre"}-${session.date || "sans-date"}.png`;
+    link.download = `seance-${s.type || "Libre"}-${s.date || "sans-date"}.png`;
     link.href = canvas.toDataURL("image/png");
     link.click();
   } catch (e) {
@@ -1091,8 +1093,9 @@ const exportSessionAsImage = async (session) => {
   }
 };
 
+
   return (
-<Card id={`session-${local.id}`} data-session-id={local.id}>
+<Card id={`session-${session.id || local.id}`} data-session-id={session.id || local.id}>
       <CardContent className="p-3 sm:p-4 space-y-2 sm:space-y-3">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -1145,12 +1148,12 @@ const exportSessionAsImage = async (session) => {
               <Trash2 className="h-4 w-4 mr-1" /> Supprimer
             </Button>
             <Button
-              variant="secondary"
-              onClick={() => exportSessionAsImage(local)}
-              title="Partager ou sauvegarder la séance"
-            >
-              <Share2 className="h-4 w-4 mr-1" /> Partager
-            </Button>
+        variant="secondary"
+        onClick={() => exportSessionAsImage(local)}
+        title="Partager ou sauvegarder la séance"
+      >
+        <Share2 className="h-4 w-4 mr-1" /> Partager
+      </Button>
 
             {editing && (
               <Button
