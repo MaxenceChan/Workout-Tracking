@@ -47,8 +47,9 @@ import {
 const SESSION_DRAFT_KEY = "workout-tracker-current-session";
 const TEMPLATE_DRAFT_KEY = "workout-tracker-template-draft";
 const cn = (...c) => c.filter(Boolean).join(" ");
-const Card = ({ className, children }) => (
+const Card = React.forwardRef(({ className, children }, ref) => (
   <div
+    ref={ref}
     className={cn(
       "rounded-xl sm:rounded-2xl border bg-white dark:bg-[#1c1c1c] shadow-sm transition-colors duration-300",
       className
@@ -56,7 +57,8 @@ const Card = ({ className, children }) => (
   >
     {children}
   </div>
-);
+));
+Card.displayName = "Card";
 
 const CardContent = ({ className, children }) => (
   <div className={cn("p-3 sm:p-4 dark:text-white", className)}>{children}</div>
@@ -1062,32 +1064,38 @@ function SessionCard({ session, onDelete, onEdit }) {
   };
 
   // 📸 Fonction d'export en image de la carte séance
-// ✅ Nouvelle méthode de capture visuelle fiable
 const exportSessionAsImage = async () => {
   try {
-    // On capture directement la card en DOM via React Ref
     if (!cardRef.current) {
-      alert("Impossible de trouver la séance à exporter.");
+      alert("Impossible de trouver la séance à exporter (cardRef vide).");
       return;
     }
 
+    // Scroll au bon endroit pour éviter que la capture soit coupée
+    cardRef.current.scrollIntoView({ behavior: "instant", block: "center" });
+
+    // Capture fidèle du style clair/sombre
     const canvas = await html2canvas(cardRef.current, {
-      scale: 2,
-      backgroundColor: document.documentElement.classList.contains("dark")
-        ? "#0d0d0d"
-        : "#ffffff",
+      scale: 3,
       useCORS: true,
+      backgroundColor: getComputedStyle(document.body).backgroundColor,
+      windowWidth: document.documentElement.scrollWidth,
+      windowHeight: document.documentElement.scrollHeight,
+      logging: false,
     });
 
+    const imageData = canvas.toDataURL("image/png");
+
     const link = document.createElement("a");
+    link.href = imageData;
     link.download = `seance-${local.type || "Libre"}-${local.date || "sans-date"}.png`;
-    link.href = canvas.toDataURL("image/png");
     link.click();
   } catch (e) {
     console.error("Erreur export :", e);
-    alert("❌ Impossible d’exporter la séance.");
+    alert("❌ Impossible d’exporter la séance (voir console).");
   }
 };
+
 const cardRef = React.useRef(null);
 
   return (
@@ -1143,13 +1151,13 @@ const cardRef = React.useRef(null);
             >
               <Trash2 className="h-4 w-4 mr-1" /> Supprimer
             </Button>
-          <Button
-          variant="secondary"
-          onClick={exportSessionAsImage}
-          title="Partager ou sauvegarder la séance"
-        >
-          <Share2 className="h-4 w-4 mr-1" /> Partager
-        </Button>
+<Button
+  variant="secondary"
+  onClick={exportSessionAsImage}
+  title="Exporter la séance"
+>
+  <Share2 className="h-4 w-4 mr-1" /> Partager
+</Button>
             
             {editing && (
               <Button
