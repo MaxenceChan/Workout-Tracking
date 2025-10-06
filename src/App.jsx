@@ -446,7 +446,11 @@ function SessionForm({ user, onSavedLocally, customExercises = [], onAddCustomEx
   const [exSelect, setExSelect] = useState("");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [timers, setTimers] = useState({});
-  const [globalTimer, setGlobalTimer] = useState({ running: false, seconds: 0 });
+  const [globalTimer, setGlobalTimer] = useState({
+    running: false,
+    startTime: null,
+    seconds: 0,
+  });
   
       // 🔄 Restaure la séance sauvegardée localement si elle existe
     useEffect(() => {
@@ -465,15 +469,18 @@ function SessionForm({ user, onSavedLocally, customExercises = [], onAddCustomEx
       }
     }, []);
 
+  // 🔁 Chrono global basé sur le temps réel
   useEffect(() => {
     let interval = null;
-    if (globalTimer.running) {
+    if (globalTimer.running && globalTimer.startTime) {
       interval = setInterval(() => {
-        setGlobalTimer((cur) => ({ ...cur, seconds: cur.seconds + 1 }));
+        const elapsed = Math.floor((Date.now() - globalTimer.startTime) / 1000);
+        setGlobalTimer((cur) => ({ ...cur, seconds: elapsed }));
       }, 1000);
     }
     return () => clearInterval(interval);
-  }, [globalTimer.running]);
+  }, [globalTimer.running, globalTimer.startTime]);
+
 
   const availableExercises = useMemo(() => {
     const tpl = sessionTemplates.find((t) => t.id === templateId);
@@ -1861,32 +1868,57 @@ function LastThreeSessionsSetTonnageChart({ sessions, exerciseName, options, onC
 // Composant Chrono pour le temps de repos
 // ───────────────────────────────────────────────
 function Chrono({ exId, timers, setTimers }) {
-  const timer = timers[exId] || { running: false, seconds: 0 };
+  const timer = timers[exId] || { running: false, seconds: 0, startTime: null };
 
+  // ⏱️ Synchronise l'affichage avec le temps réel
   useEffect(() => {
     let interval = null;
-    if (timer.running) {
+    if (timer.running && timer.startTime) {
       interval = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - timer.startTime) / 1000);
         setTimers((cur) => ({
           ...cur,
-          [exId]: { ...cur[exId], seconds: (cur[exId]?.seconds || 0) + 1 },
+          [exId]: { ...cur[exId], seconds: elapsed },
         }));
       }, 1000);
     }
     return () => clearInterval(interval);
-  }, [timer.running, exId, setTimers]);
+  }, [timer.running, timer.startTime, exId, setTimers]);
 
+  // ▶️ / ⏸️ Démarre ou met en pause
   const toggle = () => {
-    setTimers((cur) => ({
-      ...cur,
-      [exId]: { ...timer, running: !timer.running },
-    }));
+    setTimers((cur) => {
+      const existing = cur[exId] || { running: false, seconds: 0, startTime: null };
+      if (!existing.running) {
+        // Lance le chrono
+        return {
+          ...cur,
+          [exId]: {
+            ...existing,
+            running: true,
+            startTime: existing.startTime || Date.now(),
+          },
+        };
+      } else {
+        // Met en pause
+        const elapsed = Math.floor((Date.now() - existing.startTime) / 1000);
+        return {
+          ...cur,
+          [exId]: {
+            running: false,
+            seconds: elapsed,
+            startTime: existing.startTime,
+          },
+        };
+      }
+    });
   };
 
+  // 🔁 Réinitialise le chrono
   const reset = () => {
     setTimers((cur) => ({
       ...cur,
-      [exId]: { running: false, seconds: 0 },
+      [exId]: { running: false, seconds: 0, startTime: null },
     }));
   };
 
@@ -1918,3 +1950,4 @@ function Chrono({ exId, timers, setTimers }) {
     </div>
   );
 }
+
