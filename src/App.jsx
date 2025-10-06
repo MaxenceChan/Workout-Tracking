@@ -1064,11 +1064,33 @@ function SessionCard({ session, onDelete, onEdit }) {
   // 📸 Fonction d'export en image de la carte séance
 const exportSessionAsImage = async (session) => {
   try {
-    const card = document.getElementById(`session-${session.id}`);
+    // Recherche via l’attribut data-session-id (plus fiable)
+    const card = document.querySelector(`[data-session-id="${session.id}"]`);
     if (!card) {
       alert("Impossible de trouver la séance à exporter.");
       return;
     }
+
+    // Capture fidèle (respecte le mode sombre)
+    const canvas = await html2canvas(card, {
+      scale: 2,
+      backgroundColor: document.documentElement.classList.contains("dark")
+        ? "#0d0d0d"
+        : "#ffffff",
+      useCORS: true,
+    });
+
+    // Téléchargement
+    const link = document.createElement("a");
+    link.download = `seance-${session.type || "Libre"}-${session.date}.png`;
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+  } catch (e) {
+    console.error("Erreur export :", e);
+    alert("❌ Impossible d’exporter la séance.");
+  }
+};
+
 
     // Capture du rendu visuel (respecte le mode sombre)
     const canvas = await html2canvas(card, {
@@ -1089,7 +1111,7 @@ const exportSessionAsImage = async (session) => {
 };
 
   return (
-  <Card id={`session-${local.id}`}>
+<Card id={`session-${session.id || local.id}`} data-session-id={session.id}>
       <CardContent className="p-3 sm:p-4 space-y-2 sm:space-y-3">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
