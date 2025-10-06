@@ -1062,20 +1062,16 @@ function SessionCard({ session, onDelete, onEdit }) {
   };
 
   // 📸 Fonction d'export en image de la carte séance
-const exportSessionAsImage = async (s) => {
+// ✅ Nouvelle méthode de capture visuelle fiable
+const exportSessionAsImage = async () => {
   try {
-    const id = s.id || s.localId || local.id;
-    const card =
-      document.getElementById(`session-${id}`) ||
-      document.querySelector(`[data-session-id="${id}"]`);
-
-    if (!card) {
+    // On capture directement la card en DOM via React Ref
+    if (!cardRef.current) {
       alert("Impossible de trouver la séance à exporter.");
-      console.error("❌ ID non trouvé :", id, "Sessions disponibles :", document.querySelectorAll("[data-session-id]"));
       return;
     }
 
-    const canvas = await html2canvas(card, {
+    const canvas = await html2canvas(cardRef.current, {
       scale: 2,
       backgroundColor: document.documentElement.classList.contains("dark")
         ? "#0d0d0d"
@@ -1084,7 +1080,7 @@ const exportSessionAsImage = async (s) => {
     });
 
     const link = document.createElement("a");
-    link.download = `seance-${s.type || "Libre"}-${s.date || "sans-date"}.png`;
+    link.download = `seance-${local.type || "Libre"}-${local.date || "sans-date"}.png`;
     link.href = canvas.toDataURL("image/png");
     link.click();
   } catch (e) {
@@ -1092,10 +1088,10 @@ const exportSessionAsImage = async (s) => {
     alert("❌ Impossible d’exporter la séance.");
   }
 };
-
+const cardRef = React.useRef(null);
 
   return (
-<Card id={`session-${session.id || local.id}`} data-session-id={session.id || local.id}>
+<Card ref={cardRef}>
       <CardContent className="p-3 sm:p-4 space-y-2 sm:space-y-3">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -1147,14 +1143,14 @@ const exportSessionAsImage = async (s) => {
             >
               <Trash2 className="h-4 w-4 mr-1" /> Supprimer
             </Button>
-            <Button
-        variant="secondary"
-        onClick={() => exportSessionAsImage(local)}
-        title="Partager ou sauvegarder la séance"
-      >
-        <Share2 className="h-4 w-4 mr-1" /> Partager
-      </Button>
-
+          <Button
+          variant="secondary"
+          onClick={exportSessionAsImage}
+          title="Partager ou sauvegarder la séance"
+        >
+          <Share2 className="h-4 w-4 mr-1" /> Partager
+        </Button>
+            
             {editing && (
               <Button
                 variant="secondary"
