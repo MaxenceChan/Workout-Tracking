@@ -46,24 +46,45 @@ import {
 const SESSION_DRAFT_KEY = "workout-tracker-current-session";
 const TEMPLATE_DRAFT_KEY = "workout-tracker-template-draft";
 const cn = (...c) => c.filter(Boolean).join(" ");
-const Card = ({ className, children }) =>
-  <div className={cn("rounded-xl sm:rounded-2xl border bg-white shadow-sm", className)}>{children}</div>;
-const CardContent = ({ className, children }) =>
-  <div className={cn("p-3 sm:p-4", className)}>{children}</div>;
+const Card = ({ className, children }) => (
+  <div
+    className={cn(
+      "rounded-xl sm:rounded-2xl border bg-white dark:bg-[#1c1c1c] shadow-sm transition-colors duration-300",
+      className
+    )}
+  >
+    {children}
+  </div>
+);
+
+const CardContent = ({ className, children }) => (
+  <div className={cn("p-3 sm:p-4 dark:text-white", className)}>{children}</div>
+);
+
 
 function Button({ children, className, variant = "default", ...props }) {
   const base = "inline-flex items-center justify-center gap-2 rounded-lg sm:rounded-xl transition text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2 font-medium";
-  const variants = {
-    default: "bg-gray-900 text-white hover:bg-gray-800",
-    secondary: "bg-gray-100 text-gray-900 hover:bg-gray-200",
-    destructive: "bg-red-600 text-white hover:bg-red-700",
-    ghost: "bg-transparent hover:bg-gray-100",
-  };
+const variants = {
+  default: "bg-gray-900 text-white hover:bg-gray-800 dark:bg-white dark:text-black dark:hover:bg-gray-200",
+  secondary: "bg-gray-100 text-gray-900 hover:bg-gray-200 dark:bg-[#2a2a2a] dark:text-white dark:hover:bg-[#3a3a3a]",
+  destructive: "bg-red-600 text-white hover:bg-red-700",
+  ghost: "bg-transparent hover:bg-gray-100 dark:hover:bg-[#2a2a2a]",
+};
+
   return <button className={cn(base, variants[variant], className)} {...props}>{children}</button>;
 }
 
-const Input = ({ className, ...props }) =>
-  <input className={cn("w-full rounded-lg sm:rounded-xl border px-2 sm:px-3 py-1.5 sm:py-2 text-sm outline-none focus:ring-2 focus:ring-gray-300", className)} {...props} />;
+const Input = ({ className, ...props }) => (
+  <input
+    className={cn(
+      "w-full rounded-lg sm:rounded-xl border px-2 sm:px-3 py-1.5 sm:py-2 text-sm outline-none focus:ring-2 focus:ring-gray-300",
+      "bg-white text-gray-900 dark:bg-[#2a2a2a] dark:text-white dark:border-gray-700 dark:focus:ring-gray-600 transition-colors duration-300",
+      className
+    )}
+    {...props}
+  />
+);
+
 const Label = ({ className, children }) =>
   <label className={cn("text-xs sm:text-sm font-medium text-gray-800", className)}>{children}</label>;
 
@@ -263,7 +284,7 @@ function App() {
   if (user === null) return <AuthScreen />;
 
   return (
-  <div className="min-h-screen w-full bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100 transition-colors duration-300">
+<div className="min-h-screen w-full bg-gray-50 dark:bg-[#1c1c1c] text-gray-900 dark:bg-[#0d0d0d] dark:text-white transition-colors duration-300">
       <header className="sticky top-0 z-10 bg-white/80 backdrop-blur border-b">
         <div className="max-w-6xl mx-auto px-2 sm:px-4 py-2 sm:py-3 flex flex-col sm:flex-row items-center justify-between gap-2">
           <div className="flex items-center gap-2">
@@ -724,7 +745,7 @@ useEffect(() => {
             </div>
           </div>
 
-          <div className="border rounded-lg p-2 sm:p-3 bg-gray-50">
+          <div className="border rounded-lg p-2 sm:p-3 bg-gray-50 dark:bg-[#1c1c1c]">
             <div className="text-xs sm:text-sm text-gray-600">Tonnage total (Σ reps × poids)</div>
             <div className="text-lg sm:text-2xl font-semibold">{Math.round(totalTonnage)} kg</div>
           </div>
@@ -738,7 +759,7 @@ useEffect(() => {
       {/* Colonne droite (liste exos) */}
       <div className="lg:col-span-2 space-y-3 sm:space-y-4">
         {(templateId || exercises.length > 0) && (
-          <div className="border rounded-lg p-3 sm:p-4 bg-gray-50 mb-4">
+          <div className="border rounded-lg p-3 sm:p-4 bg-gray-50 dark:bg-[#1c1c1c] mb-4">
             <div className="text-sm sm:text-base font-medium text-gray-700 mb-2">
               ⏱️ Chrono de la séance :
               <span className="ml-1 font-mono font-semibold">
@@ -1058,7 +1079,7 @@ function SessionCard({ session, onDelete, onEdit }) {
         {/* Liste exercices */}
         <div className="space-y-3 sm:space-y-4">
           {local.exercises.map((ex, idx) => (
-            <div key={ex.id} className="border rounded-lg sm:rounded-xl p-2 sm:p-3 bg-gray-50">
+            <div key={ex.id} className="border rounded-lg sm:rounded-xl p-2 sm:p-3 bg-gray-50 dark:bg-[#1c1c1c]">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-2 gap-1">
                 <div className="font-medium text-sm sm:text-base">{ex.name}</div>
                 {local.exerciseDurations?.[ex.id] && (
@@ -1567,7 +1588,7 @@ function TemplatesManager({ user, allExercises, templates, onCreate, onDelete })
               {templates.map((t) => (
                 <div
                   key={t.id}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between p-2 rounded-xl border bg-gray-50 gap-2"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between p-2 rounded-xl border bg-gray-50 dark:bg-[#1c1c1c] gap-2"
                 >
                   <div className="flex-1">
                     <div className="font-medium text-sm sm:text-base">{t.name}</div>
@@ -1649,7 +1670,7 @@ function LastSession({ sessions }) {
 
               <div className="space-y-3 sm:space-y-4">
 {last.exercises.map((ex) => (
-  <div key={ex.id} className="border rounded-xl p-2 sm:p-3 bg-gray-50">
+  <div key={ex.id} className="border rounded-xl p-2 sm:p-3 bg-gray-50 dark:bg-[#1c1c1c]">
     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-2">
       <div className="font-medium text-sm sm:text-base">{ex.name}</div>
       <div className="flex flex-col sm:items-end">
@@ -2019,7 +2040,7 @@ const toggle = () => {
   const seconds = timer.seconds % 60;
 
   return (
-    <div className="mt-3 p-3 rounded-lg bg-gray-50 border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+    <div className="mt-3 p-3 rounded-lg bg-gray-50 dark:bg-[#1c1c1c] border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
       <div className="text-sm text-gray-700">
         Chrono de l’exercice :
         <span className="ml-1 font-mono font-semibold">
