@@ -17,6 +17,8 @@ import {
 // ───────────────────────────────────────────────────────────────
 // Minimal UI responsive
 // ───────────────────────────────────────────────────────────────
+const SESSION_DRAFT_KEY = "workout-tracker-current-session";
+const TEMPLATE_DRAFT_KEY = "workout-tracker-template-draft";
 const cn = (...c) => c.filter(Boolean).join(" ");
 const Card = ({ className, children }) =>
   <div className={cn("rounded-xl sm:rounded-2xl border bg-white shadow-sm", className)}>{children}</div>;
@@ -445,6 +447,23 @@ function SessionForm({ user, onSavedLocally, customExercises = [], onAddCustomEx
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [timers, setTimers] = useState({});
   const [globalTimer, setGlobalTimer] = useState({ running: false, seconds: 0 });
+  
+      // 🔄 Restaure la séance sauvegardée localement si elle existe
+    useEffect(() => {
+      const raw = localStorage.getItem(SESSION_DRAFT_KEY);
+      if (!raw) return;
+      try {
+        const parsed = JSON.parse(raw);
+        if (parsed.date) setDate(parsed.date);
+        if (parsed.exercises) setExercises(parsed.exercises);
+        if (parsed.templateId) setTemplateId(parsed.templateId);
+        if (parsed.timers) setTimers(parsed.timers);
+        if (parsed.globalTimer) setGlobalTimer(parsed.globalTimer);
+        console.log("⚡ Séance restaurée depuis le cache local !");
+      } catch (e) {
+        console.warn("Impossible de charger la séance en cache:", e);
+      }
+    }, []);
 
   useEffect(() => {
     let interval = null;
@@ -532,7 +551,21 @@ function SessionForm({ user, onSavedLocally, customExercises = [], onAddCustomEx
 
     onSavedLocally?.(session);
     setExercises([]);
+    localStorage.removeItem(SESSION_DRAFT_KEY); // 🧹 nettoie le cache après enregistrement
+
   };
+
+    // Sauvegarde automatique dans localStorage
+  useEffect(() => {
+    const payload = {
+      date,
+      exercises,
+      templateId,
+      timers,
+      globalTimer,
+    };
+    localStorage.setItem(SESSION_DRAFT_KEY, JSON.stringify(payload));
+  }, [date, exercises, templateId, timers, globalTimer]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4">
@@ -1262,6 +1295,21 @@ function TemplatesManager({ user, allExercises, templates, onCreate, onDelete })
   const [selected, setSelected] = useState([]);
   const [editingId, setEditingId] = useState(null);
 
+    // 🔄 Restaure le brouillon de séance pré-créée si disponible
+  useEffect(() => {
+    const raw = localStorage.getItem(TEMPLATE_DRAFT_KEY);
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed.name) setName(parsed.name);
+      if (parsed.selected) setSelected(parsed.selected);
+      if (parsed.editingId) setEditingId(parsed.editingId);
+      console.log("⚡ Brouillon de séance pré-créée restauré !");
+    } catch (e) {
+      console.warn("Erreur de restauration du template :", e);
+    }
+  }, []);
+
   const toggle = (ex) => {
     setSelected((cur) =>
       cur.includes(ex) ? cur.filter((x) => x !== ex) : [...cur, ex]
@@ -1289,6 +1337,8 @@ function TemplatesManager({ user, allExercises, templates, onCreate, onDelete })
     setName("");
     setSelected([]);
     setEditingId(null);
+    localStorage.removeItem(TEMPLATE_DRAFT_KEY); // 🧹 Nettoie le cache après enregistrement
+
   };
 
   const startEdit = (tpl) => {
@@ -1296,6 +1346,12 @@ function TemplatesManager({ user, allExercises, templates, onCreate, onDelete })
     setSelected(tpl.exercises);
     setEditingId(tpl.id);
   };
+
+    // 💾 Sauvegarde automatique du brouillon localement
+  useEffect(() => {
+    const payload = { name, selected, editingId };
+    localStorage.setItem(TEMPLATE_DRAFT_KEY, JSON.stringify(payload));
+  }, [name, selected, editingId]);
 
   return (
     <div className="space-y-4 sm:space-y-6">
