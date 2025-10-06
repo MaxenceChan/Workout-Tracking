@@ -329,7 +329,10 @@ function App() {
 
   return (
 <div className="min-h-screen w-full bg-gray-50 dark:bg-[#1c1c1c] text-gray-900 dark:bg-[#0d0d0d] dark:text-white transition-colors duration-300">
-<header className="sticky top-0 z-10 bg-gradient-to-r from-emerald-600 via-green-600 to-lime-500 dark:from-emerald-700 dark:via-green-700 dark:to-lime-600 text-white shadow-lg backdrop-blur-sm border-b border-emerald-700/40">
+<header className="sticky top-0 z-10 
+  bg-white dark:bg-[#007B5E]
+  text-gray-900 dark:text-white 
+  shadow-md border-b border-gray-200 dark:border-[#00634A] transition-colors duration-300">
   <div className="max-w-6xl mx-auto px-3 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row items-center justify-between gap-2">
     <div className="flex items-center gap-2">
       <Dumbbell className="h-5 w-5 text-white" />
