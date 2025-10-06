@@ -1,5 +1,6 @@
 // App.jsx (Bloc 1)
 import React, { useMemo, useState, useEffect, useContext, createContext } from "react";
+import html2canvas from "html2canvas";
 // ───────────────────────────────────────────────
 // Thème clair / sombre (global)
 // ───────────────────────────────────────────────
@@ -27,7 +28,7 @@ function useTheme() {
 }
 
 import { v4 as uuidv4 } from "uuid";
-import { Trash2, Plus, BarChart3, Save, Edit3, Dumbbell, LogOut } from "lucide-react";
+import { Trash2, Plus, BarChart3, Save, Edit3, Dumbbell, LogOut, Share2 } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer,
   BarChart, Bar, PieChart, Pie, Cell, Legend
@@ -1060,8 +1061,35 @@ function SessionCard({ session, onDelete, onEdit }) {
     await onEdit(local);
   };
 
+  // 📸 Fonction d'export en image de la carte séance
+const exportSessionAsImage = async (session) => {
+  try {
+    const card = document.getElementById(`session-${session.id}`);
+    if (!card) {
+      alert("Impossible de trouver la séance à exporter.");
+      return;
+    }
+
+    // Capture du rendu visuel (respecte le mode sombre)
+    const canvas = await html2canvas(card, {
+      scale: 2,
+      backgroundColor:
+        document.documentElement.classList.contains("dark") ? "#0d0d0d" : "#ffffff",
+      useCORS: true,
+    });
+
+    const link = document.createElement("a");
+    link.download = `seance-${session.type || "Libre"}-${session.date}.png`;
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+  } catch (e) {
+    console.error("Erreur export :", e);
+    alert("❌ Impossible d’exporter la séance.");
+  }
+};
+
   return (
-    <Card>
+  <Card id={`session-${local.id}`}>
       <CardContent className="p-3 sm:p-4 space-y-2 sm:space-y-3">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -1113,6 +1141,14 @@ function SessionCard({ session, onDelete, onEdit }) {
             >
               <Trash2 className="h-4 w-4 mr-1" /> Supprimer
             </Button>
+            <Button
+              variant="secondary"
+              onClick={() => exportSessionAsImage(local)}
+              title="Partager ou sauvegarder la séance"
+            >
+              <Share2 className="h-4 w-4 mr-1" /> Partager
+            </Button>
+
             {editing && (
               <Button
                 variant="secondary"
