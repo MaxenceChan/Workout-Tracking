@@ -1064,14 +1064,15 @@ function SessionCard({ session, onDelete, onEdit }) {
   // 📸 Fonction d'export en image de la carte séance
 const exportSessionAsImage = async (session) => {
   try {
-    // Recherche via l’attribut data-session-id (plus fiable)
-    const card = document.querySelector(`[data-session-id="${session.id}"]`);
+    const element = document.getElementById(`session-${session.id || session.localId || session.date}`);
+    const fallback = document.querySelector(`[data-session-id="${session.id || session.localId}"]`);
+    const card = element || fallback;
+
     if (!card) {
       alert("Impossible de trouver la séance à exporter.");
       return;
     }
 
-    // Capture fidèle (respecte le mode sombre)
     const canvas = await html2canvas(card, {
       scale: 2,
       backgroundColor: document.documentElement.classList.contains("dark")
@@ -1080,9 +1081,8 @@ const exportSessionAsImage = async (session) => {
       useCORS: true,
     });
 
-    // Téléchargement
     const link = document.createElement("a");
-    link.download = `seance-${session.type || "Libre"}-${session.date}.png`;
+    link.download = `seance-${session.type || "Libre"}-${session.date || "sans-date"}.png`;
     link.href = canvas.toDataURL("image/png");
     link.click();
   } catch (e) {
@@ -1091,9 +1091,8 @@ const exportSessionAsImage = async (session) => {
   }
 };
 
-
   return (
-<Card id={`session-${session.id || local.id}`} data-session-id={session.id}>
+<Card id={`session-${local.id}`} data-session-id={local.id}>
       <CardContent className="p-3 sm:p-4 space-y-2 sm:space-y-3">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
