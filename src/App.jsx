@@ -452,50 +452,53 @@ function SessionForm({ user, onSavedLocally, customExercises = [], onAddCustomEx
     seconds: 0,
   });
   
-      // 🔄 Restaure la séance sauvegardée localement si elle existe
-    useEffect(() => {
-      const raw = localStorage.getItem(SESSION_DRAFT_KEY);
-      if (!raw) return;
-      try {
-        const parsed = JSON.parse(raw);
-        if (parsed.date) setDate(parsed.date);
-        if (parsed.exercises) setExercises(parsed.exercises);
-        if (parsed.templateId) setTemplateId(parsed.templateId);
-        if (parsed.timers) setTimers(parsed.timers);
-        if (parsed.globalTimer) setGlobalTimer(parsed.globalTimer);
-        const savedTimers = localStorage.getItem("workout-tracker-exercise-timers");
-        if (savedTimers) {
-          const parsed = JSON.parse(savedTimers);
-          const updated = {};
-          Object.entries(parsed).forEach(([exId, t]) => {
-            if (t.running && t.startTime) {
-              const elapsed = Math.floor((Date.now() - t.startTime) / 1000);
-              updated[exId] = { ...t, seconds: elapsed };
-            } else {
-              updated[exId] = t;
-            }
-          });
-          setTimers(updated);
+// 🔄 Restaure la séance sauvegardée localement si elle existe
+useEffect(() => {
+  try {
+    const raw = localStorage.getItem(SESSION_DRAFT_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed.date) setDate(parsed.date);
+      if (parsed.exercises) setExercises(parsed.exercises);
+      if (parsed.templateId) setTemplateId(parsed.templateId);
+      if (parsed.timers) setTimers(parsed.timers);
+      if (parsed.globalTimer) setGlobalTimer(parsed.globalTimer);
+    }
+
+    // ✅ Restaure les chronos d'exercices avec recalcul du temps écoulé
+    const savedTimers = localStorage.getItem("workout-tracker-exercise-timers");
+    if (savedTimers) {
+      const parsed = JSON.parse(savedTimers);
+      const updated = {};
+      Object.entries(parsed).forEach(([exId, t]) => {
+        if (t.running && t.startTime) {
+          const elapsed = Math.floor((Date.now() - t.startTime) / 1000);
+          updated[exId] = { ...t, seconds: elapsed };
+        } else {
+          updated[exId] = t;
         }
-        if (savedGlobalTimer) {
-          const parsedTimer = JSON.parse(savedGlobalTimer);
-          // Si le chrono était en cours, on recalcule le temps écoulé
-          if (parsedTimer.running && parsedTimer.startTime) {
-            const elapsed = Math.floor((Date.now() - parsedTimer.startTime) / 1000);
-            setGlobalTimer({
-              ...parsedTimer,
-              seconds: elapsed,
-            });
-          } else {
-            setGlobalTimer(parsedTimer);
-          }
-        }
-        console.log("⚡ Séance restaurée depuis le cache local !");
-        const savedGlobalTimer = localStorage.getItem("workout-tracker-global-timer");
-      } catch (e) {
-        console.warn("Impossible de charger la séance en cache:", e);
+      });
+      setTimers(updated);
+    }
+
+    // ✅ Restaure le chrono global correctement
+    const savedGlobalTimer = localStorage.getItem("workout-tracker-global-timer");
+    if (savedGlobalTimer) {
+      const parsedTimer = JSON.parse(savedGlobalTimer);
+      if (parsedTimer.running && parsedTimer.startTime) {
+        const elapsed = Math.floor((Date.now() - parsedTimer.startTime) / 1000);
+        setGlobalTimer({ ...parsedTimer, seconds: elapsed });
+      } else {
+        setGlobalTimer(parsedTimer);
       }
-    }, []);
+    }
+
+    console.log("⚡ Séance et chronos restaurés depuis le cache local !");
+  } catch (e) {
+    console.warn("Impossible de charger la séance en cache:", e);
+  }
+}, []);
+
 
   useEffect(() => {
   localStorage.setItem("workout-tracker-exercise-timers", JSON.stringify(timers));
@@ -710,14 +713,28 @@ function SessionForm({ user, onSavedLocally, customExercises = [], onAddCustomEx
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <Button
-                variant={globalTimer.running ? "destructive" : "secondary"}
-                onClick={() =>
-                  setGlobalTimer((cur) => ({ ...cur, running: !cur.running }))
-                }
-              >
-                {globalTimer.running ? "Mettre pause sur le chrono" : "Lancer le chrono"}
-              </Button>
+<Button
+  variant={globalTimer.running ? "destructive" : "secondary"}
+  onClick={() => {
+    setGlobalTimer((cur) => {
+      if (!cur.running) {
+        // ▶️ On relance → recalcule un nouveau startTime
+        return {
+          ...cur,
+          running: true,
+          startTime: Date.now() - cur.seconds * 1000, // ✅ reprend là où on s'était arrêté
+        };
+      } else {
+        // ⏸ On met en pause → on fige juste les secondes
+        const elapsed = Math.floor((Date.now() - cur.startTime) / 1000);
+        return { ...cur, running: false, seconds: elapsed };
+      }
+    });
+  }}
+>
+  {globalTimer.running ? "Mettre pause sur le chrono" : "Lancer le chrono"}
+</Button>
+
               <Button
                 variant="ghost"
                 onClick={() => setGlobalTimer({ running: false, seconds: 0 })}
@@ -1925,33 +1942,35 @@ function Chrono({ exId, timers, setTimers }) {
   }, [timer.running, timer.startTime, exId, setTimers]);
 
   // ▶️ / ⏸️ Démarre ou met en pause
-  const toggle = () => {
-    setTimers((cur) => {
-      const existing = cur[exId] || { running: false, seconds: 0, startTime: null };
-      if (!existing.running) {
-        // Lance le chrono
-        return {
-          ...cur,
-          [exId]: {
-            ...existing,
-            running: true,
-            startTime: existing.startTime || Date.now(),
-          },
-        };
-      } else {
-        // Met en pause
-        const elapsed = Math.floor((Date.now() - existing.startTime) / 1000);
-        return {
-          ...cur,
-          [exId]: {
-            running: false,
-            seconds: elapsed,
-            startTime: existing.startTime,
-          },
-        };
-      }
-    });
-  };
+const toggle = () => {
+  setTimers((cur) => {
+    const existing = cur[exId] || { running: false, seconds: 0, startTime: null };
+
+    if (!existing.running) {
+      // ▶️ Reprise
+      return {
+        ...cur,
+        [exId]: {
+          ...existing,
+          running: true,
+          startTime: Date.now() - existing.seconds * 1000, // ✅ reprend là où on s'était arrêté
+        },
+      };
+    } else {
+      // ⏸ Pause
+      const elapsed = Math.floor((Date.now() - existing.startTime) / 1000);
+      return {
+        ...cur,
+        [exId]: {
+          ...existing,
+          running: false,
+          seconds: elapsed,
+        },
+      };
+    }
+  });
+};
+
 
   // 🔁 Réinitialise le chrono
   const reset = () => {
