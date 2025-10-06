@@ -63,16 +63,36 @@ const CardContent = ({ className, children }) => (
 
 
 function Button({ children, className, variant = "default", ...props }) {
-  const base = "inline-flex items-center justify-center gap-2 rounded-lg sm:rounded-xl transition text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2 font-medium";
-const variants = {
-  default: "bg-gray-900 text-white hover:bg-gray-800 dark:bg-white dark:text-black dark:hover:bg-gray-200",
-  secondary: "bg-gray-100 text-gray-900 hover:bg-gray-200 dark:bg-[#2a2a2a] dark:text-white dark:hover:bg-[#3a3a3a]",
-  destructive: "bg-red-600 text-white hover:bg-red-700",
-  ghost: "bg-transparent hover:bg-gray-100 dark:hover:bg-[#2a2a2a]",
-};
+  const base =
+    "inline-flex items-center justify-center gap-2 rounded-lg sm:rounded-xl transition-colors duration-300 text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2 font-medium";
 
-  return <button className={cn(base, variants[variant], className)} {...props}>{children}</button>;
+  const variants = {
+    // ✅ Boutons principaux : noir en mode sombre, gris foncé au survol
+    default:
+      "bg-gray-900 text-white hover:bg-gray-800 dark:bg-[#000000] dark:text-white dark:hover:bg-[#222222]",
+
+    // ✅ Boutons secondaires : gris clair en clair, gris foncé en sombre
+    secondary:
+      "bg-gray-100 text-gray-900 hover:bg-gray-200 dark:bg-[#1e1e1e] dark:text-white dark:hover:bg-[#2a2a2a]",
+
+    // ⚠️ Boutons destructifs : rouge inchangé
+    destructive: "bg-red-600 text-white hover:bg-red-700",
+
+    // 👻 Boutons fantômes : fond transparent
+    ghost:
+      "bg-transparent hover:bg-gray-100 dark:text-white dark:hover:bg-[#2a2a2a]",
+  };
+
+  return (
+    <button
+      className={cn(base, variants[variant], className)}
+      {...props}
+    >
+      {children}
+    </button>
+  );
 }
+
 
 const Input = ({ className, ...props }) => (
   <input
