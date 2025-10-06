@@ -1092,24 +1092,6 @@ const exportSessionAsImage = async (session) => {
 };
 
 
-    // Capture du rendu visuel (respecte le mode sombre)
-    const canvas = await html2canvas(card, {
-      scale: 2,
-      backgroundColor:
-        document.documentElement.classList.contains("dark") ? "#0d0d0d" : "#ffffff",
-      useCORS: true,
-    });
-
-    const link = document.createElement("a");
-    link.download = `seance-${session.type || "Libre"}-${session.date}.png`;
-    link.href = canvas.toDataURL("image/png");
-    link.click();
-  } catch (e) {
-    console.error("Erreur export :", e);
-    alert("❌ Impossible d’exporter la séance.");
-  }
-};
-
   return (
 <Card id={`session-${session.id || local.id}`} data-session-id={session.id}>
       <CardContent className="p-3 sm:p-4 space-y-2 sm:space-y-3">
