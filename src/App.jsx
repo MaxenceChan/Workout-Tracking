@@ -1071,6 +1071,7 @@ const exportSessionAsImage = async () => {
       return;
     }
 
+    // Capture la card complète avec le bon thème
     const canvas = await html2canvas(cardRef.current, {
       scale: 3,
       useCORS: true,
@@ -1079,28 +1080,36 @@ const exportSessionAsImage = async () => {
     });
 
     const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
-    const file = new File([blob], `seance-${local.type || "Libre"}-${local.date || "sans-date"}.png`, {
-      type: "image/png",
-    });
+    const file = new File(
+      [blob],
+      `seance-${local.type || "Libre"}-${local.date || "sans-date"}.png`,
+      { type: "image/png" }
+    );
 
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    // 📱 Détection mobile simple
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+    if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
+      // ✅ Partage natif sur mobile
       await navigator.share({
         title: `🏋️ Ma séance ${local.type}`,
         text: `Voici ma séance ${local.type} sur Workout Tracker 💪`,
         files: [file],
       });
+      console.log("✅ Partage réussi via le menu mobile !");
     } else {
+      // 💻 Téléchargement direct sur PC
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
       link.download = file.name;
       link.click();
+      alert("💾 Image téléchargée sur ton ordinateur ✅");
     }
   } catch (e) {
     console.error("Erreur export :", e);
-    alert("❌ Impossible de partager la séance (voir console).");
+    alert("❌ Impossible d’exporter ou de partager la séance (voir console).");
   }
 };
-
 const cardRef = React.useRef(null);
 
   return (
