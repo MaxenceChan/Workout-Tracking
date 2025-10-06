@@ -2,4 +2,25 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─────────── DARK MODE GLOBAL TEXT FIX ─────────── */
+html.dark,
+html.dark body {
+  color: #ffffff !important; /* ✅ texte global en blanc */
+}
+
+html.dark input,
+html.dark select,
+html.dark textarea {
+  color: #ffffff !important;
+  background-color: #2a2a2a !important;
+}
+
+html.dark button {
+  color: #ffffff !important;
+}
+
+html.dark ::placeholder {
+  color: #b0b0b0 !important;
+}
+
 * { box-sizing: border-box; }
