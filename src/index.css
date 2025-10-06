@@ -23,4 +23,26 @@ html.dark ::placeholder {
   color: #b0b0b0 !important;
 }
 
+/* ─────────── Amélioration de la lisibilité du texte en mode sombre ─────────── */
+html.dark {
+  --text-muted: #d1d5db;       /* gris clair pour petits textes */
+  --text-muted-strong: #e5e7eb; /* presque blanc */
+}
+
+html.dark small,
+html.dark .text-gray-500,
+html.dark .text-gray-600,
+html.dark .text-sm,
+html.dark .text-xs {
+  color: var(--text-muted) !important;
+}
+
+html.dark th,
+html.dark td,
+html.dark label,
+html.dark span,
+html.dark p {
+  color: var(--text-muted-strong);
+}
+
 * { box-sizing: border-box; }
