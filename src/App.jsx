@@ -278,8 +278,7 @@ function App() {
         saveDataFor(uid, hydrated);
       });
     });
-    return () =
-      > {
+    return () => {
       unsubAuth?.(); unsubscribeSessions?.(); unsubscribeTemplates?.();
     };
   }, []);
