@@ -463,11 +463,43 @@ function SessionForm({ user, onSavedLocally, customExercises = [], onAddCustomEx
         if (parsed.templateId) setTemplateId(parsed.templateId);
         if (parsed.timers) setTimers(parsed.timers);
         if (parsed.globalTimer) setGlobalTimer(parsed.globalTimer);
+        const savedTimers = localStorage.getItem("workout-tracker-exercise-timers");
+        if (savedTimers) {
+          const parsed = JSON.parse(savedTimers);
+          const updated = {};
+          Object.entries(parsed).forEach(([exId, t]) => {
+            if (t.running && t.startTime) {
+              const elapsed = Math.floor((Date.now() - t.startTime) / 1000);
+              updated[exId] = { ...t, seconds: elapsed };
+            } else {
+              updated[exId] = t;
+            }
+          });
+          setTimers(updated);
+        }
+        if (savedGlobalTimer) {
+          const parsedTimer = JSON.parse(savedGlobalTimer);
+          // Si le chrono était en cours, on recalcule le temps écoulé
+          if (parsedTimer.running && parsedTimer.startTime) {
+            const elapsed = Math.floor((Date.now() - parsedTimer.startTime) / 1000);
+            setGlobalTimer({
+              ...parsedTimer,
+              seconds: elapsed,
+            });
+          } else {
+            setGlobalTimer(parsedTimer);
+          }
+        }
         console.log("⚡ Séance restaurée depuis le cache local !");
+        const savedGlobalTimer = localStorage.getItem("workout-tracker-global-timer");
       } catch (e) {
         console.warn("Impossible de charger la séance en cache:", e);
       }
     }, []);
+
+  useEffect(() => {
+  localStorage.setItem("workout-tracker-exercise-timers", JSON.stringify(timers));
+}, [timers]);
 
   // 🔁 Chrono global basé sur le temps réel
   useEffect(() => {
@@ -481,6 +513,13 @@ function SessionForm({ user, onSavedLocally, customExercises = [], onAddCustomEx
     return () => clearInterval(interval);
   }, [globalTimer.running, globalTimer.startTime]);
 
+    // 💾 Sauvegarde automatique du chrono global dans le cache
+  useEffect(() => {
+    localStorage.setItem(
+      "workout-tracker-global-timer",
+      JSON.stringify(globalTimer)
+    );
+  }, [globalTimer]);
 
   const availableExercises = useMemo(() => {
     const tpl = sessionTemplates.find((t) => t.id === templateId);
