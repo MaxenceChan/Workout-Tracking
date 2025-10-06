@@ -1902,9 +1902,9 @@ function MonthlyCalendar({ sessions }) {
             const hasSession = sessionDays.has(dateStr);
             const isToday = dateStr === todayStr;
 
-            let bg = "bg-gray-100 text-gray-600"; // défaut
-            if (hasSession) bg = "bg-green-300 text-white"; // vert clair
-            if (hasSession && isToday) bg = "bg-green-600 text-white"; // vert foncé si aujourd'hui
+            let bg = "bg-gray-100 text-gray-600 dark:bg-black dark:text-gray-300"; // ⬅️ noir en mode sombre
+            if (hasSession) bg = "bg-green-400 text-white dark:bg-green-500"; // séance
+            if (hasSession && isToday) bg = "bg-green-600 text-white"; // séance du jour
 
             return (
               <div
