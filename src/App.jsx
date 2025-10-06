@@ -1739,10 +1739,38 @@ function LastSession({ sessions }) {
   const [t, setT] = useState(allTypes[0] || "");
   const last = useMemo(() => getLastSessionByType(sessions, t), [sessions, t]);
   const tonnage = useMemo(() => (last ? computeSessionTonnage(last) : 0), [last]);
+  const cardRef = React.useRef(null);
+  const exportLastSession = async () => {
+  try {
+    if (!cardRef.current) {
+      alert("Impossible de trouver la dernière séance à exporter.");
+      return;
+    }
+
+    // Capture visuelle fidèle au thème
+    const canvas = await html2canvas(cardRef.current, {
+      scale: 3,
+      useCORS: true,
+      backgroundColor: getComputedStyle(document.body).backgroundColor,
+      windowWidth: document.documentElement.scrollWidth,
+      windowHeight: document.documentElement.scrollHeight,
+      logging: false,
+    });
+
+    const imageData = canvas.toDataURL("image/png");
+    const link = document.createElement("a");
+    link.href = imageData;
+    link.download = `derniere-seance-${t || "Libre"}-${last?.date || "sans-date"}.png`;
+    link.click();
+  } catch (e) {
+    console.error("Erreur export :", e);
+    alert("❌ Impossible d’exporter la dernière séance (voir console).");
+  }
+};
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <Card>
+    <Card ref={cardRef}>
         <CardContent className="space-y-3 sm:space-y-4">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
             <h3 className="font-semibold text-sm sm:text-lg">Dernière séance – {t}</h3>
@@ -1758,6 +1786,14 @@ function LastSession({ sessions }) {
                 </Button>
               ))}
             </div>
+            <Button
+  variant="secondary"
+  onClick={exportLastSession}
+  className="text-xs sm:text-sm"
+>
+  <Share2 className="h-4 w-4 mr-1" /> Partager
+</Button>
+
           </div>
 
           {!last ? (
