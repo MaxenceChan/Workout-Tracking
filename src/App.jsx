@@ -1071,28 +1071,33 @@ const exportSessionAsImage = async () => {
       return;
     }
 
-    // Scroll au bon endroit pour éviter que la capture soit coupée
-    cardRef.current.scrollIntoView({ behavior: "instant", block: "center" });
-
-    // Capture fidèle du style clair/sombre
     const canvas = await html2canvas(cardRef.current, {
       scale: 3,
       useCORS: true,
       backgroundColor: getComputedStyle(document.body).backgroundColor,
-      windowWidth: document.documentElement.scrollWidth,
-      windowHeight: document.documentElement.scrollHeight,
       logging: false,
     });
 
-    const imageData = canvas.toDataURL("image/png");
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+    const file = new File([blob], `seance-${local.type || "Libre"}-${local.date || "sans-date"}.png`, {
+      type: "image/png",
+    });
 
-    const link = document.createElement("a");
-    link.href = imageData;
-    link.download = `seance-${local.type || "Libre"}-${local.date || "sans-date"}.png`;
-    link.click();
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({
+        title: `🏋️ Ma séance ${local.type}`,
+        text: `Voici ma séance ${local.type} sur Workout Tracker 💪`,
+        files: [file],
+      });
+    } else {
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = file.name;
+      link.click();
+    }
   } catch (e) {
     console.error("Erreur export :", e);
-    alert("❌ Impossible d’exporter la séance (voir console).");
+    alert("❌ Impossible de partager la séance (voir console).");
   }
 };
 
