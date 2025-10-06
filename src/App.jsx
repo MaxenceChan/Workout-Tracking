@@ -329,22 +329,28 @@ function App() {
 
   return (
 <div className="min-h-screen w-full bg-gray-50 dark:bg-[#1c1c1c] text-gray-900 dark:bg-[#0d0d0d] dark:text-white transition-colors duration-300">
-      <header className="sticky top-0 z-10 bg-white/80 backdrop-blur border-b">
-        <div className="max-w-6xl mx-auto px-2 sm:px-4 py-2 sm:py-3 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <Dumbbell className="h-5 w-5" />
-            <h1 className="text-lg sm:text-xl md:text-2xl font-semibold">Workout Tracker</h1>
-            <div className="hidden sm:block text-xs text-gray-400">UID: {user?.id}</div>
-          </div>
+<header className="sticky top-0 z-10 bg-gradient-to-r from-emerald-600 via-green-600 to-lime-500 dark:from-emerald-700 dark:via-green-700 dark:to-lime-600 text-white shadow-lg backdrop-blur-sm border-b border-emerald-700/40">
+  <div className="max-w-6xl mx-auto px-3 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+    <div className="flex items-center gap-2">
+      <Dumbbell className="h-5 w-5 text-white" />
+      <h1 className="text-lg sm:text-xl md:text-2xl font-bold tracking-tight">Workout Tracker</h1>
+      <div className="hidden sm:block text-xs text-white/70">UID: {user?.id}</div>
+    </div>
+
     <div className="flex items-center gap-3">
-      <div className="text-xs sm:text-sm text-gray-600 truncate">{user.email}</div>
+      <div className="text-xs sm:text-sm text-white/90 truncate">{user.email}</div>
       <ThemeToggleButton />
-      <Button variant="ghost" onClick={() => signOutUser()} title="Se déconnecter">
+      <Button
+        variant="ghost"
+        onClick={() => signOutUser()}
+        title="Se déconnecter"
+        className="text-white hover:bg-white/20"
+      >
         <LogOut className="h-4 w-4" /> Déconnexion
       </Button>
     </div>
-        </div>
-      </header>
+  </div>
+</header>
 
       <main className="max-w-6xl mx-auto p-2 sm:p-4">
         <Tabs value={tab} onValueChange={setTab}>
