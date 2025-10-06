@@ -100,20 +100,36 @@ const Label = ({ className, children }) => (
 const TabsCtx = createContext(null);
 const Tabs = ({ value, onValueChange, children }) =>
   <TabsCtx.Provider value={{ value, onValueChange }}>{children}</TabsCtx.Provider>;
-const TabsList = ({ className, children }) =>
-  <div className={cn("rounded-lg sm:rounded-xl bg-gray-100 p-1 flex flex-wrap sm:flex-nowrap gap-1", className)}>{children}</div>;
+const TabsList = ({ className, children }) => (
+  <div
+    className={cn(
+      "rounded-lg sm:rounded-xl p-1 flex flex-wrap sm:flex-nowrap gap-1 transition-colors duration-300",
+      "bg-gray-100 dark:bg-[#111111]",
+      className
+    )}
+  >
+    {children}
+  </div>
+);
+
 function TabsTrigger({ value, children }) {
-  const ctx = useContext(TabsCtx); const active = ctx?.value === value;
+  const ctx = useContext(TabsCtx);
+  const active = ctx?.value === value;
   return (
     <button
       onClick={() => ctx?.onValueChange?.(value)}
-      className={cn("px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm rounded-md sm:rounded-lg",
-        active ? "bg-white shadow font-semibold" : "text-gray-600 hover:bg-white/60")}
+      className={cn(
+        "px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm rounded-md sm:rounded-lg font-medium transition-colors duration-300",
+        active
+          ? "bg-white text-gray-900 dark:bg-black dark:text-white shadow"
+          : "text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-[#222]"
+      )}
     >
       {children}
     </button>
   );
 }
+
 const TabsContent = ({ value, className, children }) => {
   const ctx = useContext(TabsCtx); if (ctx?.value !== value) return null;
   return <div className={className}>{children}</div>;
