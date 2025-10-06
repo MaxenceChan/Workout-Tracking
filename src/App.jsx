@@ -331,8 +331,32 @@ function App() {
 <div className="min-h-screen w-full bg-gray-50 dark:bg-[#1c1c1c] text-gray-900 dark:bg-[#0d0d0d] dark:text-white transition-colors duration-300">
 <header className="sticky top-0 z-10 
   bg-white dark:bg-[#007B5E]
-  text-gray-900 dark:text-white 
-  shadow-md border-b border-gray-200 dark:border-[#00634A] transition-colors duration-300">
+  text-black dark:text-white 
+  shadow-md border-b border-gray-200 dark:border-[#00634A] 
+  transition-colors duration-300">
+  
+  <div className="max-w-6xl mx-auto px-3 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+    <div className="flex items-center gap-2">
+      <Dumbbell className="h-5 w-5 text-current" />
+      <h1 className="text-lg sm:text-xl md:text-2xl font-bold tracking-tight">Workout Tracker</h1>
+      <div className="hidden sm:block text-xs text-black/60 dark:text-white/70">UID: {user?.id}</div>
+    </div>
+
+    <div className="flex items-center gap-3">
+      <div className="text-xs sm:text-sm text-black dark:text-white truncate">{user.email}</div>
+      <ThemeToggleButton />
+      <Button
+        variant="ghost"
+        onClick={() => signOutUser()}
+        title="Se déconnecter"
+        className="text-black dark:text-white hover:bg-black/5 dark:hover:bg-white/20"
+      >
+        <LogOut className="h-4 w-4" /> Déconnexion
+      </Button>
+    </div>
+  </div>
+</header>
+
   <div className="max-w-6xl mx-auto px-3 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row items-center justify-between gap-2">
     <div className="flex items-center gap-2">
       <Dumbbell className="h-5 w-5 text-white" />
