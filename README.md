@@ -108,13 +108,14 @@ Tableau de bord interactif avec :
 ---
 
 ## 📂 Architecture du projet (simplifiée)
+```text
 src/
 ├── App.jsx # Application principale
 ├── firebase.js # Configuration Firebase
 ├── components/ # Composants UI & analytics
 ├── hooks/ # Hooks personnalisés
 └── utils/ # Fonctions de calcul & helpers
-
+```
 ---
 
 ## 📈 Objectifs du projet
