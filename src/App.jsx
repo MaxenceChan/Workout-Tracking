@@ -1442,15 +1442,30 @@ function Analytics({ sessions }) {
                   <XAxis dataKey="date" />
                   <YAxis />
                   <Tooltip
-                    formatter={(v) => [`${v} kg`, "Tonnage"]}
-                    contentStyle={{
-                      backgroundColor: "#ffffff",
-                      border: "1px solid #e5e7eb",
-                      borderRadius: "8px",
-                      color: "#000000",
+                    content={({ active, payload, label }) => {
+                      if (!active || !payload || !payload.length) return null;
+                  
+                      const value = payload[0].value;
+                  
+                      return (
+                        <div
+                          style={{
+                            backgroundColor: "#ffffff",
+                            border: "1px solid #e5e7eb",
+                            borderRadius: "8px",
+                            padding: "8px 10px",
+                            color: "#000000",
+                          }}
+                        >
+                          <div style={{ fontWeight: 700, marginBottom: 4 }}>
+                            {label}
+                          </div>
+                          <div style={{ fontSize: 14 }}>
+                            Tonnage : <strong>{value} kg</strong>
+                          </div>
+                        </div>
+                      );
                     }}
-                    labelStyle={{ color: "#000000", fontWeight: "bold" }}
-                    itemStyle={{ color: "#000000" }}
                   />
                   <Line type="monotone" dataKey="intensity" strokeWidth={2} dot />
                 </LineChart>
@@ -1470,15 +1485,30 @@ function Analytics({ sessions }) {
                   <XAxis dataKey="weekLabel" />
                   <YAxis allowDecimals={false} />
                   <Tooltip
-                    formatter={(v) => [`${v} kg`, "Tonnage"]}
-                    contentStyle={{
-                      backgroundColor: "#ffffff",
-                      border: "1px solid #e5e7eb",
-                      borderRadius: "8px",
-                      color: "#000000",
+                    content={({ active, payload, label }) => {
+                      if (!active || !payload || !payload.length) return null;
+                  
+                      const value = payload[0].value;
+                  
+                      return (
+                        <div
+                          style={{
+                            backgroundColor: "#ffffff",
+                            border: "1px solid #e5e7eb",
+                            borderRadius: "8px",
+                            padding: "8px 10px",
+                            color: "#000000",
+                          }}
+                        >
+                          <div style={{ fontWeight: 700, marginBottom: 4 }}>
+                            {label}
+                          </div>
+                          <div style={{ fontSize: 14 }}>
+                            Tonnage : <strong>{value} kg</strong>
+                          </div>
+                        </div>
+                      );
                     }}
-                    labelStyle={{ color: "#000000", fontWeight: "bold" }}
-                    itemStyle={{ color: "#000000" }}
                   />
                   <Bar dataKey="count" />
                 </BarChart>
@@ -1523,17 +1553,32 @@ function Analytics({ sessions }) {
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="date" />
               <YAxis />
-              <Tooltip
-                formatter={(v) => [`${v} kg`, "Tonnage"]}
-                contentStyle={{
-                  backgroundColor: "#ffffff",
-                  border: "1px solid #e5e7eb",
-                  borderRadius: "8px",
-                  color: "#000000",
-                }}
-                labelStyle={{ color: "#000000", fontWeight: "bold" }}
-                itemStyle={{ color: "#000000" }}
-              />
+                  <Tooltip
+                    content={({ active, payload, label }) => {
+                      if (!active || !payload || !payload.length) return null;
+                  
+                      const value = payload[0].value;
+                  
+                      return (
+                        <div
+                          style={{
+                            backgroundColor: "#ffffff",
+                            border: "1px solid #e5e7eb",
+                            borderRadius: "8px",
+                            padding: "8px 10px",
+                            color: "#000000",
+                          }}
+                        >
+                          <div style={{ fontWeight: 700, marginBottom: 4 }}>
+                            {label}
+                          </div>
+                          <div style={{ fontSize: 14 }}>
+                            Tonnage : <strong>{value} kg</strong>
+                          </div>
+                        </div>
+                      );
+                    }}
+                  />
               <Line
                 type="monotone"
                 dataKey="volume"
