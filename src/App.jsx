@@ -44,7 +44,8 @@ import {
   onSnapshot,
   addDoc,
   deleteDoc,
-  updateDoc
+  updateDoc,
+  doc
 } from "firebase/firestore";
 
 
