@@ -7,6 +7,15 @@ export default async function handler(req, res) {
     GOOGLE_REDIRECT_URI,
   } = process.env;
 
+  const params = new URLSearchParams({
+  client_id: process.env.GOOGLE_CLIENT_ID,
+  redirect_uri: process.env.GOOGLE_REDIRECT_URI,
+  response_type: "code",
+  scope: "https://www.googleapis.com/auth/fitness.activity.read",
+  access_type: "offline",   // ⬅️ OBLIGATOIRE
+  prompt: "consent",        // ⬅️ OBLIGATOIRE
+  });
+
   if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !GOOGLE_REDIRECT_URI) {
     return res.status(500).json({
       error: "Missing Google OAuth environment variables",
