@@ -17,3 +17,6 @@ await setRefreshToken(firebaseUid, tokenData.refresh_token);
 res.setHeader("Set-Cookie", [
   `google_fit_token=${tokenData.access_token}; Path=/; HttpOnly; SameSite=Lax`,
 ]);
+
+// ✅ Redirection vers l'app (SPA)
+res.redirect("/");
