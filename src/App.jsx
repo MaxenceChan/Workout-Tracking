@@ -2946,6 +2946,26 @@ function StepsTracker() {
     }
   };
 
+    useEffect(() => {
+    const checkStatus = async () => {
+      try {
+        const res = await fetch(
+          `${import.meta.env.VITE_API_URL}/google-fit/status`,
+          { credentials: "include" }
+        );
+        const json = await res.json();
+  
+        if (json.connected) {
+          setConnected(true);
+        }
+      } catch (e) {
+        console.error("Google Fit status error", e);
+      }
+    };
+  
+    checkStatus();
+  }, []);
+
   // ✅ appel automatique AU CHARGEMENT
   useEffect(() => {
     fetchSteps();
