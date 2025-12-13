@@ -1429,7 +1429,6 @@ function Analytics({ sessions }) {
   const splitRecent    = useMemo(() => buildTypeSplitLastNDays(sessions, 30), [sessions]);
   const topSet         = useMemo(() => buildTopSetSeriesByExercise(sessions, exerciseTS), [sessions, exerciseTS]);
   const setTonnage     = useMemo(() => buildExerciseSetTonnageSeries(sessions, exerciseSetTon), [sessions, exerciseSetTon]);
-  const weekdayHM      = useMemo(() => buildWeekdayHeatmapData(sessions), [sessions]);
   const tonnageEvolution = useMemo(
   () => buildExerciseTonnageOverTime(sessions, exerciseTonnage),
   [sessions, exerciseTonnage]
@@ -1452,7 +1451,31 @@ function Analytics({ sessions }) {
       {/* Bloc 1 : Calendrier + Heatmap */}
       <div className="grid md:grid-cols-2 gap-4">
         <MonthlyCalendar sessions={sessions} />
-        <HeatmapCard weekdayHM={weekdayHM} />
+        <Card>
+        <CardContent className="p-4 space-y-2">
+          <h3 className="font-semibold">
+            📊 Fréquence moyenne d’entraînement
+          </h3>
+      
+          {sessions.length === 0 ? (
+            <div className="text-sm text-gray-600">
+              Aucune séance enregistrée.
+            </div>
+          ) : (
+            <>
+              <div className="text-3xl font-bold">
+                {avgSessionsPerWeek.toFixed(2)}
+              </div>
+              <div className="text-sm text-gray-600">
+                séances par semaine en moyenne
+              </div>
+              <div className="text-xs text-gray-500 mt-1">
+                Depuis ta première séance
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
       </div>
 
       {/* Bloc 2 : Intensité + Fréquence */}
@@ -1709,6 +1732,11 @@ function Analytics({ sessions }) {
 // Helpers Analytics
 // ───────────────────────────────────────────────────────────────
 const colors = ["#8884d8", "#82ca9d", "#ffc658", "#ff7f50", "#6a5acd", "#40e0d0"];
+const avgSessionsPerWeek = useMemo(
+  () => computeAvgSessionsPerWeek(sessions),
+  [sessions]
+);
+
 function computeExerciseShare(sessions) {
   const map = {};
   sessions.forEach((s) => {
@@ -2245,6 +2273,22 @@ function buildExerciseSetTonnageSeries(sessions, exName) {
     ...d,
     date: shortFR(d.date),
   }));
+}
+
+function computeAvgSessionsPerWeek(sessions) {
+  if (!sessions || sessions.length === 0) return 0;
+
+  // Dates en ISO
+  const dates = sessions.map(s => new Date(s.date));
+  const minDate = new Date(Math.min(...dates));
+  const maxDate = new Date(); // aujourd’hui
+
+  const diffMs = maxDate - minDate;
+  const diffWeeks = diffMs / (1000 * 60 * 60 * 24 * 7);
+
+  if (diffWeeks <= 0) return sessions.length;
+
+  return sessions.length / diffWeeks;
 }
 
 // Heatmap : répartition par jour de semaine
