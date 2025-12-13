@@ -37,9 +37,15 @@ import {
 // Firebase
 import { db, onAuth, signInEmail, signUpEmail, signInGoogle, signOutUser, resetPassword } from "./firebase";
 import {
-  collection, query, where, orderBy, onSnapshot,
-  writeBatch, doc, deleteDoc
+  collection,
+  query,
+  where,
+  orderBy,
+  onSnapshot,
+  addDoc,
+  deleteDoc
 } from "firebase/firestore";
+
 
 // ───────────────────────────────────────────────────────────────
 // Minimal UI responsive
