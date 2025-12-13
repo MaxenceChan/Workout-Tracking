@@ -2280,20 +2280,27 @@ function WeightTracker({ user }) {
     });
   }, [user?.id]);
 
-  const addWeight = async () => {
-    if (!date || !weight) return alert("Date et poids requis");
+const addWeight = async () => {
+  if (!date || !weight) {
+    alert("Date et poids requis");
+    return;
+  }
 
-    const batch = writeBatch(db);
-    batch.set(doc(collection(db, "weights")), {
+  try {
+    await addDoc(collection(db, "weights"), {
       user_id: user.id,
       date,
       weight: Number(weight),
       created_at: new Date().toISOString(),
     });
-    await batch.commit();
 
     setWeight("");
-  };
+  } catch (e) {
+    console.error("Erreur ajout poids :", e);
+    alert("Erreur Firestore : " + e.message);
+  }
+};
+
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
