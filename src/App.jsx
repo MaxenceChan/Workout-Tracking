@@ -1441,7 +1441,17 @@ function Analytics({ sessions }) {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="date" />
                   <YAxis />
-                  <Tooltip formatter={(v) => [`${(Number(v) || 0).toFixed(1)} kg/rep`, "Intensité"]} />
+                  <Tooltip
+                    formatter={(v) => [`${v} kg`, "Tonnage"]}
+                    contentStyle={{
+                      backgroundColor: "#ffffff",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "8px",
+                      color: "#000000",
+                    }}
+                    labelStyle={{ color: "#000000", fontWeight: "bold" }}
+                    itemStyle={{ color: "#000000" }}
+                  />
                   <Line type="monotone" dataKey="intensity" strokeWidth={2} dot />
                 </LineChart>
               </ResponsiveContainer>
@@ -1459,7 +1469,17 @@ function Analytics({ sessions }) {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="weekLabel" />
                   <YAxis allowDecimals={false} />
-                  <Tooltip formatter={(v) => [`${v}`, "Séances"]} />
+                  <Tooltip
+                    formatter={(v) => [`${v} kg`, "Tonnage"]}
+                    contentStyle={{
+                      backgroundColor: "#ffffff",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "8px",
+                      color: "#000000",
+                    }}
+                    labelStyle={{ color: "#000000", fontWeight: "bold" }}
+                    itemStyle={{ color: "#000000" }}
+                  />
                   <Bar dataKey="count" />
                 </BarChart>
               </ResponsiveContainer>
@@ -1503,7 +1523,17 @@ function Analytics({ sessions }) {
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="date" />
               <YAxis />
-              <Tooltip formatter={(v) => [`${v} kg`, "Tonnage"]} />
+              <Tooltip
+                formatter={(v) => [`${v} kg`, "Tonnage"]}
+                contentStyle={{
+                  backgroundColor: "#ffffff",
+                  border: "1px solid #e5e7eb",
+                  borderRadius: "8px",
+                  color: "#000000",
+                }}
+                labelStyle={{ color: "#000000", fontWeight: "bold" }}
+                itemStyle={{ color: "#000000" }}
+              />
               <Line
                 type="monotone"
                 dataKey="volume"
@@ -2433,7 +2463,17 @@ const addWeight = async () => {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="date" />
                   <YAxis domain={["dataMin - 1", "dataMax + 1"]} />
-                  <Tooltip formatter={(v) => [`${v} kg`, "Poids"]} />
+                  <Tooltip
+                    formatter={(v) => [`${v} kg`, "Tonnage"]}
+                    contentStyle={{
+                      backgroundColor: "#ffffff",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "8px",
+                      color: "#000000",
+                    }}
+                    labelStyle={{ color: "#000000", fontWeight: "bold" }}
+                    itemStyle={{ color: "#000000" }}
+                  />
                   <Line type="monotone" dataKey="weight" strokeWidth={3} dot />
                 </LineChart>
               </ResponsiveContainer>
