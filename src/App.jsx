@@ -2913,11 +2913,10 @@ function WeightCard({ entry, onDelete, onUpdate }) {
 // ───────────────────────────────────────────────
 function StepsTracker() {
   const [stepsData, setStepsData] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const connectGoogleFit = () => {
-    // 👉 appelle directement l'API serverless Vercel
     window.location.href = "/api/auth/google-fit";
   };
 
@@ -2928,37 +2927,53 @@ function StepsTracker() {
         credentials: "include",
       });
 
-      if (!res.ok) throw new Error("Non connecté à Google Fit");
+      if (!res.ok) {
+        if (res.status === 401) {
+          setError("Google Fit non connecté");
+        } else {
+          setError("Erreur Google Fit");
+        }
+        return;
+      }
 
       const json = await res.json();
       setStepsData(json);
+      setError(null);
     } catch (e) {
-      setError(e.message);
+      setError("Impossible de récupérer les pas");
     } finally {
       setLoading(false);
     }
   };
 
+  // ✅ appel automatique AU CHARGEMENT
   useEffect(() => {
     fetchSteps();
   }, []);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {/* Connexion */}
       <Card>
         <CardContent className="space-y-4">
           <h3 className="font-semibold text-lg">🚶 Suivi des pas</h3>
 
-          <Button onClick={connectGoogleFit}>
-            Se connecter à Google Fit
-          </Button>
-
-          {error && <p className="text-red-600 text-sm">{error}</p>}
+          {error ? (
+            <>
+              <p className="text-sm text-gray-600">
+                Google Fit n’est pas encore connecté.
+              </p>
+              <Button onClick={connectGoogleFit}>
+                Se connecter à Google Fit
+              </Button>
+            </>
+          ) : (
+            <p className="text-sm text-green-600">
+              ✅ Google Fit connecté
+            </p>
+          )}
         </CardContent>
       </Card>
 
-      {/* Graphique */}
       <Card>
         <CardContent>
           <h3 className="font-semibold text-lg mb-3">📊 Pas par jour</h3>
