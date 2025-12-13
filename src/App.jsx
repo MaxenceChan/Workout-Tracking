@@ -171,6 +171,14 @@ const TabsContent = ({ value, className, children }) => {
 // ───────────────────────────────────────────────────────────────
 const prettyDate = (d) => new Date(d).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "2-digit" });
 const todayISO = () => new Date().toISOString().slice(0, 10);
+const normalizeDecimalInput = (value) => {
+  if (typeof value !== "string") return value;
+  const v = value.replace(",", ".");
+  const parts = v.split(".");
+  return parts.length > 2
+    ? parts[0] + "." + parts.slice(1).join("")
+    : v;
+};
 const shortFR = (iso) => {
   const d = new Date(iso + "T00:00:00");
   return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" });
@@ -907,10 +915,20 @@ useEffect(() => {
                       onChange={(e) => updateSet(ex.id, i, "reps", e.target.value.replace(/[^0-9]/g, ""))}
                     />
                     <Input
+                      type="text"
                       inputMode="decimal"
-                      placeholder="40"
+                      placeholder="40,5"
                       value={s.weight}
-                      onChange={(e) => updateSet(ex.id, i, "weight", e.target.value.replace(/[^0-9.]/g, ""))}
+                      onChange={(e) =>
+                        updateSet(
+                          ex.id,
+                          i,
+                          "weight",
+                          normalizeDecimalInput(
+                            e.target.value.replace(/[^0-9.,]/g, "")
+                          )
+                        )
+                      }
                     />
                     <Button
                       variant="destructive"
@@ -2315,7 +2333,7 @@ const addWeight = async () => {
     await addDoc(collection(db, "weights"), {
       user_id: user.id,
       date,
-      weight: Number(weight),
+      weight: Number(normalizeDecimalInput(weight)),
       created_at: new Date().toISOString(),
     });
 
@@ -2340,13 +2358,13 @@ const addWeight = async () => {
 
           <div className="grid gap-2">
             <Label>Poids (kg)</Label>
-            <Input
-              type="number"
-              step="0.1"
-              placeholder="ex: 74.5"
-              value={weight}
-              onChange={e => setWeight(e.target.value)}
-            />
+          <Input
+            type="text"
+            inputMode="decimal"
+            placeholder="ex: 74,5"
+            value={weight}
+            onChange={e => setWeight(normalizeDecimalInput(e.target.value))}
+           />
           </div>
 
           <Button onClick={addWeight} className="w-full">
