@@ -373,6 +373,7 @@ function App() {
             <TabsTrigger value="sessions">Historique</TabsTrigger>
             <TabsTrigger value="analytics">Datavisualisation</TabsTrigger>
             <TabsTrigger value="last">Dernière séance</TabsTrigger>
+            <TabsTrigger value="weight">Suivi du poids</TabsTrigger>
           </TabsList>
 
           <TabsContent value="tpl" className="mt-3 sm:mt-4">
@@ -440,6 +441,10 @@ function App() {
 
 <TabsContent value="last" className="mt-3 sm:mt-4">
   <LastSession sessions={data.sessions} />
+</TabsContent>
+
+<TabsContent value="weight" className="mt-3 sm:mt-4">
+  <WeightTracker user={user} />
 </TabsContent>
 
            </Tabs>
@@ -2250,5 +2255,95 @@ function ThemeToggleButton() {
     >
       {theme === "light" ? "🌙" : "☀️"}
     </Button>
+  );
+}
+
+// ───────────────────────────────────────────────────────────────
+// Suivi du poids (module indépendant)
+// ───────────────────────────────────────────────────────────────
+function WeightTracker({ user }) {
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [weight, setWeight] = useState("");
+  const [data, setData] = useState([]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const q = query(
+      collection(db, "weights"),
+      where("user_id", "==", user.id),
+      orderBy("date", "asc")
+    );
+
+    return onSnapshot(q, (snap) => {
+      setData(snap.docs.map(d => d.data()));
+    });
+  }, [user?.id]);
+
+  const addWeight = async () => {
+    if (!date || !weight) return alert("Date et poids requis");
+
+    const batch = writeBatch(db);
+    batch.set(doc(collection(db, "weights")), {
+      user_id: user.id,
+      date,
+      weight: Number(weight),
+      created_at: new Date().toISOString(),
+    });
+    await batch.commit();
+
+    setWeight("");
+  };
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <Card>
+        <CardContent className="space-y-4">
+          <h3 className="font-semibold text-lg">📏 Saisir mon poids</h3>
+
+          <div className="grid gap-2">
+            <Label>Date</Label>
+            <Input type="date" value={date} onChange={e => setDate(e.target.value)} />
+          </div>
+
+          <div className="grid gap-2">
+            <Label>Poids (kg)</Label>
+            <Input
+              type="number"
+              step="0.1"
+              placeholder="ex: 74.5"
+              value={weight}
+              onChange={e => setWeight(e.target.value)}
+            />
+          </div>
+
+          <Button onClick={addWeight} className="w-full">
+            <Save className="h-4 w-4" /> Enregistrer
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent>
+          <h3 className="font-semibold text-lg mb-3">📈 Évolution du poids</h3>
+
+          {data.length === 0 ? (
+            <div className="text-sm text-gray-500">Aucune donnée enregistrée.</div>
+          ) : (
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={data}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" />
+                  <YAxis domain={["dataMin - 1", "dataMax + 1"]} />
+                  <Tooltip formatter={(v) => [`${v} kg`, "Poids"]} />
+                  <Line type="monotone" dataKey="weight" strokeWidth={3} dot />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }
