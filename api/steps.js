@@ -1,19 +1,8 @@
-// /api/steps.js
+import { getRefreshToken } from "./google-fit/token-store";
+import { refreshAccessToken } from "./google-fit/refresh";
 
-export default async function handler(req, res) {
-  const cookie = req.headers.cookie || "";
-  const tokenMatch = cookie.match(/google_fit_token=([^;]+)/);
-
-  if (!tokenMatch) {
-    return res.status(401).json({ error: "Not authenticated with Google Fit" });
-  }
-
-  const accessToken = tokenMatch[1];
-
-  const now = Date.now();
-  const oneWeekAgo = now - 7 * 24 * 60 * 60 * 1000;
-
-  const response = await fetch(
+async function callGoogleFit(accessToken) {
+  const res = await fetch(
     "https://www.googleapis.com/fitness/v1/users/me/dataset:aggregate",
     {
       method: "POST",
@@ -22,30 +11,45 @@ export default async function handler(req, res) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        aggregateBy: [
-          { dataTypeName: "com.google.step_count.delta" },
-        ],
+        aggregateBy: [{ dataTypeName: "com.google.step_count.delta" }],
         bucketByTime: { durationMillis: 86400000 },
-        startTimeMillis: oneWeekAgo,
-        endTimeMillis: now,
+        startTimeMillis: Date.now() - 7 * 86400000,
+        endTimeMillis: Date.now(),
       }),
     }
   );
 
-  const data = await response.json();
-
-  if (!response.ok) {
-    console.error(data);
-    return res.status(500).json(data);
+  if (!res.ok) {
+    const err = new Error("Google Fit error");
+    err.status = res.status;
+    throw err;
   }
 
-  const steps = data.bucket.map((b) => ({
-    date: new Date(Number(b.startTimeMillis))
-      .toISOString()
-      .slice(0, 10),
-    steps:
-      b.dataset?.[0]?.point?.[0]?.value?.[0]?.intVal || 0,
-  }));
+  return res.json();
+}
 
-  res.json(steps);
+export default async function handler(req, res) {
+  const accessToken =
+    req.headers.cookie?.match(/google_fit_token=([^;]+)/)?.[1];
+
+  const uid = req.firebaseUid; // ← déjà dispo chez toi via Firebase Admin
+
+  try {
+    const data = await callGoogleFit(accessToken);
+    return res.json(data);
+  } catch (err) {
+    if (err.status !== 401) throw err;
+
+    // 🔄 refresh automatique
+    const refreshToken = await getRefreshToken(uid);
+    const fresh = await refreshAccessToken(refreshToken);
+
+    res.setHeader(
+      "Set-Cookie",
+      `google_fit_token=${fresh.access_token}; Path=/; HttpOnly; SameSite=Lax`
+    );
+
+    const data = await callGoogleFit(fresh.access_token);
+    return res.json(data);
+  }
 }
