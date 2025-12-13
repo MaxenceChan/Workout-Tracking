@@ -1457,28 +1457,33 @@ function Analytics({ sessions }) {
       <div className="grid md:grid-cols-2 gap-4">
         <MonthlyCalendar sessions={sessions} />
         <Card>
-        <CardContent className="p-4 space-y-2">
-          <h3 className="font-semibold">
-            📊 Fréquence moyenne d’entraînement
-          </h3>
+        <CardContent className="p-5 sm:p-6">
+          <div className="flex items-start justify-between">
+            <div>
+              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                📊 Fréquence moyenne d’entraînement
+              </h3>
       
-          {sessions.length === 0 ? (
-            <div className="text-sm text-gray-600">
-              Aucune séance enregistrée.
+              <div className="mt-3 flex items-baseline gap-2">
+                <span className="text-4xl sm:text-5xl font-extrabold tracking-tight">
+                  {avgSessionsPerWeek.toFixed(2)}
+                </span>
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  / semaine
+                </span>
+              </div>
+      
+              <p className="mt-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+                Moyenne calculée depuis ta première séance enregistrée
+              </p>
             </div>
-          ) : (
-            <>
-              <div className="text-3xl font-bold">
-                {avgSessionsPerWeek.toFixed(2)}
-              </div>
-              <div className="text-sm text-gray-600">
-                séances par semaine en moyenne
-              </div>
-              <div className="text-xs text-gray-500 mt-1">
-                Depuis ta première séance
-              </div>
-            </>
-          )}
+      
+            {/* Accent visuel */}
+            <div className="h-12 w-12 rounded-xl bg-green-100 dark:bg-green-500/20 
+                            flex items-center justify-center text-green-600 dark:text-green-400 text-xl">
+              🏋️
+            </div>
+          </div>
         </CardContent>
       </Card>
       </div>
