@@ -169,6 +169,11 @@ const TabsContent = ({ value, className, children }) => {
 // ───────────────────────────────────────────────────────────────
 // Utils & Domain
 // ───────────────────────────────────────────────────────────────
+function sortByDateAsc(data) {
+  return [...data].sort(
+    (a, b) => new Date(a.date) - new Date(b.date)
+  );
+}
 const prettyDate = (d) => new Date(d).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "2-digit" });
 const todayISO = () => new Date().toISOString().slice(0, 10);
 const normalizeDecimalInput = (value) => {
@@ -2125,25 +2130,15 @@ function getLastSessionByType(sessions, type) {
 
 // Moyenne intensité kg/rep par séance
 function buildAvgIntensitySeries(sessions, sessionType = "ALL") {
-  return sessions
-    .filter((s) => {
-      if (sessionType === "ALL") return true;
-      return s.type === sessionType;
-    })
-    .map((s) => {
-      const sets = s.exercises.flatMap((ex) => ex.sets);
-      const totalReps = sets.reduce((sum, set) => sum + Number(set.reps || 0), 0);
-      const totalLoad = sets.reduce(
-        (sum, set) => sum + Number(set.weight || 0) * Number(set.reps || 0),
-        0
-      );
-
-      return {
-        date: shortFR(s.date),
-        intensity:
-          totalReps > 0 ? Math.round((totalLoad / totalReps) * 10) / 10 : 0,
-      };
-    });
+return sortByDateAsc(
+  sessions.map((s) => ({
+    date: s.date,
+    intensity: ...
+  }))
+).map((d) => ({
+  ...d,
+  date: shortFR(d.date),
+}));
 }
 function buildExerciseTonnageOverTime(sessions, exerciseName) {
   if (!exerciseName) return [];
