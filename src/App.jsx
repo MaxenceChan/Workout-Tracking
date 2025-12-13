@@ -1436,10 +1436,15 @@ function Analytics({ sessions }) {
   );
   }, [sessions, startDate, endDate]);
   
-  const avgSessionsPerWeek = useMemo(() => {
-    return computeAvgSessionsPerWeek(filteredSessionsByDate);
-  }, [filteredSessionsByDate]);
-
+   const avgSessionsPerWeek = useMemo(
+    () =>
+      computeAvgSessionsPerWeek(
+        sessions,
+        startDate,
+        endDate
+      ),
+    [sessions, startDate, endDate]
+  );
   useEffect(() => {
   if (!sessionTypeTonnage) setSessionTypeTonnage("ALL");
   }, [sessionTypeTonnage]);
