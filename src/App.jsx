@@ -2333,20 +2333,26 @@ function buildExerciseSetTonnageSeries(sessions, exName) {
   }));
 }
 
-function computeAvgSessionsPerWeek(sessions) {
+function computeAvgSessionsPerWeek(sessions, startDate, endDate) {
   if (!sessions || sessions.length === 0) return 0;
 
-  // Dates en ISO
-  const dates = sessions.map(s => new Date(s.date));
-  const minDate = new Date(Math.min(...dates));
-  const maxDate = new Date(); // aujourd’hui
+  // Filtrer les séances sur la période sélectionnée
+  const filtered = sessions.filter(
+    s => s.date >= startDate && s.date <= endDate
+  );
 
-  const diffMs = maxDate - minDate;
-  const diffWeeks = diffMs / (1000 * 60 * 60 * 24 * 7);
+  if (filtered.length === 0) return 0;
 
-  if (diffWeeks <= 0) return sessions.length;
+  const start = new Date(startDate);
+  const end = new Date(endDate);
 
-  return sessions.length / diffWeeks;
+  // ⏱️ nombre de jours INCLUSIFS
+  const diffDays =
+    Math.floor((end - start) / (1000 * 60 * 60 * 24)) + 1;
+
+  if (diffDays <= 0) return 0;
+
+  return filtered.length / (diffDays / 7);
 }
 
 // Heatmap : répartition par jour de semaine
