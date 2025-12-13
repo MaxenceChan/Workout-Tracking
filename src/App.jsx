@@ -1727,29 +1727,25 @@ function getUserExercises(data) {
   return Array.from(new Set(all)); // supprime les doublons
 }
 
-function buildTonnageBySessionTypeOverTime(sessions, sessionType = "ALL") {
-  return sessions
-    .filter((s) => {
-      if (sessionType === "ALL") return true;
-      return s.type === sessionType;
-    })
-    .map((s) => {
-      const tonnage = s.exercises
-        .flatMap((ex) => ex.sets)
-        .reduce(
-          (sum, set) =>
-            sum + Number(set.weight || 0) * Number(set.reps || 0),
-          0
-        );
-
-      return {
-        date: shortFR(s.date),
-        tonnage,
-      };
-    })
-    .filter((d) => d.tonnage > 0);
+function buildTonnageBySessionTypeOverTime(sessions, type) {
+  return sortByDateAsc(
+    sessions
+      .filter(s => type === "ALL" || s.type === type)
+      .map(s => ({
+        date: s.date, // ⚠️ ISO pour le tri
+        volume: s.exercises
+          .flatMap(ex => ex.sets)
+          .reduce(
+            (acc, set) =>
+              acc + Number(set.reps || 0) * Number(set.weight || 0),
+            0
+          ),
+      }))
+  ).map(d => ({
+    ...d,
+    date: shortFR(d.date), // ✅ format seulement à la fin
+  }));
 }
-
 // App.jsx (Bloc 5)
 
 // ───────────────────────────────────────────────────────────────
@@ -2129,26 +2125,26 @@ function getLastSessionByType(sessions, type) {
 // ───────────────────────────────────────────────────────────────
 
 // Moyenne intensité kg/rep par séance
-function buildAvgIntensitySeries(sessions, sessionType = "ALL") {
-return sessions
-    .filter((s) => {
-      if (sessionType === "ALL") return true;
-      return s.type === sessionType;
-    })
-    .map((s) => {
-      const sets = s.exercises.flatMap((ex) => ex.sets);
-      const totalReps = sets.reduce((sum, set) => sum + Number(set.reps || 0), 0);
-      const totalLoad = sets.reduce(
-        (sum, set) => sum + Number(set.weight || 0) * Number(set.reps || 0),
-        0
-      );
+function buildAvgIntensitySeries(sessions) {
+  return sortByDateAsc(
+    sessions.map(s => {
+      const totalReps = s.exercises
+        .flatMap(ex => ex.sets)
+        .reduce((acc, set) => acc + Number(set.reps || 0), 0);
+
+      const totalWeight = s.exercises
+        .flatMap(ex => ex.sets)
+        .reduce((acc, set) => acc + Number(set.reps || 0) * Number(set.weight || 0), 0);
 
       return {
-        date: shortFR(s.date),
-        intensity:
-          totalReps > 0 ? Math.round((totalLoad / totalReps) * 10) / 10 : 0,
+        date: s.date, // ⚠️ ISO pour trier
+        intensity: totalReps ? totalWeight / totalReps : 0
       };
-    });
+    })
+  ).map(d => ({
+    ...d,
+    date: shortFR(d.date), // affichage seulement
+  }));
 }
 function buildExerciseTonnageOverTime(sessions, exerciseName) {
   if (!exerciseName) return [];
@@ -2218,12 +2214,26 @@ function buildTopSetSeriesByExercise(sessions, exName) {
 
 // Tonnage par exercice
 function buildExerciseSetTonnageSeries(sessions, exName) {
-  return sessions.map(s => {
-    const volume = s.exercises.filter(ex => ex.name === exName)
-      .flatMap(ex => ex.sets)
-      .reduce((acc, set) => acc + Number(set.reps || 0) * Number(set.weight || 0), 0);
-    return { date: shortFR(s.date), volume };
-  });
+  return sortByDateAsc(
+    sessions.map(s => {
+      const volume = s.exercises
+        .filter(ex => ex.name === exName)
+        .flatMap(ex => ex.sets)
+        .reduce(
+          (acc, set) =>
+            acc + Number(set.reps || 0) * Number(set.weight || 0),
+          0
+        );
+
+      return {
+        date: s.date,
+        volume,
+      };
+    })
+  ).map(d => ({
+    ...d,
+    date: shortFR(d.date),
+  }));
 }
 
 // Heatmap : répartition par jour de semaine
@@ -2330,14 +2340,16 @@ function HeatmapCard({ weekdayHM }) {
 // Graphique des 3 dernières séances d’un exo
 // ──────────────────────────────────────────────
 function LastThreeSessionsSetTonnageChart({ sessions, exerciseName, options, onChangeExercise }) {
-  const filtered = sessions
-    .filter(s => s.exercises.some(ex => ex.name === exerciseName))
-    .slice(0, 3) // dernières 3 séances
-    .map(s => ({
-      date: new Date(s.date).toLocaleDateString("fr-FR"),
-      sets: s.exercises.find(ex => ex.name === exerciseName).sets
-    }));
-
+  const filtered = sortByDateAsc(
+    sessions.filter(s =>
+      s.exercises.some(ex => ex.name === exerciseName)
+    )
+  )
+  .slice(-3) // ⬅️ prend les 3 PLUS RÉCENTES mais garde l'ordre
+  .map(s => ({
+    date: new Date(s.date).toLocaleDateString("fr-FR"),
+    sets: s.exercises.find(ex => ex.name === exerciseName).sets,
+  }));
   // Construire données par série
   const chartData = [];
   filtered.forEach((s) => {
@@ -2531,11 +2543,13 @@ function WeightTracker({ user }) {
 
     return onSnapshot(q, (snap) => {
     setData(
-      snap.docs
-        .map(d => ({ id: d.id, ...d.data() }))
-        .sort((a, b) => a.date.localeCompare(b.date))
+      sortByDateAsc(
+        snap.docs.map(d => ({
+          id: d.id,
+          ...d.data(),
+        }))
+      )
     );
-
     });
   }, [user?.id]);
   const deleteWeight = async (id) => {
