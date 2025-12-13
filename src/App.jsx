@@ -1573,7 +1573,7 @@ function Analytics({ sessions }) {
                     />
                     <Line
                       type="monotone"
-                      dataKey="tonnage"
+                      dataKey="volume"
                       strokeWidth={2}
                       dot
                     />
@@ -2125,47 +2125,58 @@ function getLastSessionByType(sessions, type) {
 // ───────────────────────────────────────────────────────────────
 
 // Moyenne intensité kg/rep par séance
-function buildAvgIntensitySeries(sessions) {
+function buildAvgIntensitySeries(sessions, type = "ALL") {
   return sortByDateAsc(
-    sessions.map(s => {
-      const totalReps = s.exercises
-        .flatMap(ex => ex.sets)
-        .reduce((acc, set) => acc + Number(set.reps || 0), 0);
+    sessions
+      .filter(s => type === "ALL" || s.type === type)
+      .map(s => {
+        const totalReps = s.exercises
+          .flatMap(ex => ex.sets)
+          .reduce((acc, set) => acc + Number(set.reps || 0), 0);
 
-      const totalWeight = s.exercises
-        .flatMap(ex => ex.sets)
-        .reduce((acc, set) => acc + Number(set.reps || 0) * Number(set.weight || 0), 0);
+        const totalWeight = s.exercises
+          .flatMap(ex => ex.sets)
+          .reduce(
+            (acc, set) =>
+              acc + Number(set.reps || 0) * Number(set.weight || 0),
+            0
+          );
 
-      return {
-        date: s.date, // ⚠️ ISO pour trier
-        intensity: totalReps ? totalWeight / totalReps : 0
-      };
-    })
+        return {
+          date: s.date,
+          intensity: totalReps ? totalWeight / totalReps : 0,
+        };
+      })
   ).map(d => ({
     ...d,
-    date: shortFR(d.date), // affichage seulement
+    date: shortFR(d.date),
   }));
 }
 function buildExerciseTonnageOverTime(sessions, exerciseName) {
   if (!exerciseName) return [];
 
-  return sessions
-    .map((s) => {
-      const volume = s.exercises
-        .filter((ex) => ex.name === exerciseName)
-        .flatMap((ex) => ex.sets)
-        .reduce(
-          (sum, set) =>
-            sum + Number(set.weight || 0) * Number(set.reps || 0),
-          0
-        );
+  return sortByDateAsc(
+    sessions
+      .map((s) => {
+        const volume = s.exercises
+          .filter((ex) => ex.name === exerciseName)
+          .flatMap((ex) => ex.sets)
+          .reduce(
+            (sum, set) =>
+              sum + Number(set.weight || 0) * Number(set.reps || 0),
+            0
+          );
 
-      return {
-        date: shortFR(s.date),
-        volume,
-      };
-    })
-    .filter((d) => d.volume > 0);
+        return {
+          date: s.date, // ISO pour tri
+          volume,
+        };
+      })
+      .filter((d) => d.volume > 0)
+  ).map(d => ({
+    ...d,
+    date: shortFR(d.date),
+  }));
 }
 // Nombre de séances par semaine
 function buildSessionsPerWeekSeries(sessions) {
