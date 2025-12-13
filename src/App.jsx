@@ -1397,11 +1397,13 @@ function Analytics({ sessions }) {
   // Sélecteurs initiaux
   const [exerciseTS, setExerciseTS] = useState(allExercises[0] || "");
   const [exerciseSetTon, setExerciseSetTon] = useState(allExercises[0] || "");
+  const [exerciseTonnage, setExerciseTonnage] = useState(allExercises[0] || "");
 
   useEffect(() => {
     if (!exerciseTS && allExercises.length) setExerciseTS(allExercises[0]);
     if (!exerciseSetTon && allExercises.length) setExerciseSetTon(allExercises[0]);
-  }, [allExercises, exerciseTS, exerciseSetTon]);
+    if (!exerciseTonnage && allExercises.length) setExerciseTonnage(allExercises[0]); // 👈 AJOUT
+  }, [allExercises, exerciseTS, exerciseSetTon, exerciseTonnage]);
 
   // Données calculées
   const intensitySeries = useMemo(() => buildAvgIntensitySeries(sessions), [sessions]);
@@ -1410,7 +1412,10 @@ function Analytics({ sessions }) {
   const topSet         = useMemo(() => buildTopSetSeriesByExercise(sessions, exerciseTS), [sessions, exerciseTS]);
   const setTonnage     = useMemo(() => buildExerciseSetTonnageSeries(sessions, exerciseSetTon), [sessions, exerciseSetTon]);
   const weekdayHM      = useMemo(() => buildWeekdayHeatmapData(sessions), [sessions]);
-
+  const tonnageEvolution = useMemo(
+  () => buildExerciseTonnageOverTime(sessions, exerciseTonnage),
+  [sessions, exerciseTonnage]
+  );
   const [exerciseLast3, setExerciseLast3] = useState(allExercises[0] || "");
   useEffect(() => {
     if (!exerciseLast3 && allExercises.length) setExerciseLast3(allExercises[0]);
@@ -1465,45 +1470,51 @@ function Analytics({ sessions }) {
 
       {/* Bloc 3 : Top set + 3 dernières séances */}
       <div className="grid md:grid-cols-2 gap-4">
-        <Card>
-          <CardContent className="p-4 space-y-3">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <h3 className="font-semibold">Top set (1RM estimé) – par exercice</h3>
-              <select className="border rounded-xl p-2" value={exerciseTS} onChange={(e) => setExerciseTS(e.target.value)}>
-                {allExercises.map((e) => <option key={e} value={e}>{e}</option>)}
-              </select>
-            </div>
+<Card>
+  <CardContent className="p-4 space-y-3">
+    <div className="flex items-center justify-between flex-wrap gap-2">
+      <h3 className="font-semibold">
+        Évolution du tonnage par exercice
+      </h3>
 
-            {topSet.series.length === 0 ? (
-              <div className="text-sm text-gray-600">Pas encore de données pour cet exercice.</div>
-            ) : (
-              <>
-                <div className="text-sm text-gray-600">
-                  Record: <span className="font-semibold">{Math.round(topSet.record.oneRM)} kg</span>
-                  {" "}({topSet.record.weight} kg × {topSet.record.reps} reps) le {topSet.record.date}
-                </div>
-                <div className="h-64 md:h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={topSet.series}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="date" />
-                      <YAxis />
-                      <Tooltip formatter={(v) => [`${Math.round(v)} kg`, "1RM estimé"]} />
-                      <Line type="monotone" dataKey="oneRM" strokeWidth={2} dot />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
+      <select
+        className="border rounded-xl p-2 text-sm"
+        value={exerciseTonnage}
+        onChange={(e) => setExerciseTonnage(e.target.value)}
+      >
+        {allExercises.map((e) => (
+          <option key={e} value={e}>
+            {e}
+          </option>
+        ))}
+      </select>
+    </div>
 
-        <LastThreeSessionsSetTonnageChart
-          sessions={sessions}
-          exerciseName={exerciseLast3}
-          options={allExercises}
-          onChangeExercise={setExerciseLast3}
-        />
+    {tonnageEvolution.length === 0 ? (
+      <div className="text-sm text-gray-600">
+        Pas encore de données pour cet exercice.
+      </div>
+    ) : (
+      <div className="h-64 md:h-80">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={tonnageEvolution}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="date" />
+            <YAxis />
+            <Tooltip formatter={(v) => [`${v} kg`, "Tonnage"]} />
+            <Line
+              type="monotone"
+              dataKey="volume"
+              strokeWidth={2}
+              dot
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    )}
+  </CardContent>
+</Card>
+
       </div>
 
 {/* Bloc 4 : Répartition des séances par type sur 30 jours */}
@@ -1951,7 +1962,27 @@ function buildAvgIntensitySeries(sessions) {
     return { date: shortFR(s.date), intensity: totalReps ? totalWeight / totalReps : 0 };
   });
 }
+function buildExerciseTonnageOverTime(sessions, exerciseName) {
+  if (!exerciseName) return [];
 
+  return sessions
+    .map((s) => {
+      const volume = s.exercises
+        .filter((ex) => ex.name === exerciseName)
+        .flatMap((ex) => ex.sets)
+        .reduce(
+          (sum, set) =>
+            sum + Number(set.weight || 0) * Number(set.reps || 0),
+          0
+        );
+
+      return {
+        date: shortFR(s.date),
+        volume,
+      };
+    })
+    .filter((d) => d.volume > 0);
+}
 // Nombre de séances par semaine
 function buildSessionsPerWeekSeries(sessions) {
   const map = {};
