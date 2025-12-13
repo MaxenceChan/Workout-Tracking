@@ -2751,15 +2751,28 @@ const addWeight = async () => {
                   <XAxis dataKey="date" />
                   <YAxis domain={["dataMin - 1", "dataMax + 1"]} />
                   <Tooltip
-                    formatter={(v) => [`${v} kg`, "Tonnage"]}
-                    contentStyle={{
-                      backgroundColor: "#ffffff",
-                      border: "1px solid #e5e7eb",
-                      borderRadius: "8px",
-                      color: "#000000",
+                    content={({ active, payload, label }) => {
+                      if (!active || !payload || !payload.length) return null;
+                  
+                      return (
+                        <div
+                          style={{
+                            backgroundColor: "#ffffff",
+                            border: "1px solid #e5e7eb",
+                            borderRadius: "8px",
+                            padding: "8px 10px",
+                            color: "#000000",
+                          }}
+                        >
+                          <div style={{ fontWeight: 700, marginBottom: 4 }}>
+                            {new Date(label).toLocaleDateString("fr-FR")}
+                          </div>
+                          <div style={{ fontSize: 14 }}>
+                            Poids : <strong>{payload[0].value} kg</strong>
+                          </div>
+                        </div>
+                      );
                     }}
-                    labelStyle={{ color: "#000000", fontWeight: "bold" }}
-                    itemStyle={{ color: "#000000" }}
                   />
                   <Line type="monotone" dataKey="weight" strokeWidth={3} dot />
                 </LineChart>
