@@ -2911,33 +2911,37 @@ function WeightCard({ entry, onDelete, onUpdate }) {
 // ───────────────────────────────────────────────
 // Suivi des pas (Google Fit)
 // ───────────────────────────────────────────────
-function StepsTracker({ user }) {
-  const [connected, setConnected] = useState(false);
+function StepsTracker() {
   const [stepsData, setStepsData] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   const connectGoogleFit = () => {
-    // ⚠️ backend requis
-    window.location.href = `${import.meta.env.VITE_API_URL}/auth/google-fit`;
+    // 👉 appelle directement l'API serverless Vercel
+    window.location.href = "/api/auth/google-fit";
   };
 
   const fetchSteps = async () => {
     try {
-      const res = await fetch(
-        `${import.meta.env.VITE_API_URL}/steps?uid=${user.id}`,
-        { credentials: "include" }
-      );
+      setLoading(true);
+      const res = await fetch("/api/steps", {
+        credentials: "include",
+      });
+
+      if (!res.ok) throw new Error("Non connecté à Google Fit");
+
       const json = await res.json();
       setStepsData(json);
-      setConnected(true);
     } catch (e) {
-      alert("Impossible de récupérer les pas");
+      setError(e.message);
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (connected) fetchSteps();
-  }, [connected]);
+    fetchSteps();
+  }, []);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2946,20 +2950,11 @@ function StepsTracker({ user }) {
         <CardContent className="space-y-4">
           <h3 className="font-semibold text-lg">🚶 Suivi des pas</h3>
 
-          {!connected ? (
-            <>
-              <p className="text-sm text-gray-600">
-                Connecte ton compte Google Fit pour récupérer ton nombre de pas quotidien.
-              </p>
-              <Button onClick={connectGoogleFit} disabled={loading}>
-                Se connecter à Google Fit
-              </Button>
-            </>
-          ) : (
-            <p className="text-sm text-green-600">
-              ✅ Google Fit connecté
-            </p>
-          )}
+          <Button onClick={connectGoogleFit}>
+            Se connecter à Google Fit
+          </Button>
+
+          {error && <p className="text-red-600 text-sm">{error}</p>}
         </CardContent>
       </Card>
 
@@ -2968,10 +2963,10 @@ function StepsTracker({ user }) {
         <CardContent>
           <h3 className="font-semibold text-lg mb-3">📊 Pas par jour</h3>
 
-          {stepsData.length === 0 ? (
-            <div className="text-sm text-gray-500">
-              Aucune donnée disponible.
-            </div>
+          {loading ? (
+            <p className="text-sm text-gray-500">Chargement…</p>
+          ) : stepsData.length === 0 ? (
+            <p className="text-sm text-gray-500">Aucune donnée.</p>
           ) : (
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
