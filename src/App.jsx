@@ -1398,6 +1398,11 @@ function Analytics({ sessions }) {
   const [exerciseTS, setExerciseTS] = useState(allExercises[0] || "");
   const [exerciseSetTon, setExerciseSetTon] = useState(allExercises[0] || "");
   const [exerciseTonnage, setExerciseTonnage] = useState(allExercises[0] || "");
+  const [intensityTypeFilter, setIntensityTypeFilter] = useState("ALL");
+
+  useEffect(() => {
+  setIntensityTypeFilter("ALL");
+  }, []);
 
   useEffect(() => {
     if (!exerciseTS && allExercises.length) setExerciseTS(allExercises[0]);
@@ -1406,7 +1411,10 @@ function Analytics({ sessions }) {
   }, [allExercises, exerciseTS, exerciseSetTon, exerciseTonnage]);
 
   // Données calculées
-  const intensitySeries = useMemo(() => buildAvgIntensitySeries(sessions), [sessions]);
+  const intensitySeries = useMemo(
+    () => buildAvgIntensitySeries(sessions, intensityTypeFilter),
+    [sessions, intensityTypeFilter]
+  );
   const weeklyFreq     = useMemo(() => buildSessionsPerWeekSeries(sessions), [sessions]);
   const splitRecent    = useMemo(() => buildTypeSplitLastNDays(sessions, 30), [sessions]);
   const topSet         = useMemo(() => buildTopSetSeriesByExercise(sessions, exerciseTS), [sessions, exerciseTS]);
@@ -1434,7 +1442,24 @@ function Analytics({ sessions }) {
         {/* Intensité */}
         <Card>
           <CardContent className="p-4 space-y-3">
-            <h3 className="font-semibold">Intensité moyenne par séance (kg / rep)</h3>
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <h3 className="font-semibold">
+                Intensité moyenne par séance
+              </h3>
+            
+              <select
+                className="border rounded-xl p-2 text-sm"
+                value={intensityTypeFilter}
+                onChange={(e) => setIntensityTypeFilter(e.target.value)}
+              >
+                <option value="ALL">Tous les types</option>
+                {Array.from(new Set(sessions.map((s) => s.type))).map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="h-64 md:h-80">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={intensitySeries}>
@@ -2039,12 +2064,26 @@ function getLastSessionByType(sessions, type) {
 // ───────────────────────────────────────────────────────────────
 
 // Moyenne intensité kg/rep par séance
-function buildAvgIntensitySeries(sessions) {
-  return sessions.map(s => {
-    const totalReps = s.exercises.flatMap(ex => ex.sets).reduce((acc, set) => acc + Number(set.reps || 0), 0);
-    const totalWeight = s.exercises.flatMap(ex => ex.sets).reduce((acc, set) => acc + Number(set.reps || 0) * Number(set.weight || 0), 0);
-    return { date: shortFR(s.date), intensity: totalReps ? totalWeight / totalReps : 0 };
-  });
+function buildAvgIntensitySeries(sessions, sessionType = "ALL") {
+  return sessions
+    .filter((s) => {
+      if (sessionType === "ALL") return true;
+      return s.type === sessionType;
+    })
+    .map((s) => {
+      const sets = s.exercises.flatMap((ex) => ex.sets);
+      const totalReps = sets.reduce((sum, set) => sum + Number(set.reps || 0), 0);
+      const totalLoad = sets.reduce(
+        (sum, set) => sum + Number(set.weight || 0) * Number(set.reps || 0),
+        0
+      );
+
+      return {
+        date: shortFR(s.date),
+        intensity:
+          totalReps > 0 ? Math.round((totalLoad / totalReps) * 10) / 10 : 0,
+      };
+    });
 }
 function buildExerciseTonnageOverTime(sessions, exerciseName) {
   if (!exerciseName) return [];
