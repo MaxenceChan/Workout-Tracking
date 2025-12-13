@@ -43,7 +43,8 @@ import {
   orderBy,
   onSnapshot,
   addDoc,
-  deleteDoc
+  deleteDoc,
+  updateDoc
 } from "firebase/firestore";
 
 
@@ -2283,11 +2284,22 @@ function WeightTracker({ user }) {
     return onSnapshot(q, (snap) => {
     setData(
       snap.docs
-        .map(d => d.data())
+        .map(d => ({ id: d.id, ...d.data() }))
         .sort((a, b) => a.date.localeCompare(b.date))
     );
+
     });
   }, [user?.id]);
+  const deleteWeight = async (id) => {
+    if (!window.confirm("Supprimer cette entrée de poids ?")) return;
+    await deleteDoc(doc(db, "weights", id));
+  };
+  
+  const updateWeight = async (id, newWeight) => {
+    await updateDoc(doc(db, "weights", id), {
+      weight: Number(newWeight),
+    });
+  };
 
 const addWeight = async () => {
   if (!date || !weight) {
@@ -2360,6 +2372,101 @@ const addWeight = async () => {
           )}
         </CardContent>
       </Card>
+
+      {/* 📜 Historique du poids */}
+<Card className="md:col-span-2">
+  <CardContent className="space-y-4">
+    <h3 className="font-semibold text-lg">📜 Historique du poids</h3>
+
+    {data.length === 0 ? (
+      <div className="text-sm text-gray-500">
+        Aucun poids enregistré.
+      </div>
+    ) : (
+      <div className="space-y-3">
+        {[...data].reverse().map((w) => (
+          <WeightCard
+            key={w.id}
+            entry={w}
+            onDelete={deleteWeight}
+            onUpdate={updateWeight}
+          />
+        ))}
+      </div>
+    )}
+  </CardContent>
+</Card>
+
     </div>
+  );
+}
+
+function WeightCard({ entry, onDelete, onUpdate }) {
+  const [editing, setEditing] = useState(false);
+  const [localWeight, setLocalWeight] = useState(entry.weight);
+
+  return (
+    <Card>
+      <CardContent className="flex items-center justify-between gap-4">
+        <div>
+          <div className="text-xs text-gray-500">
+            {new Date(entry.date).toLocaleDateString("fr-FR")}
+          </div>
+
+          {editing ? (
+            <Input
+              type="number"
+              step="0.1"
+              value={localWeight}
+              onChange={(e) => setLocalWeight(e.target.value)}
+              className="w-24 mt-1"
+            />
+          ) : (
+            <div className="text-lg font-semibold">
+              {entry.weight} kg
+            </div>
+          )}
+        </div>
+
+        <div className="flex gap-2">
+          {editing ? (
+            <>
+              <Button
+                onClick={async () => {
+                  await onUpdate(entry.id, localWeight);
+                  setEditing(false);
+                }}
+              >
+                <Save className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setLocalWeight(entry.weight);
+                  setEditing(false);
+                }}
+              >
+                Annuler
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                variant="secondary"
+                onClick={() => setEditing(true)}
+              >
+                <Edit3 className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => onDelete(entry.id)}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
