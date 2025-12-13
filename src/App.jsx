@@ -2130,15 +2130,25 @@ function getLastSessionByType(sessions, type) {
 
 // Moyenne intensité kg/rep par séance
 function buildAvgIntensitySeries(sessions, sessionType = "ALL") {
-return sortByDateAsc(
-  sessions.map((s) => ({
-    date: s.date,
-    intensity: ...
-  }))
-).map((d) => ({
-  ...d,
-  date: shortFR(d.date),
-}));
+return sessions
+    .filter((s) => {
+      if (sessionType === "ALL") return true;
+      return s.type === sessionType;
+    })
+    .map((s) => {
+      const sets = s.exercises.flatMap((ex) => ex.sets);
+      const totalReps = sets.reduce((sum, set) => sum + Number(set.reps || 0), 0);
+      const totalLoad = sets.reduce(
+        (sum, set) => sum + Number(set.weight || 0) * Number(set.reps || 0),
+        0
+      );
+
+      return {
+        date: shortFR(s.date),
+        intensity:
+          totalReps > 0 ? Math.round((totalLoad / totalReps) * 10) / 10 : 0,
+      };
+    });
 }
 function buildExerciseTonnageOverTime(sessions, exerciseName) {
   if (!exerciseName) return [];
