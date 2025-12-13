@@ -1100,48 +1100,55 @@ function SessionCard({ session, onDelete, onEdit }) {
   // 📸 Fonction d'export en image de la carte séance
 const exportSessionAsImage = async () => {
   try {
-    if (!cardRef.current) {
-      alert("Impossible de trouver la séance à exporter (cardRef vide).");
-      return;
-    }
+    if (!cardRef.current) return;
 
-    // Capture la card complète avec le bon thème
     const canvas = await html2canvas(cardRef.current, {
       scale: 3,
       useCORS: true,
       backgroundColor: getComputedStyle(document.body).backgroundColor,
-      logging: false,
     });
 
-    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
-    const file = new File(
-      [blob],
-      `seance-${local.type || "Libre"}-${local.date || "sans-date"}.png`,
-      { type: "image/png" }
+    const blob = await new Promise((resolve) =>
+      canvas.toBlob(resolve, "image/png")
     );
 
-    // 📱 Détection mobile simple
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const fileName = `seance-${local.type || "Libre"}-${local.date || "date"}.png`;
 
-    if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
-      // ✅ Partage natif sur mobile
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isAndroid = /Android/.test(navigator.userAgent);
+
+    // 🟢 ANDROID → partage natif
+    if (
+      !isIOS &&
+      navigator.canShare &&
+      navigator.canShare({ files: [new File([blob], fileName)] })
+    ) {
+      const file = new File([blob], fileName, { type: "image/png" });
+
       await navigator.share({
-        title: `🏋️ Ma séance ${local.type}`,
-        text: `Voici ma séance ${local.type} sur Workout Tracker 💪`,
+        title: "🏋️ Ma séance",
+        text: "Voici ma séance sur Workout Tracker 💪",
         files: [file],
       });
-      console.log("✅ Partage réussi via le menu mobile !");
-    } else {
-      // 💻 Téléchargement direct sur PC
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = file.name;
-      link.click();
-      alert("💾 Image téléchargée sur ton ordinateur ✅");
+      return;
+    }
+
+    // 🟠 iOS & PC → téléchargement
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+
+    if (isIOS) {
+      alert("📲 Image enregistrée. Tu peux maintenant la partager depuis Photos.");
     }
   } catch (e) {
-    console.error("Erreur export :", e);
-    alert("❌ Impossible d’exporter ou de partager la séance (voir console).");
+    console.error("Export error:", e);
+    alert("Impossible d’exporter la séance.");
   }
 };
 const cardRef = React.useRef(null);
