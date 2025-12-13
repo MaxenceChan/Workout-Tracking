@@ -1468,55 +1468,64 @@ function Analytics({ sessions }) {
         </Card>
       </div>
 
-      {/* Bloc 3 : Top set + 3 dernières séances */}
-      <div className="grid md:grid-cols-2 gap-4">
-<Card>
-  <CardContent className="p-4 space-y-3">
-    <div className="flex items-center justify-between flex-wrap gap-2">
-      <h3 className="font-semibold">
-        Évolution du tonnage par exercice
-      </h3>
+      {/* Bloc 3 : Évolution tonnage + 3 dernières séances */}
+<div className="grid md:grid-cols-2 gap-4">
 
-      <select
-        className="border rounded-xl p-2 text-sm"
-        value={exerciseTonnage}
-        onChange={(e) => setExerciseTonnage(e.target.value)}
-      >
-        {allExercises.map((e) => (
-          <option key={e} value={e}>
-            {e}
-          </option>
-        ))}
-      </select>
-    </div>
+  {/* 🔹 Évolution du tonnage par séance */}
+  <Card>
+    <CardContent className="p-4 space-y-3">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <h3 className="font-semibold">
+          Évolution du tonnage par exercice
+        </h3>
 
-    {tonnageEvolution.length === 0 ? (
-      <div className="text-sm text-gray-600">
-        Pas encore de données pour cet exercice.
-      </div>
-    ) : (
-      <div className="h-64 md:h-80">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={tonnageEvolution}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="date" />
-            <YAxis />
-            <Tooltip formatter={(v) => [`${v} kg`, "Tonnage"]} />
-            <Line
-              type="monotone"
-              dataKey="volume"
-              strokeWidth={2}
-              dot
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-    )}
-  </CardContent>
-</Card>
-
+        <select
+          className="border rounded-xl p-2 text-sm"
+          value={exerciseTonnage}
+          onChange={(e) => setExerciseTonnage(e.target.value)}
+        >
+          {allExercises.map((e) => (
+            <option key={e} value={e}>
+              {e}
+            </option>
+          ))}
+        </select>
       </div>
 
+      {tonnageEvolution.length === 0 ? (
+        <div className="text-sm text-gray-600">
+          Pas encore de données pour cet exercice.
+        </div>
+      ) : (
+        <div className="h-64 md:h-80">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={tonnageEvolution}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="date" />
+              <YAxis />
+              <Tooltip formatter={(v) => [`${v} kg`, "Tonnage"]} />
+              <Line
+                type="monotone"
+                dataKey="volume"
+                strokeWidth={2}
+                dot
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+    </CardContent>
+  </Card>
+
+  {/* 🔹 3 dernières séances */}
+  <LastThreeSessionsSetTonnageChart
+    sessions={sessions}
+    exerciseName={exerciseLast3}
+    options={allExercises}
+    onChangeExercise={setExerciseLast3}
+  />
+
+</div>
 {/* Bloc 4 : Répartition des séances par type sur 30 jours */}
 <div className="grid md:grid-cols-2 gap-4">
   <Card className="md:col-span-2">
