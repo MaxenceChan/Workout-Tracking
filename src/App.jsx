@@ -2275,14 +2275,17 @@ function WeightTracker({ user }) {
   useEffect(() => {
     if (!user?.id) return;
 
-    const q = query(
-      collection(db, "weights"),
-      where("user_id", "==", user.id),
-      orderBy("date", "asc")
-    );
+  const q = query(
+    collection(db, "weights"),
+    where("user_id", "==", user.id)
+  );
 
     return onSnapshot(q, (snap) => {
-      setData(snap.docs.map(d => d.data()));
+    setData(
+      snap.docs
+        .map(d => d.data())
+        .sort((a, b) => a.date.localeCompare(b.date))
+    );
     });
   }, [user?.id]);
 
