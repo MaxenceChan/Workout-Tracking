@@ -396,6 +396,7 @@ function App() {
             <TabsTrigger value="analytics">Datavisualisation</TabsTrigger>
             <TabsTrigger value="last">Dernière séance</TabsTrigger>
             <TabsTrigger value="weight">Suivi du poids</TabsTrigger>
+            <TabsTrigger value="steps">Suivi des pas</TabsTrigger>
           </TabsList>
 
           <TabsContent value="tpl" className="mt-3 sm:mt-4">
@@ -468,7 +469,9 @@ function App() {
 <TabsContent value="weight" className="mt-3 sm:mt-4">
   <WeightTracker user={user} />
 </TabsContent>
-
+<TabsContent value="steps" className="mt-3 sm:mt-4">
+  <StepsTracker user={user} />
+</TabsContent>
            </Tabs>
       </main>
     </div>
@@ -2902,5 +2905,88 @@ function WeightCard({ entry, onDelete, onUpdate }) {
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+// ───────────────────────────────────────────────
+// Suivi des pas (Google Fit)
+// ───────────────────────────────────────────────
+function StepsTracker({ user }) {
+  const [connected, setConnected] = useState(false);
+  const [stepsData, setStepsData] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const connectGoogleFit = () => {
+    // ⚠️ backend requis
+    window.location.href = `${import.meta.env.VITE_API_URL}/auth/google-fit`;
+  };
+
+  const fetchSteps = async () => {
+    try {
+      const res = await fetch(
+        `${import.meta.env.VITE_API_URL}/steps?uid=${user.id}`,
+        { credentials: "include" }
+      );
+      const json = await res.json();
+      setStepsData(json);
+      setConnected(true);
+    } catch (e) {
+      alert("Impossible de récupérer les pas");
+    }
+  };
+
+  useEffect(() => {
+    if (connected) fetchSteps();
+  }, [connected]);
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Connexion */}
+      <Card>
+        <CardContent className="space-y-4">
+          <h3 className="font-semibold text-lg">🚶 Suivi des pas</h3>
+
+          {!connected ? (
+            <>
+              <p className="text-sm text-gray-600">
+                Connecte ton compte Google Fit pour récupérer ton nombre de pas quotidien.
+              </p>
+              <Button onClick={connectGoogleFit} disabled={loading}>
+                Se connecter à Google Fit
+              </Button>
+            </>
+          ) : (
+            <p className="text-sm text-green-600">
+              ✅ Google Fit connecté
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Graphique */}
+      <Card>
+        <CardContent>
+          <h3 className="font-semibold text-lg mb-3">📊 Pas par jour</h3>
+
+          {stepsData.length === 0 ? (
+            <div className="text-sm text-gray-500">
+              Aucune donnée disponible.
+            </div>
+          ) : (
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={stepsData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" />
+                  <YAxis />
+                  <Tooltip />
+                  <Line type="monotone" dataKey="steps" strokeWidth={3} dot />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }
