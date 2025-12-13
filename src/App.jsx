@@ -1783,7 +1783,32 @@ function Analytics({ sessions }) {
               ))}
             </Pie>
             <Legend />
-            <Tooltip formatter={(v) => [`${v}`, "Séances"]} />
+            <Tooltip
+              content={({ active, payload }) => {
+                if (!active || !payload || !payload.length) return null;
+            
+                const { name, value } = payload[0];
+            
+                return (
+                  <div
+                    style={{
+                      backgroundColor: "#ffffff",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "8px",
+                      padding: "8px 10px",
+                      color: "#000000",
+                    }}
+                  >
+                    <div style={{ fontWeight: 700, marginBottom: 4 }}>
+                      {name}
+                    </div>
+                    <div style={{ fontSize: 14 }}>
+                      Séances : <strong>{value}</strong>
+                    </div>
+                  </div>
+                );
+              }}
+            />
           </PieChart>
         </ResponsiveContainer>
       </div>
