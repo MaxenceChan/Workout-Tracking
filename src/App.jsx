@@ -1406,6 +1406,11 @@ function Analytics({ sessions }) {
   const [intensityTypeFilter, setIntensityTypeFilter] = useState("ALL");
   const [sessionTypeTonnage, setSessionTypeTonnage] = useState("ALL");
 
+  const avgSessionsPerWeek = useMemo(
+  () => computeAvgSessionsPerWeek(sessions),
+  [sessions]
+  );
+
   useEffect(() => {
   if (!sessionTypeTonnage) setSessionTypeTonnage("ALL");
   }, [sessionTypeTonnage]);
@@ -1732,11 +1737,6 @@ function Analytics({ sessions }) {
 // Helpers Analytics
 // ───────────────────────────────────────────────────────────────
 const colors = ["#8884d8", "#82ca9d", "#ffc658", "#ff7f50", "#6a5acd", "#40e0d0"];
-const avgSessionsPerWeek = useMemo(
-  () => computeAvgSessionsPerWeek(sessions),
-  [sessions]
-);
-
 function computeExerciseShare(sessions) {
   const map = {};
   sessions.forEach((s) => {
