@@ -1399,7 +1399,12 @@ function Analytics({ sessions }) {
   const [exerciseSetTon, setExerciseSetTon] = useState(allExercises[0] || "");
   const [exerciseTonnage, setExerciseTonnage] = useState(allExercises[0] || "");
   const [intensityTypeFilter, setIntensityTypeFilter] = useState("ALL");
+  const [sessionTypeTonnage, setSessionTypeTonnage] = useState("ALL");
 
+  useEffect(() => {
+  if (!sessionTypeTonnage) setSessionTypeTonnage("ALL");
+  }, [sessionTypeTonnage]);
+  
   useEffect(() => {
   setIntensityTypeFilter("ALL");
   }, []);
@@ -1423,6 +1428,14 @@ function Analytics({ sessions }) {
   const tonnageEvolution = useMemo(
   () => buildExerciseTonnageOverTime(sessions, exerciseTonnage),
   [sessions, exerciseTonnage]
+  );
+  const tonnageByTypeSeries = useMemo(
+  () =>
+    buildTonnageBySessionTypeOverTime(
+      sessions,
+      sessionTypeTonnage
+    ),
+  [sessions, sessionTypeTonnage]
   );
   const [exerciseLast3, setExerciseLast3] = useState(allExercises[0] || "");
   useEffect(() => {
@@ -1499,46 +1512,70 @@ function Analytics({ sessions }) {
           </CardContent>
         </Card>
 
-        {/* Fréquence */}
+        {/* Evolution du tonnage par type de séance */}
         <Card>
           <CardContent className="p-4 space-y-3">
-            <h3 className="font-semibold">Fréquence des séances par semaine</h3>
-            <div className="h-64 md:h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={weeklyFreq}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="weekLabel" />
-                  <YAxis allowDecimals={false} />
-                  <Tooltip
-                    content={({ active, payload, label }) => {
-                      if (!active || !payload || !payload.length) return null;
-                  
-                      const value = payload[0].value;
-                  
-                      return (
-                        <div
-                          style={{
-                            backgroundColor: "#ffffff",
-                            border: "1px solid #e5e7eb",
-                            borderRadius: "8px",
-                            padding: "8px 10px",
-                            color: "#000000",
-                          }}
-                        >
-                          <div style={{ fontWeight: 700, marginBottom: 4 }}>
-                            {label}
-                          </div>
-                          <div style={{ fontSize: 14 }}>
-                            Tonnage : <strong>{value} kg</strong>
-                          </div>
-                        </div>
-                      );
-                    }}
-                  />
-                  <Bar dataKey="count" />
-                </BarChart>
-              </ResponsiveContainer>
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <h3 className="font-semibold">
+                Évolution du tonnage par type de séance
+              </h3>
+        
+              <select
+                className="border rounded-xl p-2 text-sm"
+                value={sessionTypeTonnage}
+                onChange={(e) => setSessionTypeTonnage(e.target.value)}
+              >
+                <option value="ALL">Tous les types</option>
+                {Array.from(new Set(sessions.map((s) => s.type))).map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
             </div>
+        
+            {tonnageByTypeSeries.length === 0 ? (
+              <div className="text-sm text-gray-600">
+                Pas encore de données pour ce type de séance.
+              </div>
+            ) : (
+              <div className="h-64 md:h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={tonnageByTypeSeries}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis />
+                    <Tooltip
+                      content={({ active, payload, label }) => {
+                        if (!active || !payload || !payload.length) return null;
+                        return (
+                          <div
+                            style={{
+                              backgroundColor: "#ffffff",
+                              border: "1px solid #e5e7eb",
+                              borderRadius: "8px",
+                              padding: "8px",
+                              color: "#000",
+                            }}
+                          >
+                            <div style={{ fontWeight: 700 }}>{label}</div>
+                            <div>
+                              Tonnage : <strong>{payload[0].value} kg</strong>
+                            </div>
+                          </div>
+                        );
+                      }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="tonnage"
+                      strokeWidth={2}
+                      dot
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -1683,6 +1720,29 @@ function getUserExercises(data) {
 
   const all = [...fromSessions, ...fromCustom, ...fromTemplates];
   return Array.from(new Set(all)); // supprime les doublons
+}
+
+function buildTonnageBySessionTypeOverTime(sessions, sessionType = "ALL") {
+  return sessions
+    .filter((s) => {
+      if (sessionType === "ALL") return true;
+      return s.type === sessionType;
+    })
+    .map((s) => {
+      const tonnage = s.exercises
+        .flatMap((ex) => ex.sets)
+        .reduce(
+          (sum, set) =>
+            sum + Number(set.weight || 0) * Number(set.reps || 0),
+          0
+        );
+
+      return {
+        date: shortFR(s.date),
+        tonnage,
+      };
+    })
+    .filter((d) => d.tonnage > 0);
 }
 
 // App.jsx (Bloc 5)
