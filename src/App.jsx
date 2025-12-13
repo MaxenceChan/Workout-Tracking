@@ -1406,10 +1406,33 @@ function Analytics({ sessions }) {
   const [intensityTypeFilter, setIntensityTypeFilter] = useState("ALL");
   const [sessionTypeTonnage, setSessionTypeTonnage] = useState("ALL");
 
-  const avgSessionsPerWeek = useMemo(
-  () => computeAvgSessionsPerWeek(sessions),
-  [sessions]
+  const firstSessionDate = useMemo(() => {
+  if (!sessions.length) return null;
+  return sessions
+    .map(s => s.date)
+    .sort()[0];
+  }, [sessions]);
+  
+  const today = todayISO();
+  
+  const [startDate, setStartDate] = useState(firstSessionDate || today);
+  const [endDate] = useState(today);
+
+  useEffect(() => {
+  if (firstSessionDate) {
+    setStartDate(firstSessionDate);
+  }
+  }, [firstSessionDate]);
+
+  const filteredSessionsByDate = useMemo(() => {
+  return sessions.filter(s =>
+    s.date >= startDate && s.date <= endDate
   );
+  }, [sessions, startDate, endDate]);
+  
+  const avgSessionsPerWeek = useMemo(() => {
+    return computeAvgSessionsPerWeek(filteredSessionsByDate);
+  }, [filteredSessionsByDate]);
 
   useEffect(() => {
   if (!sessionTypeTonnage) setSessionTypeTonnage("ALL");
@@ -1457,7 +1480,8 @@ function Analytics({ sessions }) {
       <div className="grid md:grid-cols-2 gap-4">
         <MonthlyCalendar sessions={sessions} />
         <Card>
-        <CardContent className="p-5 sm:p-6">
+        <CardContent className="p-5 sm:p-6 space-y-4">
+          {/* Header */}
           <div className="flex items-start justify-between">
             <div>
               <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center gap-2">
@@ -1473,21 +1497,42 @@ function Analytics({ sessions }) {
                 </span>
               </div>
       
-              <p className="mt-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
-                Moyenne calculée depuis ta première séance enregistrée
+              <p className="mt-1 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+                Moyenne calculée sur la période sélectionnée
               </p>
             </div>
       
-            {/* Accent visuel */}
             <div className="h-12 w-12 rounded-xl bg-green-100 dark:bg-green-500/20 
                             flex items-center justify-center text-green-600 dark:text-green-400 text-xl">
               🏋️
             </div>
           </div>
+      
+          {/* Filtres dates */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t">
+            <div>
+              <Label>Date de début</Label>
+              <Input
+                type="date"
+                value={startDate}
+                min={firstSessionDate || undefined}
+                max={today}
+                onChange={(e) => setStartDate(e.target.value)}
+              />
+            </div>
+      
+            <div>
+              <Label>Date de fin</Label>
+              <Input
+                type="date"
+                value={endDate}
+                disabled
+              />
+            </div>
+          </div>
         </CardContent>
       </Card>
       </div>
-
       {/* Bloc 2 : Intensité + Fréquence */}
       <div className="grid md:grid-cols-2 gap-4">
         {/* Intensité */}
