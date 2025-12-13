@@ -1416,7 +1416,13 @@ function Analytics({ sessions }) {
   const today = todayISO();
   
   const [startDate, setStartDate] = useState(firstSessionDate || today);
-  const [endDate] = useState(today);
+  const [endDate, setEndDate] = useState(today);
+
+  useEffect(() => {
+  if (startDate > endDate) {
+    setEndDate(startDate);
+  }
+  }, [startDate, endDate]);
 
   useEffect(() => {
   if (firstSessionDate) {
@@ -1516,17 +1522,19 @@ function Analytics({ sessions }) {
                 type="date"
                 value={startDate}
                 min={firstSessionDate || undefined}
-                max={today}
+                max={endDate}
                 onChange={(e) => setStartDate(e.target.value)}
               />
             </div>
-      
+          
             <div>
               <Label>Date de fin</Label>
               <Input
                 type="date"
                 value={endDate}
-                disabled
+                min={startDate}
+                max={today}
+                onChange={(e) => setEndDate(e.target.value)}
               />
             </div>
           </div>
