@@ -1,5 +1,4 @@
 // /api/auth/google-fit.js
-import fetch from "node-fetch";
 
 export default async function handler(req, res) {
   const {
@@ -8,7 +7,13 @@ export default async function handler(req, res) {
     GOOGLE_REDIRECT_URI,
   } = process.env;
 
-  // 🟢 CAS 1 — Google renvoie avec un code
+  if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !GOOGLE_REDIRECT_URI) {
+    return res.status(500).json({
+      error: "Missing Google OAuth environment variables",
+    });
+  }
+
+  // 🟢 CAS 1 — Retour Google avec code
   if (req.query.code) {
     const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
@@ -25,16 +30,17 @@ export default async function handler(req, res) {
     const tokens = await tokenRes.json();
 
     if (!tokenRes.ok) {
+      console.error(tokens);
       return res.status(500).json(tokens);
     }
 
-    // 🔐 Pour l’instant : stock temporaire en cookie
+    // 🔐 Cookie temporaire (OK pour test)
     res.setHeader(
       "Set-Cookie",
       `google_fit_token=${tokens.access_token}; Path=/; HttpOnly; Secure; SameSite=Lax`
     );
 
-    // 👉 Retour vers ton app
+    // 🔁 Retour app
     return res.redirect("/");
   }
 
