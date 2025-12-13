@@ -170,6 +170,7 @@ const TabsContent = ({ value, className, children }) => {
 // Utils & Domain
 // ───────────────────────────────────────────────────────────────
 const prettyDate = (d) => new Date(d).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "2-digit" });
+const todayISO = () => new Date().toISOString().slice(0, 10);
 const shortFR = (iso) => {
   const d = new Date(iso + "T00:00:00");
   return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" });
@@ -576,7 +577,7 @@ function SessionForm({ user, onSavedLocally, customExercises = [], onAddCustomEx
   const [templateId, setTemplateId] = useState("");
   const [exercises, setExercises] = useState([]);
   const [exSelect, setExSelect] = useState("");
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(todayISO);
   const [timers, setTimers] = useState({});
   const [globalTimer, setGlobalTimer] = useState({
     running: false,
@@ -590,7 +591,9 @@ useEffect(() => {
     const raw = localStorage.getItem(SESSION_DRAFT_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (parsed.date) setDate(parsed.date);
+      // ❌ On ne restaure PAS la date depuis le cache
+      // La date doit toujours être celle du jour
+      setDate(todayISO());
       if (parsed.exercises) setExercises(parsed.exercises);
       if (parsed.templateId) setTemplateId(parsed.templateId);
       if (parsed.timers) setTimers(parsed.timers);
@@ -714,7 +717,7 @@ useEffect(() => {
 
     const session = {
       id: uuidv4(),
-      date,
+      date: todayISO(), // 🔒 toujours la date du jour
       type: tplName,
       exercises: cleaned,
       createdAt: new Date().toISOString(),
@@ -2270,7 +2273,7 @@ function ThemeToggleButton() {
 // Suivi du poids (module indépendant)
 // ───────────────────────────────────────────────────────────────
 function WeightTracker({ user }) {
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(todayISO);
   const [weight, setWeight] = useState("");
   const [data, setData] = useState([]);
 
