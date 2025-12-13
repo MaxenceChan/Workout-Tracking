@@ -143,3 +143,12 @@ src/
 Projet personnel — full design, logique métier et implémentation
 
 ---
+
+## 📜 Licence & propriété intellectuelle
+
+Ce projet est développé et maintenu par **Maxence Chan**.
+
+Le code source est protégé par la licence **MIT**.  
+Toute réutilisation doit mentionner explicitement l’auteur.
+
+© 2025 — Tous droits réservés.
