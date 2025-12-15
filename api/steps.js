@@ -32,7 +32,7 @@ export default async function handler(req, res) {
     const fitness = google.fitness({ version: "v1", auth: oauth2Client });
 
     const end = Date.now();
-    const start = new Date("2025-01-01").getTime();
+    const start = end - 90 * 24 * 60 * 60 * 1000;
     
     const response = await fitness.users.dataset.aggregate({
       userId: "me",
