@@ -1,3 +1,7 @@
+export const config = {
+  runtime: "nodejs",
+};
+
 import { google } from "googleapis";
 import admin from "../lib/firebaseAdmin";
 
