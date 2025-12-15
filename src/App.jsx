@@ -1168,7 +1168,28 @@ const cardRef = React.useRef(null);
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
-            <div className="text-xs sm:text-sm text-gray-500">{prettyDate(local.date)} • {local.type}</div>
+                        <div className="text-xs sm:text-sm text-gray-500 flex items-center gap-2">
+              {editing ? (
+                <>
+                  <input
+                    type="date"
+                    value={local.date}
+                    onChange={(e) =>
+                      setLocal((cur) => ({
+                        ...cur,
+                        date: e.target.value,
+                      }))
+                    }
+                    className="border rounded px-2 py-1 text-xs"
+                  />
+                  <span>• {local.type}</span>
+                </>
+              ) : (
+                <>
+                  {prettyDate(local.date)} • {local.type}
+                </>
+              )}
+            </div>
             <div className="text-lg sm:text-2xl font-semibold">{Math.round(tonnage)} kg</div>
             {local.totalDuration !== undefined && (
               <div className="text-xs sm:text-sm text-gray-600">
