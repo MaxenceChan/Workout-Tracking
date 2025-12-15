@@ -35,13 +35,14 @@ import {
 } from "recharts";
 
 // Firebase
-import { db, onAuth, writeBatch, signInEmail, signUpEmail, signInGoogle, signOutUser, resetPassword } from "./firebase";
+import { db, onAuth, signInEmail, signUpEmail, signInGoogle, signOutUser, resetPassword } from "./firebase";
 import {
   collection,
   query,
   where,
   orderBy,
   onSnapshot,
+  writeBatch,
   addDoc,
   deleteDoc,
   updateDoc,
