@@ -1,71 +1,61 @@
 import { google } from "googleapis";
-import admin from "../lib/firebaseAdmin";
+import admin from "../lib/firebaseAdmin.js";
 
 export default async function handler(req, res) {
   try {
-    const { code, state: uid } = req.query;
-    if (!code || !uid) return res.status(400).send("Missing params");
+    const { code, state } = req.query;
 
+    // 🔴 Sécurité de base
+    if (!code || !state) {
+      return res.status(400).send("Missing code or state");
+    }
+
+    const uid = state; // on a passé l’uid dans state à l’étape OAuth
+
+    // 🔐 OAuth client Google
     const oauth2Client = new google.auth.OAuth2(
       process.env.GOOGLE_CLIENT_ID,
       process.env.GOOGLE_CLIENT_SECRET,
       process.env.GOOGLE_REDIRECT_URI
     );
 
-    // 🔐 échange du code contre tokens
+    // 🔁 Échange code → tokens
     const { tokens } = await oauth2Client.getToken(code);
     oauth2Client.setCredentials(tokens);
 
-    // 🚶 Google Fit API
-    const fitness = google.fitness({ version: "v1", auth: oauth2Client });
+    if (!tokens.refresh_token) {
+      console.warn(
+        "⚠️ Aucun refresh_token reçu. L'utilisateur a probablement déjà autorisé l'app."
+      );
+    }
 
-    const now = Date.now();
-    const start = now - 30 * 24 * 60 * 60 * 1000; // 30 jours
-
-    const response = await fitness.users.dataset.aggregate({
-      userId: "me",
-      requestBody: {
-        aggregateBy: [{ dataTypeName: "com.google.step_count.delta" }],
-        bucketByTime: { durationMillis: 86400000 },
-        startTimeMillis: start,
-        endTimeMillis: now,
-      },
-    });
-
-    const buckets = response.data.bucket || [];
-
-    const stepsByDay = buckets.map((b) => {
-      const steps =
-        b.dataset?.[0]?.point?.reduce(
-          (sum, p) => sum + (p.value?.[0]?.intVal || 0),
-          0
-        ) || 0;
-
-      return {
-        date: new Date(Number(b.startTimeMillis)).toISOString().slice(0, 10),
-        steps,
-      };
-    });
-
-    // 💾 FIRESTORE
-    const ref = admin
+    // 💾 CRÉATION / MISE À JOUR DU USER DANS FIRESTORE
+    await admin
       .firestore()
       .collection("users")
       .doc(uid)
-      .collection("steps");
+      .set(
+        {
+          uid,
+          googleFit: {
+            access_token: tokens.access_token || null,
+            refresh_token: tokens.refresh_token || null, // 🔥 CRUCIAL
+            scope: tokens.scope || null,
+            token_type: tokens.token_type || null,
+            expiry_date: tokens.expiry_date || null,
+          },
+          updated_at: admin.firestore.FieldValue.serverTimestamp(),
+          created_at: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
 
-    const batch = admin.firestore().batch();
-    stepsByDay.forEach((d) => {
-      const docRef = ref.doc(d.date);
-      batch.set(docRef, d, { merge: true });
-    });
-    await batch.commit();
-
-    // 🔁 retour app
-    res.redirect("/");
-
-  } catch (e) {
-    console.error(e);
-    res.status(500).send("Google Fit error");
+    // 🔁 Redirection vers l’app front
+    return res.redirect(
+      `${process.env.FRONTEND_URL}/?googleFit=connected`
+    );
+  } catch (error) {
+    console.error("GOOGLE FIT CALLBACK ERROR", error);
+    return res.status(500).send("Google Fit callback failed");
   }
 }
