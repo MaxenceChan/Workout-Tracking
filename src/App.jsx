@@ -2942,7 +2942,7 @@ function StepsTracker({ user }) {
   const [error, setError] = React.useState(null);
 
   const connectGoogleFit = () => {
-    window.location.href = `/api/auth/google-fit?uid=${user.id}`;
+  window.location.href = `/api/auth/google-fit?uid=${user.id}`;
   };
 
   React.useEffect(() => {
