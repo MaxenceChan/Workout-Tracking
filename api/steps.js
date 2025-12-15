@@ -6,7 +6,6 @@ export default async function handler(req, res) {
     const { uid } = req.query;
     if (!uid) return res.status(400).json({ error: "Missing uid" });
 
-    // 🔑 récupérer tokens Google Fit stockés
     const db = admin.firestore();
     const userRef = db.collection("users").doc(uid);
     const userSnap = await userRef.get();
@@ -15,27 +14,25 @@ export default async function handler(req, res) {
       return res.status(404).json({ error: "User not found" });
     }
 
-    const { access_token, refresh_token } = userSnap.data().googleFit;
-    if (!access_token) {
+    const { refresh_token } = userSnap.data().googleFit || {};
+
+    // 🔥 SEULE CONDITION VALABLE
+    if (!refresh_token) {
       return res.status(401).json({ error: "Google Fit not connected" });
     }
 
-    // 🔐 OAuth client
+    // 🔐 OAuth client (refresh_token uniquement)
     const oauth2Client = new google.auth.OAuth2(
       process.env.GOOGLE_CLIENT_ID,
       process.env.GOOGLE_CLIENT_SECRET
     );
 
-    oauth2Client.setCredentials({
-      access_token,
-      refresh_token,
-    });
+    oauth2Client.setCredentials({ refresh_token });
 
-    // 📊 Google Fit aggregate API
     const fitness = google.fitness({ version: "v1", auth: oauth2Client });
 
     const end = Date.now();
-    const start = end - 90 * 24 * 60 * 60 * 1000; // ⬅️ 90 jours
+    const start = end - 90 * 24 * 60 * 60 * 1000; // 90 jours
 
     const response = await fitness.users.dataset.aggregate({
       userId: "me",
@@ -49,8 +46,7 @@ export default async function handler(req, res) {
       },
     });
 
-    // 🧮 transformation par jour
-    const dailySteps = response.data.bucket.map((b) => {
+    const dailySteps = (response.data.bucket || []).map((b) => {
       const date = new Date(Number(b.startTimeMillis))
         .toISOString()
         .slice(0, 10);
@@ -66,13 +62,16 @@ export default async function handler(req, res) {
 
     // 💾 sauvegarde Firestore
     const batch = db.batch();
-
     dailySteps.forEach((d) => {
       const ref = userRef.collection("steps").doc(d.date);
-      batch.set(ref, {
-        ...d,
-        updated_at: admin.firestore.FieldValue.serverTimestamp(),
-      });
+      batch.set(
+        ref,
+        {
+          ...d,
+          updated_at: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
     });
 
     await batch.commit();
