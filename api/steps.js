@@ -47,10 +47,10 @@ export default async function handler(req, res) {
     });
 
     const dailySteps = (response.data.bucket || []).map((b) => {
-      const date = new Date(Number(b.startTimeMillis))
-        .toISOString()
-        .slice(0, 10);
-
+    const date = new Date(Number(b.startTimeMillis))
+      .toLocaleDateString("fr-CA", {
+        timeZone: "Europe/Paris",
+      });
       const steps =
         b.dataset?.[0]?.point?.reduce(
           (sum, p) => sum + (p.value?.[0]?.intVal || 0),
