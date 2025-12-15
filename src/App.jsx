@@ -35,7 +35,7 @@ import {
 } from "recharts";
 
 // Firebase
-import { db, onAuth, signInEmail, signUpEmail, signInGoogle, signOutUser, resetPassword } from "./firebase";
+import { db, onAuth, writeBatch, signInEmail, signUpEmail, signInGoogle, signOutUser, resetPassword } from "./firebase";
 import {
   collection,
   query,
