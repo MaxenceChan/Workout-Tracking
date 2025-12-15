@@ -2939,84 +2939,33 @@ function WeightCard({ entry, onDelete, onUpdate }) {
 function StepsTracker({ user }) {
   const [stepsData, setStepsData] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [connected, setConnected] = useState(false);
 
-  // 🔗 Connexion Google Fit (OAuth)
+  // 🔗 Connexion Google Fit
   const connectGoogleFit = () => {
     if (!user?.id) {
       alert("Utilisateur non connecté");
       return;
     }
-
-    // ✅ Endpoint correct (fonctionne local + Vercel)
     window.location.href = `/api/auth/google-fit?uid=${user.id}`;
   };
 
-  // 🔍 Vérifie si Google Fit est déjà connecté
+  // 🔥 ÉCOUTE FIRESTORE (temps réel)
   useEffect(() => {
-    const checkStatus = async () => {
-      try {
-        const res = await fetch("/api/google-fit/status", {
-          credentials: "include",
-        });
+    if (!user?.id) return;
 
-        if (!res.ok) return;
+    const q = query(
+      collection(db, "users", user.id, "steps"),
+      orderBy("date", "asc")
+    );
 
-        const json = await res.json();
-        if (json.connected) {
-          setConnected(true);
-          setError(null);
-        }
-      } catch (e) {
-        console.error("Google Fit status error", e);
-      }
-    };
-
-    checkStatus();
-  }, []);
-
-  // 📊 Récupération des pas
-  const fetchSteps = async () => {
-    try {
-      setLoading(true);
-
-      const res = await fetch("/api/steps", {
-        credentials: "include",
-      });
-
-      if (!res.ok) {
-        if (res.status === 401) {
-          setConnected(false);
-          setError("Google Fit non connecté");
-        } else {
-          setError("Erreur Google Fit");
-        }
-        setStepsData([]);
-        return;
-      }
-
-      const json = await res.json();
-      setStepsData(json);
-      setConnected(true);
-      setError(null);
-    } catch (e) {
-      console.error(e);
-      setError("Impossible de récupérer les pas");
-      setStepsData([]);
-    } finally {
+    const unsub = onSnapshot(q, (snap) => {
+      const rows = snap.docs.map((d) => d.data());
+      setStepsData(rows);
       setLoading(false);
-    }
-  };
+    });
 
-  // ▶️ Chargement automatique des pas si connecté
-  useEffect(() => {
-    if (connected) {
-      fetchSteps();
-    } else {
-      setLoading(false);
-    }
-  }, [connected]);
+    return () => unsub();
+  }, [user?.id]);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -3025,7 +2974,7 @@ function StepsTracker({ user }) {
         <CardContent className="space-y-4">
           <h3 className="font-semibold text-lg">🚶 Suivi des pas</h3>
 
-          {!connected ? (
+          {stepsData.length === 0 ? (
             <>
               <p className="text-sm text-gray-600">
                 Google Fit n’est pas encore connecté.
