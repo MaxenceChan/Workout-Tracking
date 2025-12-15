@@ -32,7 +32,15 @@ export default async function handler(req, res) {
     const fitness = google.fitness({ version: "v1", auth: oauth2Client });
 
     const end = Date.now();
-    const start = new Date("2015-01-01").getTime(); // début Google Fit
+    const oldestSnap = await userRef
+      .collection("steps")
+      .orderBy("date")
+      .limit(1)
+      .get();
+    
+    const start = oldestSnap.empty
+      ? new Date("2015-01-01").getTime()
+      : new Date(oldestSnap.docs[0].id).getTime();
 
     const response = await fitness.users.dataset.aggregate({
       userId: "me",
