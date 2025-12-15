@@ -2938,8 +2938,12 @@ function WeightCard({ entry, onDelete, onUpdate }) {
 // ───────────────────────────────────────────────
 function StepsTracker({ user }) {
   const [stepsData, setStepsData] = React.useState([]);
-  const [loading, setLoading] = React.useState(true);
+  const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState(null);
+
+  const connectGoogleFit = () => {
+    window.location.href = `/api/auth/google-fit?uid=${user.id}`;
+  };
 
   React.useEffect(() => {
     if (!user?.id) return;
@@ -2947,16 +2951,28 @@ function StepsTracker({ user }) {
     const fetchSteps = async () => {
       try {
         setLoading(true);
+        setError(null);
+
         const res = await fetch(`/api/steps?uid=${user.id}`);
-        if (!res.ok) throw new Error("Erreur récupération des pas");
+
+        if (res.status === 401 || res.status === 404) {
+          // 👉 Google Fit non connecté
+          throw new Error("NOT_CONNECTED");
+        }
+
+        if (!res.ok) {
+          throw new Error("API_ERROR");
+        }
 
         const data = await res.json();
         setStepsData(data);
-        setError(null);
       } catch (e) {
-        console.error(e);
-        setError("Impossible de charger les pas");
-        setStepsData([]);
+        if (e.message === "NOT_CONNECTED") {
+          setStepsData([]);
+          setError("NOT_CONNECTED");
+        } else {
+          setError("API_ERROR");
+        }
       } finally {
         setLoading(false);
       }
@@ -2967,19 +2983,41 @@ function StepsTracker({ user }) {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* 🔹 Carte connexion */}
       <Card>
         <CardContent className="space-y-4">
           <h3 className="font-semibold text-lg">🚶 Suivi des pas</h3>
 
-          {loading && <p className="text-sm text-gray-500">Chargement…</p>}
-          {error && <p className="text-sm text-red-500">{error}</p>}
+          {loading && (
+            <p className="text-sm text-gray-500">Chargement…</p>
+          )}
 
-          {!loading && !error && stepsData.length === 0 && (
-            <p className="text-sm text-gray-500">Aucune donnée disponible.</p>
+          {error === "NOT_CONNECTED" && (
+            <>
+              <p className="text-sm text-gray-500">
+                Google Fit n’est pas connecté.
+              </p>
+              <Button onClick={connectGoogleFit}>
+                Se connecter à Google Fit
+              </Button>
+            </>
+          )}
+
+          {error === "API_ERROR" && (
+            <p className="text-sm text-red-500">
+              Erreur serveur. Réessaie plus tard.
+            </p>
+          )}
+
+          {!error && stepsData.length > 0 && (
+            <p className="text-sm text-green-600">
+              ✅ Google Fit connecté
+            </p>
           )}
         </CardContent>
       </Card>
 
+      {/* 🔹 Carte graphique */}
       <Card>
         <CardContent>
           <h3 className="font-semibold text-lg mb-3">📊 Pas par jour</h3>
