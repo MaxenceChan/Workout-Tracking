@@ -2936,92 +2936,61 @@ function WeightCard({ entry, onDelete, onUpdate }) {
 // ───────────────────────────────────────────────
 // Suivi des pas (Google Fit)
 // ───────────────────────────────────────────────
-function StepsTracker({ user }) {
-  const [stepsData, setStepsData] = useState([]);
-  const [loading, setLoading] = useState(true);
+import React, { useState, useEffect } from "react";
+import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer } from "recharts";
 
-  // 🔗 Connexion Google Fit
-  const connectGoogleFit = () => {
-    if (!user?.id) {
-      alert("Utilisateur non connecté");
-      return;
-    }
-    window.location.href = `/api/auth/google-fit?uid=${user.id}`;
-  };
+export default function StepsTracker({ user }) {
+  const [stepsData, setStepsData] = useState([]);  // État pour les données des pas
+  const [loading, setLoading] = useState(true);    // Indicateur de chargement
+  const [error, setError] = useState(null);        // Indicateur d'erreur
 
-  // 🔥 ÉCOUTE FIRESTORE (temps réel)
+  // Fonction pour récupérer les pas depuis l'API
   useEffect(() => {
-    if (!user?.id) return;
+    const fetchSteps = async () => {
+      try {
+        // Appel à l'API pour récupérer les pas depuis Firestore
+        const res = await fetch(`/api/steps?uid=${user.id}`);
+        if (!res.ok) throw new Error("Erreur lors de la récupération des pas.");
 
-    const q = query(
-      collection(db, "users", user.id, "steps"),
-      orderBy("date", "asc")
-    );
+        const data = await res.json();  // On récupère les données JSON de l'API
+        setStepsData(data);             // On met à jour l'état avec les données des pas
+        setLoading(false);              // On arrête le chargement
+      } catch (e) {
+        console.error(e);  // En cas d'erreur, on l'affiche dans la console
+        setError(e.message || "Une erreur est survenue.");  // On met à jour l'état d'erreur
+        setLoading(false);  // On arrête le chargement
+      }
+    };
 
-    const unsub = onSnapshot(q, (snap) => {
-      const rows = snap.docs.map((d) => d.data());
-      setStepsData(rows);
-      setLoading(false);
-    });
+    if (user?.id) {
+      fetchSteps();  // Appel de la fonction pour récupérer les pas
+    }
+  }, [user?.id]);  // On relance l'effet uniquement si l'ID utilisateur change
 
-    return () => unsub();
-  }, [user?.id]);
+  // Si les données sont en train de se charger, on affiche un message de chargement
+  if (loading) return <div>Chargement des données...</div>;
+
+  // Si une erreur est survenue, on l'affiche
+  if (error) return <div>Erreur : {error}</div>;
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {/* Connexion */}
-      <Card>
-        <CardContent className="space-y-4">
-          <h3 className="font-semibold text-lg">🚶 Suivi des pas</h3>
-
-          {stepsData.length === 0 ? (
-            <>
-              <p className="text-sm text-gray-600">
-                Google Fit n’est pas encore connecté.
-              </p>
-              <Button onClick={connectGoogleFit}>
-                Se connecter à Google Fit
-              </Button>
-            </>
-          ) : (
-            <p className="text-sm text-green-600">
-              ✅ Google Fit connecté
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Graphique */}
-      <Card>
-        <CardContent>
-          <h3 className="font-semibold text-lg mb-3">📊 Pas par jour</h3>
-
-          {loading ? (
-            <p className="text-sm text-gray-500">Chargement…</p>
-          ) : stepsData.length === 0 ? (
-            <p className="text-sm text-gray-500">
-              Aucune donnée disponible.
-            </p>
-          ) : (
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={stepsData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip />
-                  <Line
-                    type="monotone"
-                    dataKey="steps"
-                    strokeWidth={3}
-                    dot
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+    <div>
+      <h3>Suivi des Pas</h3>
+      {/* Si les données sont disponibles, on affiche le graphique */}
+      {stepsData.length > 0 ? (
+        <ResponsiveContainer width="100%" height={300}>
+          <LineChart data={stepsData}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="date" />
+            <YAxis />
+            <Tooltip />
+            <Line type="monotone" dataKey="steps" stroke="#8884d8" />
+          </LineChart>
+        </ResponsiveContainer>
+      ) : (
+        // Si aucune donnée n'est disponible, on affiche un message
+        <div>Aucune donnée de pas disponible pour l'instant.</div>
+      )}
     </div>
   );
 }
