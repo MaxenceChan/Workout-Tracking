@@ -2911,79 +2911,99 @@ function WeightCard({ entry, onDelete, onUpdate }) {
 // ───────────────────────────────────────────────
 // Suivi des pas (Google Fit)
 // ───────────────────────────────────────────────
-function StepsTracker() {
+// ───────────────────────────────────────────────
+// Suivi des pas (Google Fit)
+// ───────────────────────────────────────────────
+function StepsTracker({ user }) {
   const [stepsData, setStepsData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [connected, setConnected] = useState(false);
 
+  // 🔗 Connexion Google Fit (OAuth)
   const connectGoogleFit = () => {
     if (!user?.id) {
       alert("Utilisateur non connecté");
       return;
     }
-  
-    window.location.href =
-      `${import.meta.env.VITE_API_URL}/auth/google-fit?uid=${user.id}`;
+
+    // ✅ Endpoint correct (fonctionne local + Vercel)
+    window.location.href = `/api/auth/google-fit?uid=${user.id}`;
   };
 
+  // 🔍 Vérifie si Google Fit est déjà connecté
+  useEffect(() => {
+    const checkStatus = async () => {
+      try {
+        const res = await fetch("/api/google-fit/status", {
+          credentials: "include",
+        });
+
+        if (!res.ok) return;
+
+        const json = await res.json();
+        if (json.connected) {
+          setConnected(true);
+          setError(null);
+        }
+      } catch (e) {
+        console.error("Google Fit status error", e);
+      }
+    };
+
+    checkStatus();
+  }, []);
+
+  // 📊 Récupération des pas
   const fetchSteps = async () => {
     try {
       setLoading(true);
+
       const res = await fetch("/api/steps", {
         credentials: "include",
       });
 
       if (!res.ok) {
         if (res.status === 401) {
+          setConnected(false);
           setError("Google Fit non connecté");
         } else {
           setError("Erreur Google Fit");
         }
+        setStepsData([]);
         return;
       }
 
       const json = await res.json();
       setStepsData(json);
+      setConnected(true);
       setError(null);
     } catch (e) {
+      console.error(e);
       setError("Impossible de récupérer les pas");
+      setStepsData([]);
     } finally {
       setLoading(false);
     }
   };
 
-    useEffect(() => {
-    const checkStatus = async () => {
-      try {
-        const res = await fetch(
-          `${import.meta.env.VITE_API_URL}/google-fit/status`,
-          { credentials: "include" }
-        );
-        const json = await res.json();
-  
-        if (json.connected) {
-          setConnected(true);
-        }
-      } catch (e) {
-        console.error("Google Fit status error", e);
-      }
-    };
-  
-    checkStatus();
-  }, []);
-
-  // ✅ appel automatique AU CHARGEMENT
+  // ▶️ Chargement automatique des pas si connecté
   useEffect(() => {
-    fetchSteps();
-  }, []);
+    if (connected) {
+      fetchSteps();
+    } else {
+      setLoading(false);
+    }
+  }, [connected]);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Connexion */}
       <Card>
         <CardContent className="space-y-4">
           <h3 className="font-semibold text-lg">🚶 Suivi des pas</h3>
 
-          {error ? (
+          {!connected ? (
             <>
               <p className="text-sm text-gray-600">
                 Google Fit n’est pas encore connecté.
@@ -3000,6 +3020,7 @@ function StepsTracker() {
         </CardContent>
       </Card>
 
+      {/* Graphique */}
       <Card>
         <CardContent>
           <h3 className="font-semibold text-lg mb-3">📊 Pas par jour</h3>
@@ -3007,7 +3028,9 @@ function StepsTracker() {
           {loading ? (
             <p className="text-sm text-gray-500">Chargement…</p>
           ) : stepsData.length === 0 ? (
-            <p className="text-sm text-gray-500">Aucune donnée.</p>
+            <p className="text-sm text-gray-500">
+              Aucune donnée disponible.
+            </p>
           ) : (
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
@@ -3016,7 +3039,12 @@ function StepsTracker() {
                   <XAxis dataKey="date" />
                   <YAxis />
                   <Tooltip />
-                  <Line type="monotone" dataKey="steps" strokeWidth={3} dot />
+                  <Line
+                    type="monotone"
+                    dataKey="steps"
+                    strokeWidth={3}
+                    dot
+                  />
                 </LineChart>
               </ResponsiveContainer>
             </div>
