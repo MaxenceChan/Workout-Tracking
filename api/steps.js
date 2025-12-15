@@ -1,40 +1,85 @@
 import admin from "./lib/firebaseAdmin.js";
+import { google } from "googleapis";
 
 export default async function handler(req, res) {
   try {
-    const { uid } = req.query;  // Récupérer l'UID de l'utilisateur
-    if (!uid) return res.status(400).json({ error: "Missing uid" });  // Vérifier si l'UID est présent
+    const { uid } = req.query;
+    if (!uid) return res.status(400).json({ error: "Missing uid" });
 
-    // 1. Récupérer les pas (exemple avec des données statiques ici, tu peux remplacer par Google Fit)
-    const steps = [
-      { date: "2025-01-10", steps: 7421 },
-      { date: "2025-01-11", steps: 9032 },
-    ];
-
-    // 2. Écrire ces données dans Firestore pour l'utilisateur spécifié
+    // 🔑 récupérer tokens Google Fit stockés
     const db = admin.firestore();
-    const batch = db.batch();  // Utilisation d'un batch pour écrire plusieurs documents à la fois
+    const userRef = db.collection("users").doc(uid);
+    const userSnap = await userRef.get();
 
-    steps.forEach((d) => {
-      const ref = db
-        .collection("users")  // Collection principale pour les utilisateurs
-        .doc(uid)  // UID de l'utilisateur
-        .collection("steps")  // Sous-collection des pas de l'utilisateur
-        .doc(d.date);  // Utilisation de la date comme ID du document
+    if (!userSnap.exists) {
+      return res.status(404).json({ error: "User not found" });
+    }
 
-      // Ajout des données dans le batch
+    const { access_token, refresh_token } = userSnap.data().googleFit;
+    if (!access_token) {
+      return res.status(401).json({ error: "Google Fit not connected" });
+    }
+
+    // 🔐 OAuth client
+    const oauth2Client = new google.auth.OAuth2(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET
+    );
+
+    oauth2Client.setCredentials({
+      access_token,
+      refresh_token,
+    });
+
+    // 📊 Google Fit aggregate API
+    const fitness = google.fitness({ version: "v1", auth: oauth2Client });
+
+    const end = Date.now();
+    const start = end - 90 * 24 * 60 * 60 * 1000; // ⬅️ 90 jours
+
+    const response = await fitness.users.dataset.aggregate({
+      userId: "me",
+      requestBody: {
+        aggregateBy: [
+          { dataTypeName: "com.google.step_count.delta" },
+        ],
+        bucketByTime: { durationMillis: 24 * 60 * 60 * 1000 },
+        startTimeMillis: start,
+        endTimeMillis: end,
+      },
+    });
+
+    // 🧮 transformation par jour
+    const dailySteps = response.data.bucket.map((b) => {
+      const date = new Date(Number(b.startTimeMillis))
+        .toISOString()
+        .slice(0, 10);
+
+      const steps =
+        b.dataset?.[0]?.point?.reduce(
+          (sum, p) => sum + (p.value?.[0]?.intVal || 0),
+          0
+        ) || 0;
+
+      return { date, steps };
+    });
+
+    // 💾 sauvegarde Firestore
+    const batch = db.batch();
+
+    dailySteps.forEach((d) => {
+      const ref = userRef.collection("steps").doc(d.date);
       batch.set(ref, {
-        steps: d.steps,
-        date: d.date,
-        updated_at: new Date().toISOString(),  // Horodatage de la mise à jour
+        ...d,
+        updated_at: admin.firestore.FieldValue.serverTimestamp(),
       });
     });
 
-    await batch.commit();  // Valider les écritures
+    await batch.commit();
 
-    return res.status(200).json(steps);  // Réponse avec les données enregistrées
+    return res.status(200).json(dailySteps);
   } catch (e) {
-    console.error(e);
-    return res.status(500).json({ error: "Failed to write steps to Firestore" });  // Erreur serveur
+    console.error("Steps error:", e);
+    return res.status(500).json({ error: "Failed to fetch steps" });
   }
 }
