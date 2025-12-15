@@ -2,8 +2,8 @@ export const config = {
   runtime: "nodejs",
 };
 
-import { google } from "googleapis";
-import admin from "../lib/firebaseAdmin";
+const { google } = require("googleapis");
+const admin = require("../lib/firebaseAdmin").default;
 
 export default async function handler(req, res) {
   try {
@@ -34,7 +34,9 @@ export default async function handler(req, res) {
     const response = await fitness.users.dataset.aggregate({
       userId: "me",
       requestBody: {
-        aggregateBy: [{ dataTypeName: "com.google.step_count.delta" }],
+        aggregateBy: [
+          { dataTypeName: "com.google.step_count.delta" },
+        ],
         bucketByTime: { durationMillis: 86400000 },
         startTimeMillis: startTime,
         endTimeMillis: endTime,
@@ -71,9 +73,9 @@ export default async function handler(req, res) {
 
     await batch.commit();
 
-    res.redirect("/"); // retour app
-  } catch (e) {
-    console.error("Google Fit callback error:", e);
-    res.status(500).send("Google Fit sync failed");
+    return res.redirect("/");
+  } catch (err) {
+    console.error("google-fit-callback error:", err);
+    return res.status(500).send("Google Fit sync failed");
   }
 }
