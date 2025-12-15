@@ -2917,7 +2917,13 @@ function StepsTracker() {
   const [error, setError] = useState(null);
 
   const connectGoogleFit = () => {
-    window.location.href = "/api/auth/google-fit";
+    if (!user?.id) {
+      alert("Utilisateur non connecté");
+      return;
+    }
+  
+    window.location.href =
+      `${import.meta.env.VITE_API_URL}/auth/google-fit?uid=${user.id}`;
   };
 
   const fetchSteps = async () => {
