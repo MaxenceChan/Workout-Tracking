@@ -2964,33 +2964,16 @@ function StepsTracker({ user }) {
   const { theme } = useTheme();
 
   const axisColor = theme === "dark" ? "#ffffff" : "#000000";
+  const gridColor = theme === "dark" ? "#444" : "#e5e7eb";
 
-  const [stepsData, setStepsData] = React.useState([]);
-  const [loading, setLoading] = React.useState(false);
-  const [error, setError] = React.useState(null);
+  const [stepsData, setStepsData] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  /* ───────────────────────────────
-     1️⃣ FILTRE MOYENNE PAS / JOUR
-     (dates complètes)
-  ─────────────────────────────── */
-  const today = todayISO();
-  const firstDate =
-    stepsData.length > 0 ? stepsData[0].date : today;
-
-  const [avgStartDate, setAvgStartDate] = React.useState(firstDate);
-  const [avgEndDate, setAvgEndDate] = React.useState(today);
-
-  /* ───────────────────────────────
-     2️⃣ FILTRE GRAPHIQUES
-     (mois uniquement)
-  ─────────────────────────────── */
-  const [monthStart, setMonthStart] = React.useState("2025-09");
-  const [monthEnd, setMonthEnd] = React.useState("2025-12");
-
-  /* ───────────────────────────────
-     FETCH DATA
-  ─────────────────────────────── */
-  React.useEffect(() => {
+  /* ─────────────────────────────
+     FETCH GOOGLE FIT
+  ───────────────────────────── */
+  useEffect(() => {
     if (!user?.id) return;
 
     const fetchSteps = async () => {
@@ -3013,30 +2996,60 @@ function StepsTracker({ user }) {
     fetchSteps();
   }, [user?.id]);
 
-  /* ───────────────────────────────
-     MOYENNE PAS / JOUR
-  ─────────────────────────────── */
-  const avgSteps = React.useMemo(() => {
+  /* ─────────────────────────────
+     FILTRE 1 — MOYENNE PAS / JOUR
+  ───────────────────────────── */
+  const today = todayISO();
+
+  const firstDate = useMemo(() => {
+    if (!stepsData.length) return today;
+    return stepsData.map(d => d.date).sort()[0];
+  }, [stepsData]);
+
+  const [avgStartDate, setAvgStartDate] = useState(firstDate);
+  const [avgEndDate, setAvgEndDate] = useState(today);
+
+  useEffect(() => {
+    setAvgStartDate(firstDate);
+    setAvgEndDate(today);
+  }, [firstDate, today]);
+
+  const avgSteps = useMemo(() => {
     const filtered = stepsData.filter(
-      (d) => d.date >= avgStartDate && d.date <= avgEndDate
+      d => d.date >= avgStartDate && d.date <= avgEndDate
     );
     if (!filtered.length) return 0;
     return Math.round(
-      filtered.reduce((a, b) => a + b.steps, 0) / filtered.length
+      filtered.reduce((sum, d) => sum + d.steps, 0) / filtered.length
     );
   }, [stepsData, avgStartDate, avgEndDate]);
 
-  /* ───────────────────────────────
-     DONNÉES FILTRÉES POUR GRAPHIQUES
-  ─────────────────────────────── */
-  const graphData = React.useMemo(() => {
-    return stepsData.filter((d) => {
+  /* ─────────────────────────────
+     FILTRE 2 — MOIS (GRAPHIQUES)
+  ───────────────────────────── */
+  const todayMonth = today.slice(0, 7);
+
+  const firstMonth = useMemo(() => {
+    if (!stepsData.length) return todayMonth;
+    return stepsData.map(d => d.date.slice(0, 7)).sort()[0];
+  }, [stepsData]);
+
+  const [monthStart, setMonthStart] = useState(firstMonth);
+  const [monthEnd, setMonthEnd] = useState(todayMonth);
+
+  useEffect(() => {
+    setMonthStart(firstMonth);
+    setMonthEnd(todayMonth);
+  }, [firstMonth, todayMonth]);
+
+  const graphData = useMemo(() => {
+    return stepsData.filter(d => {
       const m = d.date.slice(0, 7);
       return m >= monthStart && m <= monthEnd;
     });
   }, [stepsData, monthStart, monthEnd]);
 
-  const monthlySteps = React.useMemo(() => {
+  const monthlySteps = useMemo(() => {
     const map = {};
     graphData.forEach(({ date, steps }) => {
       const key = date.slice(0, 7);
@@ -3046,7 +3059,7 @@ function StepsTracker({ user }) {
     return Object.entries(map).map(([key, total]) => {
       const [y, m] = key.split("-");
       return {
-        month: new Date(y, m - 1, 1).toLocaleDateString("fr-FR", {
+        month: new Date(y, m - 1).toLocaleDateString("fr-FR", {
           month: "long",
           year: "2-digit",
         }),
@@ -3056,19 +3069,19 @@ function StepsTracker({ user }) {
     });
   }, [graphData]);
 
+  /* ─────────────────────────────
+     RENDER
+  ───────────────────────────── */
   return (
     <div className="space-y-6">
 
-      {/* ───────────────────────────────
-         HEADER + MOYENNE
-      ─────────────────────────────── */}
-      <div className="grid md:grid-cols-2 gap-4">
+      {/* ───── Ligne 1 */}
+      <div className="grid lg:grid-cols-2 gap-4">
         <Card>
           <CardContent>
             <h3 className="font-semibold">🚶 Suivi des pas</h3>
-            {loading && <p className="text-sm">Chargement…</p>}
             {!loading && !error && (
-              <p className="text-sm text-green-500">
+              <p className="text-sm text-green-500 mt-2">
                 ✅ Google Fit connecté
               </p>
             )}
@@ -3076,95 +3089,122 @@ function StepsTracker({ user }) {
         </Card>
 
         <Card>
-          <CardContent>
+          <CardContent className="space-y-4">
             <h3 className="font-semibold">📊 Moyenne de pas</h3>
-            <div className="text-4xl font-bold mt-2">
+
+            <div className="text-4xl font-bold">
               {avgSteps.toLocaleString()} <span className="text-sm">/ jour</span>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 mt-4">
-              <Input
-                type="date"
-                value={avgStartDate}
-                onChange={(e) => setAvgStartDate(e.target.value)}
-              />
-              <Input
-                type="date"
-                value={avgEndDate}
-                onChange={(e) => setAvgEndDate(e.target.value)}
-              />
+            <div className="grid grid-cols-2 gap-3 pt-2">
+              <div>
+                <Label>Date de début</Label>
+                <Input
+                  type="date"
+                  value={avgStartDate}
+                  min={firstDate}
+                  max={avgEndDate}
+                  onChange={(e) => setAvgStartDate(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label>Date de fin</Label>
+                <Input
+                  type="date"
+                  value={avgEndDate}
+                  min={avgStartDate}
+                  max={today}
+                  onChange={(e) => setAvgEndDate(e.target.value)}
+                />
+              </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* ───────────────────────────────
-         FILTRE MOIS (GRAPHIQUES SEULEMENT)
-      ─────────────────────────────── */}
+      {/* ───── Filtre mois */}
       <Card>
-        <CardContent className="grid md:grid-cols-2 gap-4">
-          <Input
-            type="month"
-            value={monthStart}
-            onChange={(e) => setMonthStart(e.target.value)}
-          />
-          <Input
-            type="month"
-            value={monthEnd}
-            onChange={(e) => setMonthEnd(e.target.value)}
-          />
+        <CardContent className="grid grid-cols-2 gap-4">
+          <div>
+            <Label>Mois de début</Label>
+            <Input
+              type="month"
+              value={monthStart}
+              min={firstMonth}
+              max={monthEnd}
+              onChange={(e) => setMonthStart(e.target.value)}
+            />
+          </div>
+          <div>
+            <Label>Mois de fin</Label>
+            <Input
+              type="month"
+              value={monthEnd}
+              min={monthStart}
+              max={todayMonth}
+              onChange={(e) => setMonthEnd(e.target.value)}
+            />
+          </div>
         </CardContent>
       </Card>
 
-      {/* ───────────────────────────────
-         GRAPHIQUES
-      ─────────────────────────────── */}
+      {/* ───── Graphiques */}
       <Card>
-        <CardContent className="grid lg:grid-cols-2 gap-6">
-          {/* Courbe */}
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={graphData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" tick={{ fill: axisColor }} />
-              <YAxis tick={{ fill: axisColor }} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "#ffffff",
-                  color: "#000000",
-                }}
-              />
-              <Line dataKey="steps" stroke="#3b82f6" dot />
-            </LineChart>
-          </ResponsiveContainer>
+        <CardContent className="space-y-6">
+          <h3 className="font-semibold text-lg">
+            📈 Évolution du nombre de pas par jour et par mois
+          </h3>
 
-          {/* Barplot */}
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={monthlySteps}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" tick={{ fill: axisColor }} />
-              <YAxis tick={{ fill: axisColor }} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "#ffffff",
-                  color: "#000000",
-                }}
-              />
-              <Bar dataKey="total" fill="#3b82f6">
-                <LabelList
-                  dataKey="totalK"
-                  position="top"
-                  fill={axisColor}
-                  formatter={(v) => `${v}k`}
+          <div className="grid lg:grid-cols-2 gap-6">
+
+            {/* Courbe */}
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={graphData}>
+                <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+                <XAxis dataKey="date" tick={{ fill: axisColor }} />
+                <YAxis tick={{ fill: axisColor }} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "#ffffff",
+                    color: "#000000",
+                    borderRadius: 6,
+                    fontSize: 12,
+                  }}
                 />
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+                <Line dataKey="steps" stroke="#3b82f6" dot />
+              </LineChart>
+            </ResponsiveContainer>
+
+            {/* Histogramme */}
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={monthlySteps}>
+                <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+                <XAxis dataKey="month" tick={{ fill: axisColor }} />
+                <YAxis tick={{ fill: axisColor }} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "#ffffff",
+                    color: "#000000",
+                    borderRadius: 6,
+                    fontSize: 12,
+                  }}
+                />
+                <Bar dataKey="total" fill="#3b82f6">
+                  <LabelList
+                    dataKey="totalK"
+                    position="top"
+                    fill={axisColor}
+                    formatter={(v) => `${v}k`}
+                  />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+
+          </div>
         </CardContent>
       </Card>
 
-      {/* ───────────────────────────────
-         CALENDRIER (NON IMPACTÉ)
-      ─────────────────────────────── */}
+      {/* ───── Calendrier */}
       <Card>
         <CardContent>
           <StepsMonthlyBubbleChart stepsData={stepsData} />
