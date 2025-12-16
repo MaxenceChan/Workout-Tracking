@@ -3029,7 +3029,32 @@ function StepsTracker({ user }) {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="date" />
                   <YAxis />
-                  <Tooltip />
+                   <Tooltip
+                    content={({ active, payload, label }) => {
+                      if (!active || !payload || !payload.length) return null;
+                  
+                      const value = payload[0].value;
+                  
+                      return (
+                        <div
+                          style={{
+                            backgroundColor: "#ffffff",
+                            border: "1px solid #e5e7eb",
+                            borderRadius: "8px",
+                            padding: "8px 10px",
+                            color: "#000000",
+                          }}
+                        >
+                          <div style={{ fontWeight: 700, marginBottom: 4 }}>
+                            {label}
+                          </div>
+                          <div style={{ fontSize: 14 }}>
+                            Tonnage : <strong>{value} kg</strong>
+                          </div>
+                        </div>
+                      );
+                    }}
+                  />
                   <Line type="monotone" dataKey="steps" strokeWidth={3} dot />
                 </LineChart>
               </ResponsiveContainer>
