@@ -2931,14 +2931,41 @@ function WeightCard({ entry, onDelete, onUpdate }) {
   );
 }
 
-// ───────────────────────────────────────────────
-// Suivi des pas (Google Fit)
-// ───────────────────────────────────────────────
+function buildMonthlyStepsSeries(stepsData) {
+  const map = {};
+
+  stepsData.forEach(({ date, steps }) => {
+    const [y, m] = date.split("-");
+    const key = `${y}-${m}`;
+    map[key] = (map[key] || 0) + steps;
+  });
+
+  return Object.entries(map)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, total]) => {
+      const [y, m] = key.split("-");
+      const label = new Date(y, m - 1, 1).toLocaleDateString("fr-FR", {
+        month: "long",
+        year: "2-digit",
+      });
+
+      return {
+        month: label,      // "octobre 25"
+        total,             // valeur brute
+        totalK: Math.round(total / 1000), // label 120k
+      };
+    });
+}
+
 // ───────────────────────────────────────────────
 // Suivi des pas (Google Fit)
 // ───────────────────────────────────────────────
 function StepsTracker({ user }) {
   const [stepsData, setStepsData] = React.useState([]);
+  const monthlySteps = useMemo(
+  () => buildMonthlyStepsSeries(stepsData),
+  [stepsData]
+  );
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState(null);
 
@@ -3021,46 +3048,39 @@ function StepsTracker({ user }) {
 <Card className="md:col-span-2">
   <CardContent className="space-y-4">
     <h3 className="font-semibold text-lg">
-      📈 Évolution des pas par jour
+      📈 Évolution des pas
     </h3>
 
-    {stepsData.length === 0 ? (
-      <p className="text-sm text-gray-500">
-        Aucune donnée disponible.
-      </p>
-    ) : (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* 🔹 PAS PAR JOUR */}
       <div className="h-64 md:h-80">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={stepsData}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="date" />
             <YAxis />
-                  <Tooltip
-                    content={({ active, payload, label }) => {
-                      if (!active || !payload || !payload.length) return null;
-                  
-                      const value = payload[0].value;
-                  
-                      return (
-                        <div
-                          style={{
-                            backgroundColor: "#ffffff",
-                            border: "1px solid #e5e7eb",
-                            borderRadius: "8px",
-                            padding: "8px 10px",
-                            color: "#000000",
-                          }}
-                        >
-                          <div style={{ fontWeight: 700, marginBottom: 4 }}>
-                            {label}
-                          </div>
-                          <div style={{ fontSize: 14 }}>
-                            Tonnage : <strong>{value} kg</strong>
-                          </div>
-                        </div>
-                      );
+            <Tooltip
+              content={({ active, payload, label }) => {
+                if (!active || !payload?.length) return null;
+                return (
+                  <div
+                    style={{
+                      background: "#fff",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: 8,
+                      padding: 8,
+                      color: "#000",
                     }}
-                  />            <Line
+                  >
+                    <div style={{ fontWeight: 700 }}>{label}</div>
+                    <div>
+                      👣 <strong>{payload[0].value.toLocaleString()}</strong> pas
+                    </div>
+                  </div>
+                );
+              }}
+            />
+            <Line
               type="monotone"
               dataKey="steps"
               strokeWidth={2}
@@ -3069,7 +3089,28 @@ function StepsTracker({ user }) {
           </LineChart>
         </ResponsiveContainer>
       </div>
-    )}
+
+      {/* 🔹 PAS PAR MOIS */}
+      <div className="h-64 md:h-80">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={monthlySteps}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="month" />
+            <YAxis />
+            <Tooltip
+              formatter={(v) => `${v.toLocaleString()} pas`}
+            />
+            <Bar dataKey="total" fill="#3b82f6">
+              <LabelList
+                dataKey="totalK"
+                position="top"
+                formatter={(v) => `${v}k`}
+              />
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
   </CardContent>
 </Card>
 {/* 🔹 Calendrier mensuel à bulles (Google Fit style) */}
