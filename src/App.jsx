@@ -1,6 +1,7 @@
 // App.jsx (Bloc 1)
 import React, { useMemo, useState, useEffect, useContext, createContext } from "react";
 import html2canvas from "html2canvas";
+import StepsMonthlyBubbleChart from "./components/StepsMonthlyBubbleChart";
 // ───────────────────────────────────────────────
 // Thème clair / sombre (global)
 // ───────────────────────────────────────────────
@@ -3018,50 +3019,21 @@ function StepsTracker({ user }) {
       </Card>
 
       {/* 🔹 Carte graphique */}
-      <Card>
-        <CardContent>
-          <h3 className="font-semibold text-lg mb-3">📊 Pas par jour</h3>
+<Card>
+  <CardContent className="space-y-4">
+    <h3 className="font-semibold text-lg">
+      🟢 Activité mensuelle – pas par jour
+    </h3>
 
-          {stepsData.length > 0 && (
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={stepsData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                   <Tooltip
-                    content={({ active, payload, label }) => {
-                      if (!active || !payload || !payload.length) return null;
-                  
-                      const value = payload[0].value;
-                  
-                      return (
-                        <div
-                          style={{
-                            backgroundColor: "#ffffff",
-                            border: "1px solid #e5e7eb",
-                            borderRadius: "8px",
-                            padding: "8px 10px",
-                            color: "#000000",
-                          }}
-                        >
-                          <div style={{ fontWeight: 700, marginBottom: 4 }}>
-                            {label}
-                          </div>
-                          <div style={{ fontSize: 14 }}>
-                            Tonnage : <strong>{value} pas</strong>
-                          </div>
-                        </div>
-                      );
-                    }}
-                  />
-                  <Line type="monotone" dataKey="steps" strokeWidth={3} dot />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+    {stepsData.length === 0 ? (
+      <p className="text-sm text-gray-500">
+        Aucune donnée disponible.
+      </p>
+    ) : (
+      <StepsMonthlyBubbleChart stepsData={stepsData} />
+    )}
+  </CardContent>
+</Card>
     </div>
   );
 }
