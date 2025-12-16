@@ -133,28 +133,41 @@ export default function StepsMonthlyBubbleChart({ stepsData }) {
         {cells.map((c, i) => {
           if (!c) return <div key={i} />;
 
-          const size = 18 + (c.steps / maxSteps) * 28;
-
-          return (
-            <div key={i} className="flex items-center justify-center">
-              <div
-                onClick={(e) => {
-                  const r = e.currentTarget.getBoundingClientRect();
-                  setSelectedDay({
-                    ...c,
-                    x: r.left + r.width / 2,
-                    y: r.top,
-                  });
-                }}
-                className="rounded-full bg-blue-500 hover:bg-blue-600
-                           cursor-pointer flex items-center justify-center
-                           text-white text-xs transition"
-                style={{ width: size, height: size }}
-              >
-                {c.day}
-              </div>
-            </div>
-          );
+      // ❌ Pas de data → pas de bulle
+      if (c.steps === 0) {
+        return (
+          <div
+            key={i}
+            className="flex items-center justify-center text-xs text-gray-400"
+          >
+            {c.day}
+          </div>
+        );
+      }
+      
+      // ✅ Data présente → bulle normale
+      const size = 18 + (c.steps / maxSteps) * 28;
+      
+      return (
+        <div key={i} className="flex items-center justify-center">
+          <div
+            onClick={(e) => {
+              const r = e.currentTarget.getBoundingClientRect();
+              setSelectedDay({
+                ...c,
+                x: r.left + r.width / 2,
+                y: r.top,
+              });
+            }}
+            className="rounded-full bg-blue-500 hover:bg-blue-600
+                       cursor-pointer flex items-center justify-center
+                       text-white text-xs transition"
+            style={{ width: size, height: size }}
+          >
+            {c.day}
+          </div>
+        </div>
+      );
         })}
       </div>
 
