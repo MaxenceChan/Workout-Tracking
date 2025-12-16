@@ -1,96 +1,84 @@
-function StepsTracker({ user }) {
-  const [stepsData, setStepsData] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+import admin from "./lib/firebaseAdmin.js";
+import { google } from "googleapis";
 
-  const connectGoogleFit = () => {
-    window.location.href = `/api/auth/google-fit?uid=${user.id}`;
-  };
+export default async function handler(req, res) {
+  try {
+    const { uid } = req.query;
+    if (!uid) return res.status(400).json({ error: "Missing uid" });
 
-  useEffect(() => {
-    if (!user?.id) return;
+    const db = admin.firestore();
+    const userRef = db.collection("users").doc(uid);
+    const userSnap = await userRef.get();
 
-    // Lance l'import (non bloquant)
-    fetch(`/api/steps?uid=${user.id}`).catch(() => {});
+    if (!userSnap.exists) {
+      return res.status(404).json({ error: "User not found" });
+    }
 
-    const stepsRef = collection(db, "users", user.id, "steps");
+    const { refresh_token } = userSnap.data().googleFit || {};
 
-    return onSnapshot(
-      stepsRef,
-      (snap) => {
-        const rows = snap.docs
-          .map((d) => d.data())
-          .sort((a, b) => a.date.localeCompare(b.date));
+    // 🔥 SEULE CONDITION VALABLE
+    if (!refresh_token) {
+      return res.status(401).json({ error: "Google Fit not connected" });
+    }
 
-        setStepsData(rows);
-        setLoading(false);
-        setError(null);
-      },
-      (e) => {
-        console.error("🔥 Firestore steps error:", e);
-        setError("FIRESTORE_ERROR");
-        setLoading(false);
-      }
+    // 🔐 OAuth client (refresh_token uniquement)
+    const oauth2Client = new google.auth.OAuth2(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET
     );
-  }, [user?.id]);
 
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <Card>
-        <CardContent className="space-y-4">
-          <h3 className="font-semibold text-lg">🚶 Suivi des pas</h3>
+    oauth2Client.setCredentials({ refresh_token });
 
-          {loading && <p className="text-sm text-gray-500">Chargement…</p>}
+    const fitness = google.fitness({ version: "v1", auth: oauth2Client });
 
-          {error === "FIRESTORE_ERROR" && (
-            <p className="text-sm text-red-500">
-              Erreur Firestore.
-            </p>
-          )}
+    const end = Date.now();
+    const start = end - 90 * 24 * 60 * 60 * 1000; // 90 jours
 
-          {!loading && stepsData.length === 0 && !error && (
-            <>
-              <p className="text-sm text-gray-500">
-                Google Fit n’est pas connecté.
-              </p>
-              <Button onClick={connectGoogleFit}>
-                Se connecter à Google Fit
-              </Button>
-            </>
-          )}
+    const response = await fitness.users.dataset.aggregate({
+      userId: "me",
+      requestBody: {
+        aggregateBy: [
+          { dataTypeName: "com.google.step_count.delta" },
+        ],
+        bucketByTime: { durationMillis: 24 * 60 * 60 * 1000 },
+        startTimeMillis: start,
+        endTimeMillis: end,
+      },
+    });
 
-          {!loading && stepsData.length > 0 && (
-            <p className="text-sm text-green-600">
-              ✅ Google Fit connecté
-            </p>
-          )}
-        </CardContent>
-      </Card>
+    const dailySteps = (response.data.bucket || []).map((b) => {
+      const date = new Date(Number(b.startTimeMillis))
+        .toISOString()
+        .slice(0, 10);
 
-      <Card>
-        <CardContent>
-          <h3 className="font-semibold text-lg mb-3">📊 Pas par jour</h3>
+      const steps =
+        b.dataset?.[0]?.point?.reduce(
+          (sum, p) => sum + (p.value?.[0]?.intVal || 0),
+          0
+        ) || 0;
 
-          {stepsData.length > 0 && (
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={stepsData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip />
-                  <Line
-                    type="monotone"
-                    dataKey="steps"
-                    strokeWidth={3}
-                    dot
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
+      return { date, steps };
+    });
+
+    // 💾 sauvegarde Firestore
+    const batch = db.batch();
+    dailySteps.forEach((d) => {
+      const ref = userRef.collection("steps").doc(d.date);
+      batch.set(
+        ref,
+        {
+          ...d,
+          updated_at: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+    });
+
+    await batch.commit();
+
+    return res.status(200).json(dailySteps);
+  } catch (e) {
+    console.error("Steps error:", e);
+    return res.status(500).json({ error: "Failed to fetch steps" });
+  }
 }
