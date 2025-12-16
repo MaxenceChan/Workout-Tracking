@@ -128,15 +128,15 @@ Tableau de bord interactif avec :
 ```text
 api/
 ├── auth/          # OAuth Google Fit
-├── steps/         # Synchronisation des pas
+├── steps.js         # Synchronisation des pas
 └── lib/           # Firebase Admin & helpers
 
 src/
 ├── App.jsx        # Application principale
 ├── firebase.js    # Configuration Firebase
-├── components/    # Composants UI & analytics
-├── hooks/         # Hooks personnalisés
-└── utils/         # Fonctions de calcul & helpers
+├── main   
+├── index.css       
+└── 
 ```
 
 ---
