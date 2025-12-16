@@ -52,10 +52,11 @@ export default function StepsMonthlyBubbleChart({ stepsData }) {
     0
   );
 
-  const changeMonth = (dir) => {
-    const d = new Date(year, month + dir, 1);
-    setCurrent(d.toISOString().slice(0, 7));
-  };
+const changeMonth = (dir) => {
+  const [y, m] = current.split("-").map(Number);
+  const d = new Date(y, m - 1 + dir, 1);
+  setCurrent(d.toISOString().slice(0, 7));
+};
 
   return (
     <div className="space-y-4">
