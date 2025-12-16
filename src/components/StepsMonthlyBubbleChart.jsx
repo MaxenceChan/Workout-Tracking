@@ -1,102 +1,106 @@
 import React, { useMemo, useState } from "react";
-import {
-  ScatterChart,
-  Scatter,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
 
-const DAYS = ["L", "M", "M", "J", "V", "S", "D"];
-
-function getMonthKey(date) {
-  return date.slice(0, 7); // YYYY-MM
-}
-
-function formatFR(date) {
-  return new Date(date).toLocaleDateString("fr-FR");
-}
+const WEEKDAYS = ["L", "M", "M", "J", "V", "S", "D"];
 
 export default function StepsMonthlyBubbleChart({ stepsData }) {
-  const [currentMonth, setCurrentMonth] = useState(
-    getMonthKey(stepsData.at(-1)?.date || new Date().toISOString())
+  const [current, setCurrent] = useState(
+    stepsData.at(-1)?.date?.slice(0, 7) ||
+      new Date().toISOString().slice(0, 7)
   );
 
-  // 🔹 Données du mois sélectionné
-  const monthlyData = useMemo(() => {
-    return stepsData
-      .filter((d) => d.date.startsWith(currentMonth))
-      .map((d) => {
-        const jsDate = new Date(d.date);
-        return {
-          x: jsDate.getDay() === 0 ? 7 : jsDate.getDay(), // Lundi = 1
-          y: jsDate.getDate(),
-          steps: d.steps,
-          r: Math.max(6, Math.sqrt(d.steps) / 4), // taille bulle
-          label: formatFR(d.date),
-        };
-      });
-  }, [stepsData, currentMonth]);
+  const monthDate = new Date(current + "-01");
+  const year = monthDate.getFullYear();
+  const month = monthDate.getMonth();
 
-  // 🔹 Navigation mois
+  const monthLabel = monthDate.toLocaleDateString("fr-FR", {
+    month: "long",
+    year: "numeric",
+  });
+
+  // Map date -> steps
+  const stepsMap = useMemo(() => {
+    const m = {};
+    stepsData.forEach((d) => {
+      m[d.date] = d.steps;
+    });
+    return m;
+  }, [stepsData]);
+
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const daysInMonth = lastDay.getDate();
+
+  // Monday-based index
+  const startOffset = (firstDay.getDay() + 6) % 7;
+
+  const cells = [];
+  for (let i = 0; i < startOffset; i++) cells.push(null);
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const iso = new Date(year, month, d).toISOString().slice(0, 10);
+    cells.push({
+      day: d,
+      date: iso,
+      steps: stepsMap[iso] || 0,
+    });
+  }
+
+  const maxSteps = Math.max(...cells.map(c => c?.steps || 0), 1);
+
+  const totalSteps = cells.reduce(
+    (sum, c) => sum + (c?.steps || 0),
+    0
+  );
+
   const changeMonth = (dir) => {
-    const d = new Date(currentMonth + "-01");
-    d.setMonth(d.getMonth() + dir);
-    setCurrentMonth(d.toISOString().slice(0, 7));
+    const d = new Date(year, month + dir, 1);
+    setCurrent(d.toISOString().slice(0, 7));
   };
 
   return (
-    <div className="space-y-3">
-      {/* Header navigation */}
+    <div className="space-y-4">
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <button onClick={() => changeMonth(-1)}>←</button>
-        <h3 className="font-semibold">
-          {new Date(currentMonth + "-01").toLocaleDateString("fr-FR", {
-            month: "long",
-            year: "numeric",
-          })}
-        </h3>
-        <button onClick={() => changeMonth(1)}>→</button>
+        <button onClick={() => changeMonth(-1)} className="text-xl">←</button>
+
+        <div className="text-center">
+          <div className="font-semibold text-lg capitalize">
+            {monthLabel}
+          </div>
+          <div className="text-sm text-gray-400">
+            👣 {totalSteps.toLocaleString()} pas
+          </div>
+        </div>
+
+        <button onClick={() => changeMonth(1)} className="text-xl">→</button>
       </div>
 
-      {/* Chart */}
-      <div className="h-[320px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <ScatterChart>
-            <XAxis
-              type="number"
-              dataKey="x"
-              domain={[1, 7]}
-              tickFormatter={(v) => DAYS[v - 1]}
-            />
-            <YAxis
-              type="number"
-              dataKey="y"
-              domain={[1, 31]}
-              tickFormatter={(v) => v}
-            />
+      {/* Weekdays */}
+      <div className="grid grid-cols-7 text-center text-xs text-gray-400">
+        {WEEKDAYS.map((d) => (
+          <div key={d}>{d}</div>
+        ))}
+      </div>
 
-            <Tooltip
-              cursor={{ strokeDasharray: "3 3" }}
-              content={({ payload }) => {
-                if (!payload || !payload.length) return null;
-                const p = payload[0].payload;
-                return (
-                  <div className="bg-white p-2 rounded border text-xs shadow">
-                    <div className="font-semibold">{p.label}</div>
-                    <div>{p.steps.toLocaleString()} pas</div>
-                  </div>
-                );
-              }}
-            />
+      {/* Calendar grid */}
+      <div className="grid grid-cols-7 gap-y-6 gap-x-2 justify-items-center">
+        {cells.map((c, i) => {
+          if (!c) return <div key={i} />;
 
-            <Scatter
-              data={monthlyData}
-              fill="#22c55e"
-            />
-          </ScatterChart>
-        </ResponsiveContainer>
+          const size = 18 + (c.steps / maxSteps) * 36;
+
+          return (
+            <div key={i} className="flex flex-col items-center gap-1">
+              <div
+                title={`${c.steps.toLocaleString()} pas`}
+                className="rounded-full bg-blue-500/70 hover:bg-blue-500 transition cursor-pointer flex items-center justify-center text-white text-xs"
+                style={{ width: size, height: size }}
+              >
+                {c.day}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
