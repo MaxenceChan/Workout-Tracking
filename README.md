@@ -1,6 +1,6 @@
 # 🏋️ Workout Tracker — Application de suivi d’entraînement
 
-> **Workout Tracker** est une application web moderne permettant de **suivre, analyser et visualiser ses entraînements de musculation**, enrichie par la **synchronisation automatique des pas via Google Fit**, avec stockage cloud sécurisé et tableaux de bord interactifs.
+> **Workout Tracker** est une application web moderne permettant de **suivre, analyser et visualiser ses entraînements de musculation**, enrichie par la **synchronisation automatique des pas via Google Fit** et un suivi du poids via saisie, avec stockage cloud sécurisé et tableaux de bord interactifs.
 
 🔗 **Application en ligne** :  
 👉 https://workout-tracking-maxence.vercel.app
