@@ -134,9 +134,8 @@ api/
 src/
 ├── App.jsx        # Application principale
 ├── firebase.js    # Configuration Firebase
-├── main   
-├── index.css       
-└── 
+├── main.jsx         
+└── index.css
 ```
 
 ---
