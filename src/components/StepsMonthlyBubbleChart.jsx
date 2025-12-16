@@ -10,7 +10,7 @@ const WEEKDAYS = [
   "Dimanche",
 ];
 
-// 🔒 Date locale sûre (PAS d'UTC)
+// Date locale sûre (pas d'UTC)
 const formatLocalDate = (year, month, day) => {
   const m = String(month + 1).padStart(2, "0");
   const d = String(day).padStart(2, "0");
@@ -19,8 +19,6 @@ const formatLocalDate = (year, month, day) => {
 
 export default function StepsMonthlyBubbleChart({ stepsData }) {
   /* ───────────── STATE ───────────── */
-
-  // ⬅️ INIT UNE SEULE FOIS
   const [current, setCurrent] = useState(() => {
     if (stepsData?.length) {
       return stepsData.at(-1).date.slice(0, 7);
@@ -40,6 +38,10 @@ export default function StepsMonthlyBubbleChart({ stepsData }) {
     year: "numeric",
   });
 
+  const today = new Date();
+  const isCurrentMonth =
+    today.getFullYear() === year && today.getMonth() === month;
+
   /* ───────────── DATA MAP ───────────── */
   const stepsMap = useMemo(() => {
     const m = {};
@@ -54,8 +56,7 @@ export default function StepsMonthlyBubbleChart({ stepsData }) {
   const lastDay = new Date(year, month + 1, 0);
   const daysInMonth = lastDay.getDate();
 
-  // lundi = 0
-  const startOffset = (firstDay.getDay() + 6) % 7;
+  const startOffset = (firstDay.getDay() + 6) % 7; // lundi = 0
 
   const cells = [];
   for (let i = 0; i < startOffset; i++) cells.push(null);
@@ -72,7 +73,17 @@ export default function StepsMonthlyBubbleChart({ stepsData }) {
   const maxSteps = Math.max(...cells.map((c) => c?.steps || 0), 1);
   const totalSteps = cells.reduce((s, c) => s + (c?.steps || 0), 0);
 
-  /* ───────────── NAVIGATION (FIXED) ───────────── */
+  /* ───────────── MOYENNE MENSUELLE ───────────── */
+  const daysForAverage = isCurrentMonth
+    ? Math.min(today.getDate(), daysInMonth)
+    : daysInMonth;
+
+  const averageSteps =
+    daysForAverage > 0
+      ? Math.round(totalSteps / daysForAverage)
+      : 0;
+
+  /* ───────────── NAVIGATION ───────────── */
   const changeMonth = (dir) => {
     const [y, m] = current.split("-").map(Number);
     const newDate = new Date(y, m - 1 + dir, 1);
@@ -80,31 +91,41 @@ export default function StepsMonthlyBubbleChart({ stepsData }) {
     const yyyy = newDate.getFullYear();
     const mm = String(newDate.getMonth() + 1).padStart(2, "0");
 
-    setCurrent(`${yyyy}-${mm}`); // ✅ PAS D'UTC
-    setSelectedDay(null); // reset tooltip
+    setCurrent(`${yyyy}-${mm}`);
+    setSelectedDay(null);
   };
 
   return (
     <div className="space-y-4 relative">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <button onClick={() => changeMonth(-1)} className="text-xl">←</button>
+        <button onClick={() => changeMonth(-1)} className="text-xl">
+          ←
+        </button>
 
-        <div className="text-center">
+        <div className="text-center space-y-1">
           <div className="font-semibold text-lg capitalize">
             {monthLabel}
           </div>
+
           <div className="text-sm text-gray-400">
-            👣 {totalSteps.toLocaleString()} pas
+            👣 {totalSteps.toLocaleString()} pas ·{" "}
+            <span className="font-medium text-gray-600">
+              Ø {averageSteps.toLocaleString()} / jour
+            </span>
           </div>
         </div>
 
-        <button onClick={() => changeMonth(1)} className="text-xl">→</button>
+        <button onClick={() => changeMonth(1)} className="text-xl">
+          →
+        </button>
       </div>
 
       {/* Weekdays */}
       <div className="grid grid-cols-7 text-center text-xs text-gray-400">
-        {WEEKDAYS.map((d) => <div key={d}>{d}</div>)}
+        {WEEKDAYS.map((d) => (
+          <div key={d}>{d}</div>
+        ))}
       </div>
 
       {/* Calendar */}
@@ -149,16 +170,16 @@ export default function StepsMonthlyBubbleChart({ stepsData }) {
         >
           <div className="bg-white text-black rounded-lg shadow-lg border px-4 py-3 text-sm">
             <div className="font-semibold mb-1">
-              {new Date(selectedDay.date + "T12:00:00").toLocaleDateString(
-                "fr-FR",
-                {
-                  weekday: "long",
-                  day: "numeric",
-                  month: "long",
-                  year: "numeric",
-                }
-              )}
+              {new Date(
+                selectedDay.date + "T12:00:00"
+              ).toLocaleDateString("fr-FR", {
+                weekday: "long",
+                day: "numeric",
+                month: "long",
+                year: "numeric",
+              })}
             </div>
+
             <div>
               👣 <strong>{selectedDay.steps.toLocaleString()}</strong> pas
             </div>
