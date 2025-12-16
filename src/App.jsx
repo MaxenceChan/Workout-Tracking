@@ -2937,93 +2937,106 @@ function WeightCard({ entry, onDelete, onUpdate }) {
 // Suivi des pas (Google Fit)
 // ───────────────────────────────────────────────
 function StepsTracker({ user }) {
-  const [stepsData, setStepsData] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [stepsData, setStepsData] = React.useState([]);
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState(null);
 
-  useEffect(() => {
-    if (!user?.uid) return;
+  const connectGoogleFit = () => {
+    window.location.href = `/api/auth/google-fit?uid=${user.id}`;
+  };
+
+  React.useEffect(() => {
+    if (!user?.id) return;
 
     const fetchSteps = async () => {
       try {
         setLoading(true);
         setError(null);
 
-        const res = await fetch(`/api/steps?uid=${user.uid}`);
+        const res = await fetch(`/api/steps?uid=${user.id}`);
+
+        if (res.status === 401 || res.status === 404) {
+          // 👉 Google Fit non connecté
+          throw new Error("NOT_CONNECTED");
+        }
+
         if (!res.ok) {
-          throw new Error("Impossible de charger les pas");
+          throw new Error("API_ERROR");
         }
 
         const data = await res.json();
-
-        // 🔒 Sécurité : s’assurer que c’est bien un tableau
-        if (!Array.isArray(data)) {
-          throw new Error("Format de données invalide");
-        }
-
-        // 🧠 Tri par date croissante
-        const sorted = [...data].sort(
-          (a, b) => new Date(a.date) - new Date(b.date)
-        );
-
-        setStepsData(sorted);
+        setStepsData(data);
       } catch (e) {
-        console.error(e);
-        setError("Impossible de charger les pas");
+        if (e.message === "NOT_CONNECTED") {
+          setStepsData([]);
+          setError("NOT_CONNECTED");
+        } else {
+          setError("API_ERROR");
+        }
       } finally {
         setLoading(false);
       }
     };
 
     fetchSteps();
-  }, [user]);
-
-  if (loading) {
-    return (
-      <div className="card">
-        <h3>🚶 Suivi des pas</h3>
-        <p>Chargement…</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="card">
-        <h3>🚶 Suivi des pas</h3>
-        <p>{error}</p>
-      </div>
-    );
-  }
-
-  if (stepsData.length === 0) {
-    return (
-      <div className="card">
-        <h3>🚶 Suivi des pas</h3>
-        <p>Aucune donnée disponible</p>
-      </div>
-    );
-  }
+  }, [user?.id]);
 
   return (
-    <div className="card">
-      <h3>🚶 Pas par jour</h3>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* 🔹 Carte connexion */}
+      <Card>
+        <CardContent className="space-y-4">
+          <h3 className="font-semibold text-lg">🚶 Suivi des pas</h3>
 
-      <ResponsiveContainer width="100%" height={300}>
-        <LineChart data={stepsData}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="date" />
-          <YAxis />
-          <Tooltip />
-          <Line
-            type="monotone"
-            dataKey="steps"
-            stroke="#4ade80"
-            strokeWidth={2}
-            dot={false}
-          />
-        </LineChart>
-      </ResponsiveContainer>
+          {loading && (
+            <p className="text-sm text-gray-500">Chargement…</p>
+          )}
+
+          {error === "NOT_CONNECTED" && (
+            <>
+              <p className="text-sm text-gray-500">
+                Google Fit n’est pas connecté.
+              </p>
+              <Button onClick={connectGoogleFit}>
+                Se connecter à Google Fit
+              </Button>
+            </>
+          )}
+
+          {error === "API_ERROR" && (
+            <p className="text-sm text-red-500">
+              Erreur serveur. Réessaie plus tard.
+            </p>
+          )}
+
+          {!error && stepsData.length > 0 && (
+            <p className="text-sm text-green-600">
+              ✅ Google Fit connecté
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 🔹 Carte graphique */}
+      <Card>
+        <CardContent>
+          <h3 className="font-semibold text-lg mb-3">📊 Pas par jour</h3>
+
+          {stepsData.length > 0 && (
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={stepsData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" />
+                  <YAxis />
+                  <Tooltip />
+                  <Line type="monotone" dataKey="steps" strokeWidth={3} dot />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
