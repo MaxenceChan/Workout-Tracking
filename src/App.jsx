@@ -2945,41 +2945,38 @@ function StepsTracker({ user }) {
   window.location.href = `/api/auth/google-fit?uid=${user.id}`;
   };
 
-  React.useEffect(() => {
-    if (!user?.id) return;
+React.useEffect(() => {
+  if (!user?.id) return;
 
-    const fetchSteps = async () => {
-      try {
-        setLoading(true);
-        setError(null);
+  setLoading(true);
+  setError(null);
 
-        const res = await fetch(`/api/steps?uid=${user.id}`);
+  const q = query(
+    collection(db, "users", user.id, "steps"),
+    orderBy("date", "asc")
+  );
 
-        if (res.status === 401 || res.status === 404) {
-          // 👉 Google Fit non connecté
-          throw new Error("NOT_CONNECTED");
-        }
+  const unsubscribe = onSnapshot(
+    q,
+    (snap) => {
+      const rows = snap.docs.map((d) => ({
+        date: d.id,        // ex: 2025-01-15
+        steps: d.data().steps,
+      }));
 
-        if (!res.ok) {
-          throw new Error("API_ERROR");
-        }
+      setStepsData(rows);
+      setLoading(false);
+    },
+    (err) => {
+      console.error("Firestore steps error:", err);
+      setError("API_ERROR");
+      setLoading(false);
+    }
+  );
 
-        const data = await res.json();
-        setStepsData(data);
-      } catch (e) {
-        if (e.message === "NOT_CONNECTED") {
-          setStepsData([]);
-          setError("NOT_CONNECTED");
-        } else {
-          setError("API_ERROR");
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
+  return () => unsubscribe();
+}, [user?.id]);
 
-    fetchSteps();
-  }, [user?.id]);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
