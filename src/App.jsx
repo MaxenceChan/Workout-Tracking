@@ -2941,87 +2941,89 @@ function StepsTracker({ user }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const connectGoogleFit = () => {
-    window.location.href = `/api/auth/google-fit?uid=${user.id}`;
-  };
-
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.uid) return;
 
-    // 🔁 Lance l'import (sans bloquer)
-    fetch(`/api/steps?uid=${user.id}`).catch(() => {});
-
-    const stepsRef = collection(db, "users", user.id, "steps");
-
-    return onSnapshot(
-      stepsRef,
-      (snap) => {
-        const rows = snap.docs
-          .map((d) => d.data())
-          .sort((a, b) => a.date.localeCompare(b.date));
-
-        setStepsData(rows);
-        setLoading(false);
+    const fetchSteps = async () => {
+      try {
+        setLoading(true);
         setError(null);
-      },
-      (e) => {
-        console.error("Firestore error:", e);
-        setError("FIRESTORE");
+
+        const res = await fetch(`/api/steps?uid=${user.uid}`);
+        if (!res.ok) {
+          throw new Error("Impossible de charger les pas");
+        }
+
+        const data = await res.json();
+
+        // 🔒 Sécurité : s’assurer que c’est bien un tableau
+        if (!Array.isArray(data)) {
+          throw new Error("Format de données invalide");
+        }
+
+        // 🧠 Tri par date croissante
+        const sorted = [...data].sort(
+          (a, b) => new Date(a.date) - new Date(b.date)
+        );
+
+        setStepsData(sorted);
+      } catch (e) {
+        console.error(e);
+        setError("Impossible de charger les pas");
+      } finally {
         setLoading(false);
       }
+    };
+
+    fetchSteps();
+  }, [user]);
+
+  if (loading) {
+    return (
+      <div className="card">
+        <h3>🚶 Suivi des pas</h3>
+        <p>Chargement…</p>
+      </div>
     );
-  }, [user?.id]);
+  }
+
+  if (error) {
+    return (
+      <div className="card">
+        <h3>🚶 Suivi des pas</h3>
+        <p>{error}</p>
+      </div>
+    );
+  }
+
+  if (stepsData.length === 0) {
+    return (
+      <div className="card">
+        <h3>🚶 Suivi des pas</h3>
+        <p>Aucune donnée disponible</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <Card>
-        <CardContent>
-          <h3 className="font-semibold text-lg">🚶 Suivi des pas</h3>
+    <div className="card">
+      <h3>🚶 Pas par jour</h3>
 
-          {loading && <p>Chargement…</p>}
-
-          {error && (
-            <p className="text-red-500">
-              Erreur Firestore
-            </p>
-          )}
-
-          {!loading && !error && stepsData.length === 0 && (
-            <>
-              <p>Google Fit non connecté</p>
-              <Button onClick={connectGoogleFit}>
-                Se connecter à Google Fit
-              </Button>
-            </>
-          )}
-
-          {!loading && stepsData.length > 0 && (
-            <p className="text-green-600">
-              ✅ Google Fit connecté
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardContent>
-          <h3 className="font-semibold mb-3">📊 Pas par jour</h3>
-
-          {stepsData.length > 0 && (
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={stepsData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip />
-                  <Line dataKey="steps" strokeWidth={3} dot />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <ResponsiveContainer width="100%" height={300}>
+        <LineChart data={stepsData}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="date" />
+          <YAxis />
+          <Tooltip />
+          <Line
+            type="monotone"
+            dataKey="steps"
+            stroke="#4ade80"
+            strokeWidth={2}
+            dot={false}
+          />
+        </LineChart>
+      </ResponsiveContainer>
     </div>
   );
 }
