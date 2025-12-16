@@ -32,7 +32,7 @@ import { v4 as uuidv4 } from "uuid";
 import { Trash2, Plus, BarChart3, Save, Edit3, Dumbbell, LogOut, Share2 } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer,
-  BarChart, Bar, PieChart, Pie, Cell, Legend
+  BarChart, Bar, PieChart, Pie, Cell, Legend, LabelList
 } from "recharts";
 
 // Firebase
