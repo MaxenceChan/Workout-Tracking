@@ -137,6 +137,7 @@ src/
 ├── components/    # Composants UI & analytics
 ├── hooks/         # Hooks personnalisés
 └── utils/         # Fonctions de calcul & helpers
+```
 
 ---
 
