@@ -2970,33 +2970,67 @@ function StepsTracker({ user }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const today = todayISO();
+  // ─────────────────────────────
+  // Fetch Google Fit
+  // ─────────────────────────────
+  useEffect(() => {
+    if (!user?.id) return;
 
-  const firstDate = useMemo(() => {
-    if (!stepsData.length) return today;
-    return stepsData.map(d => d.date).sort()[0];
+    const fetchSteps = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const res = await fetch(`/api/steps?uid=${user.id}`);
+        if (res.status === 401 || res.status === 404) {
+          throw new Error("NOT_CONNECTED");
+        }
+        if (!res.ok) throw new Error("API_ERROR");
+
+        const data = await res.json();
+        setStepsData(data);
+      } catch (e) {
+        setError(e.message);
+        setStepsData([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSteps();
+  }, [user?.id]);
+
+  // ─────────────────────────────
+  // Filtres par mois (COMMUNS)
+  // ─────────────────────────────
+  const today = new Date();
+  const todayMonth = today.toISOString().slice(0, 7);
+
+  const firstMonth = useMemo(() => {
+    if (!stepsData.length) return todayMonth;
+    return stepsData.map(d => d.date.slice(0, 7)).sort()[0];
   }, [stepsData]);
 
-  const [startDate, setStartDate] = useState(firstDate);
-  const [endDate, setEndDate] = useState(today);
-
-  // 🔄 recalage dates
-  useEffect(() => {
-    if (startDate > endDate) setEndDate(startDate);
-  }, [startDate]);
+  const [startMonth, setStartMonth] = useState(firstMonth);
+  const [endMonth, setEndMonth] = useState(todayMonth);
 
   useEffect(() => {
-    setStartDate(firstDate);
-  }, [firstDate]);
+    setStartMonth(firstMonth);
+  }, [firstMonth]);
 
-  const filteredSteps = useMemo(
-    () =>
-      stepsData.filter(
-        d => d.date >= startDate && d.date <= endDate
-      ),
-    [stepsData, startDate, endDate]
-  );
+  // ─────────────────────────────
+  // Données filtrées
+  // ─────────────────────────────
+  const filteredSteps = useMemo(() => {
+    return stepsData.filter(d => {
+      const m = d.date.slice(0, 7);
+      return m >= startMonth && m <= endMonth;
+    });
+  }, [stepsData, startMonth, endMonth]);
 
+  // ─────────────────────────────
+  // Stats
+  // ─────────────────────────────
   const totalSteps = useMemo(
     () => filteredSteps.reduce((s, d) => s + d.steps, 0),
     [filteredSteps]
@@ -3016,121 +3050,85 @@ function StepsTracker({ user }) {
     window.location.href = `/api/auth/google-fit?uid=${user.id}`;
   };
 
-  // 🔌 Chargement Google Fit
-  useEffect(() => {
-    if (!user?.id) return;
-
-    const fetchSteps = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const res = await fetch(`/api/steps?uid=${user.id}`);
-
-        if (res.status === 401 || res.status === 404) {
-          throw new Error("NOT_CONNECTED");
-        }
-
-        if (!res.ok) throw new Error("API_ERROR");
-
-        const data = await res.json();
-        setStepsData(data);
-      } catch (e) {
-        if (e.message === "NOT_CONNECTED") {
-          setError("NOT_CONNECTED");
-          setStepsData([]);
-        } else {
-          setError("API_ERROR");
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchSteps();
-  }, [user?.id]);
-
+  // ─────────────────────────────
+  // RENDER
+  // ─────────────────────────────
   return (
     <div className="space-y-6">
 
-      {/* 🔹 Carte connexion */}
-      <Card>
-        <CardContent className="space-y-3">
-          <h3 className="font-semibold text-lg">🚶 Suivi des pas</h3>
+      {/* ───── Ligne 1 : Suivi + Moyenne */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
-          {loading && <p className="text-sm text-gray-500">Chargement…</p>}
+        {/* Suivi des pas */}
+        <Card>
+          <CardContent className="space-y-3">
+            <h3 className="font-semibold text-lg">🚶 Suivi des pas</h3>
 
-          {error === "NOT_CONNECTED" && (
-            <>
-              <p className="text-sm text-gray-500">
-                Google Fit n’est pas connecté.
-              </p>
+            {loading && <p className="text-sm text-gray-500">Chargement…</p>}
+
+            {error === "NOT_CONNECTED" && (
               <Button onClick={connectGoogleFit}>
                 Se connecter à Google Fit
               </Button>
-            </>
-          )}
+            )}
 
-          {error === "API_ERROR" && (
-            <p className="text-sm text-red-500">
-              Erreur serveur. Réessaie plus tard.
-            </p>
-          )}
-
-          {!error && stepsData.length > 0 && (
-            <p className="text-sm text-green-600">
-              ✅ Google Fit connecté
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* 🔹 Moyenne des pas */}
-      <Card>
-        <CardContent className="p-5 space-y-4">
-          <div className="flex justify-between items-start">
-            <div>
-              <h3 className="text-sm font-medium text-gray-400">
-                👣 Moyenne de pas
-              </h3>
-              <div className="mt-2 flex items-baseline gap-2">
-                <span className="text-4xl font-extrabold">
-                  {avgSteps.toLocaleString()}
-                </span>
-                <span className="text-sm text-gray-400">/ jour</span>
-              </div>
-              <p className="text-xs text-gray-400">
-                Moyenne calculée sur la période sélectionnée
+            {!error && stepsData.length > 0 && (
+              <p className="text-sm text-green-600">
+                ✅ Google Fit connecté
               </p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Moyenne de pas */}
+        <Card>
+          <CardContent className="space-y-4">
+            <h3 className="text-sm font-medium text-gray-400">
+              👣 Moyenne de pas
+            </h3>
+
+            <div className="flex items-baseline gap-2">
+              <span className="text-4xl font-extrabold">
+                {avgSteps.toLocaleString()}
+              </span>
+              <span className="text-sm text-gray-400">/ jour</span>
             </div>
+
+            <p className="text-xs text-gray-400">
+              Moyenne sur la période sélectionnée
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ───── Filtres de mois */}
+      <Card>
+        <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <Label>Mois de début</Label>
+            <Input
+              type="month"
+              value={startMonth}
+              min={firstMonth}
+              max={endMonth}
+              onChange={(e) => setStartMonth(e.target.value)}
+            />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t">
-            <div>
-              <Label>Date de début</Label>
-              <Input
-                type="date"
-                value={startDate}
-                min={firstDate}
-                max={endDate}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
-            </div>
-            <div>
-              <Label>Date de fin</Label>
-              <Input
-                type="date"
-                value={endDate}
-                min={startDate}
-                max={today}
-                onChange={(e) => setEndDate(e.target.value)}
-              />
-            </div>
+          <div>
+            <Label>Mois de fin</Label>
+            <Input
+              type="month"
+              value={endMonth}
+              min={startMonth}
+              max={todayMonth}
+              onChange={(e) => setEndMonth(e.target.value)}
+            />
           </div>
         </CardContent>
       </Card>
 
-      {/* 🔹 Graphiques */}
+      {/* ───── Graphiques */}
       {filteredSteps.length > 0 && (
         <Card>
           <CardContent className="space-y-6">
@@ -3140,7 +3138,7 @@ function StepsTracker({ user }) {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-              {/* Pas par jour */}
+              {/* Courbe journalière */}
               <div className="h-64 md:h-80">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={filteredSteps}>
@@ -3172,7 +3170,7 @@ function StepsTracker({ user }) {
                 </ResponsiveContainer>
               </div>
 
-              {/* Pas par mois */}
+              {/* Barplot mensuel */}
               <div className="h-64 md:h-80">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={monthlySteps}>
@@ -3188,7 +3186,10 @@ function StepsTracker({ user }) {
                       axisLine={{ stroke: axisColor }}
                       tickLine={{ stroke: axisColor }}
                     />
-                    <Tooltip formatter={(v) => `${v.toLocaleString()} pas`} />
+                    <Tooltip
+                      formatter={(v) => `${v.toLocaleString()} pas`}
+                      contentStyle={{ color: "#000" }}
+                    />
                     <Bar dataKey="total" fill="#3b82f6">
                       <LabelList
                         dataKey="totalK"
@@ -3206,7 +3207,7 @@ function StepsTracker({ user }) {
         </Card>
       )}
 
-      {/* 🔹 Calendrier mensuel */}
+      {/* ───── Calendrier */}
       {filteredSteps.length > 0 && (
         <Card>
           <CardContent>
@@ -3217,7 +3218,6 @@ function StepsTracker({ user }) {
           </CardContent>
         </Card>
       )}
-
     </div>
   );
 }
