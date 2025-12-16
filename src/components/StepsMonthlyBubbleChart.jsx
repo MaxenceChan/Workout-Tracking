@@ -10,7 +10,7 @@ const WEEKDAYS = [
   "Dimanche",
 ];
 
-// Date locale sûre (pas d'UTC)
+// Date locale sûre (évite bug UTC)
 const formatLocalDate = (year, month, day) => {
   const m = String(month + 1).padStart(2, "0");
   const d = String(day).padStart(2, "0");
@@ -110,7 +110,7 @@ export default function StepsMonthlyBubbleChart({ stepsData }) {
 
           <div className="text-sm text-gray-400">
             👣 {totalSteps.toLocaleString()} pas ·{" "}
-            <span className="font-medium text-gray-600">
+            <span className="font-medium text-gray-500">
               Ø {averageSteps.toLocaleString()} / jour
             </span>
           </div>
@@ -133,45 +133,50 @@ export default function StepsMonthlyBubbleChart({ stepsData }) {
         {cells.map((c, i) => {
           if (!c) return <div key={i} />;
 
-      // ❌ Pas de data → pas de bulle
-      if (c.steps === 0) {
-        return (
-          <div
-            key={i}
-            className="flex items-center justify-center text-xs text-gray-400"
-          >
-            {c.day}
-          </div>
-        );
-      }
-      
-      // ✅ Data présente → bulle normale
-      const size = 18 + (c.steps / maxSteps) * 28;
-      
-      return (
-        <div key={i} className="flex items-center justify-center">
-          <div
-            onClick={(e) => {
-              const r = e.currentTarget.getBoundingClientRect();
-              setSelectedDay({
-                ...c,
-                x: r.left + r.width / 2,
-                y: r.top,
-              });
-            }}
-            className="rounded-full bg-blue-500 hover:bg-blue-600
-                       cursor-pointer flex items-center justify-center
-                       text-white text-xs transition"
-            style={{ width: size, height: size }}
-          >
-            {c.day}
-          </div>
-        </div>
-      );
+          // ❌ Pas de data → pas de bulle
+          if (c.steps === 0) {
+            return (
+              <div
+                key={i}
+                className="flex items-center justify-center text-xs text-gray-400"
+              >
+                {c.day}
+              </div>
+            );
+          }
+
+          const size = 18 + (c.steps / maxSteps) * 28;
+
+          return (
+            <div key={i} className="flex items-center justify-center">
+              <div
+              onClick={(e) => {
+                // 👉 si on reclique sur la même date, on ferme
+                if (selectedDay?.date === c.date) {
+                  setSelectedDay(null);
+                  return;
+                }
+              
+                const r = e.currentTarget.getBoundingClientRect();
+                setSelectedDay({
+                  ...c,
+                  x: r.left + r.width / 2,
+                  y: r.top,
+                });
+              }}
+                className="rounded-full bg-blue-500 hover:bg-blue-600
+                           cursor-pointer flex items-center justify-center
+                           text-white text-xs transition"
+                style={{ width: size, height: size }}
+              >
+                {c.day}
+              </div>
+            </div>
+          );
         })}
       </div>
 
-      {/* Tooltip */}
+      {/* Tooltip (texte NOIR lisible) */}
       {selectedDay && (
         <div
           className="fixed z-50"
@@ -182,7 +187,7 @@ export default function StepsMonthlyBubbleChart({ stepsData }) {
           }}
         >
           <div className="bg-white text-black rounded-lg shadow-lg border px-4 py-3 text-sm">
-            <div className="font-semibold mb-1">
+            <div className="font-semibold mb-1 text-black">
               {new Date(
                 selectedDay.date + "T12:00:00"
               ).toLocaleDateString("fr-FR", {
@@ -193,8 +198,9 @@ export default function StepsMonthlyBubbleChart({ stepsData }) {
               })}
             </div>
 
-            <div>
-              👣 <strong>{selectedDay.steps.toLocaleString()}</strong> pas
+            <div className="text-black">
+              👣 <strong>{selectedDay.steps.toLocaleString()}</strong>{" "}
+              pas
             </div>
           </div>
         </div>
