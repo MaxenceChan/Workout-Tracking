@@ -2948,7 +2948,7 @@ function StepsTracker({ user }) {
   useEffect(() => {
     if (!user?.id) return;
 
-    // Lance l'import (non bloquant)
+    // 🔁 Lance l'import (sans bloquer)
     fetch(`/api/steps?uid=${user.id}`).catch(() => {});
 
     const stepsRef = collection(db, "users", user.id, "steps");
@@ -2965,8 +2965,8 @@ function StepsTracker({ user }) {
         setError(null);
       },
       (e) => {
-        console.error("🔥 Firestore steps error:", e);
-        setError("FIRESTORE_ERROR");
+        console.error("Firestore error:", e);
+        setError("FIRESTORE");
         setLoading(false);
       }
     );
@@ -2975,22 +2975,20 @@ function StepsTracker({ user }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       <Card>
-        <CardContent className="space-y-4">
+        <CardContent>
           <h3 className="font-semibold text-lg">🚶 Suivi des pas</h3>
 
-          {loading && <p className="text-sm text-gray-500">Chargement…</p>}
+          {loading && <p>Chargement…</p>}
 
-          {error === "FIRESTORE_ERROR" && (
-            <p className="text-sm text-red-500">
-              Erreur Firestore.
+          {error && (
+            <p className="text-red-500">
+              Erreur Firestore
             </p>
           )}
 
-          {!loading && stepsData.length === 0 && !error && (
+          {!loading && !error && stepsData.length === 0 && (
             <>
-              <p className="text-sm text-gray-500">
-                Google Fit n’est pas connecté.
-              </p>
+              <p>Google Fit non connecté</p>
               <Button onClick={connectGoogleFit}>
                 Se connecter à Google Fit
               </Button>
@@ -2998,7 +2996,7 @@ function StepsTracker({ user }) {
           )}
 
           {!loading && stepsData.length > 0 && (
-            <p className="text-sm text-green-600">
+            <p className="text-green-600">
               ✅ Google Fit connecté
             </p>
           )}
@@ -3007,7 +3005,7 @@ function StepsTracker({ user }) {
 
       <Card>
         <CardContent>
-          <h3 className="font-semibold text-lg mb-3">📊 Pas par jour</h3>
+          <h3 className="font-semibold mb-3">📊 Pas par jour</h3>
 
           {stepsData.length > 0 && (
             <div className="h-64">
@@ -3017,12 +3015,7 @@ function StepsTracker({ user }) {
                   <XAxis dataKey="date" />
                   <YAxis />
                   <Tooltip />
-                  <Line
-                    type="monotone"
-                    dataKey="steps"
-                    strokeWidth={3}
-                    dot
-                  />
+                  <Line dataKey="steps" strokeWidth={3} dot />
                 </LineChart>
               </ResponsiveContainer>
             </div>
