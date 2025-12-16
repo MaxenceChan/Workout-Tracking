@@ -3017,12 +3017,42 @@ function StepsTracker({ user }) {
           )}
         </CardContent>
       </Card>
-
-      {/* 🔹 Carte graphique */}
-<Card>
+      {/* 🔹 Ancien graphique – évolution des pas */}
+<Card className="md:col-span-2">
   <CardContent className="space-y-4">
     <h3 className="font-semibold text-lg">
-      🟢 Activité mensuelle – pas par jour
+      📈 Évolution des pas par jour
+    </h3>
+
+    {stepsData.length === 0 ? (
+      <p className="text-sm text-gray-500">
+        Aucune donnée disponible.
+      </p>
+    ) : (
+      <div className="h-64 md:h-80">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={stepsData}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="date" />
+            <YAxis />
+            <Tooltip />
+            <Line
+              type="monotone"
+              dataKey="steps"
+              strokeWidth={2}
+              dot
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    )}
+  </CardContent>
+</Card>
+{/* 🔹 Calendrier mensuel à bulles (Google Fit style) */}
+<Card className="md:col-span-2">
+  <CardContent className="space-y-4">
+    <h3 className="font-semibold text-lg">
+      📅 Activité mensuelle – vue calendrier
     </h3>
 
     {stepsData.length === 0 ? (
@@ -3034,6 +3064,7 @@ function StepsTracker({ user }) {
     )}
   </CardContent>
 </Card>
+
     </div>
   );
 }
