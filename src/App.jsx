@@ -2948,24 +2948,24 @@ function StepsTracker({ user }) {
   useEffect(() => {
     if (!user?.id) return;
 
-    // 🔁 Lance l’import (90j)
+    // Lance l'import (non bloquant)
     fetch(`/api/steps?uid=${user.id}`).catch(() => {});
 
-    // 📡 Écoute Firestore
-    const q = query(
-      collection(db, "users", user.id, "steps"),
-      orderBy("date", "asc")
-    );
+    const stepsRef = collection(db, "users", user.id, "steps");
 
     return onSnapshot(
-      q,
+      stepsRef,
       (snap) => {
-        const rows = snap.docs.map((d) => d.data());
+        const rows = snap.docs
+          .map((d) => d.data())
+          .sort((a, b) => a.date.localeCompare(b.date));
+
         setStepsData(rows);
         setLoading(false);
+        setError(null);
       },
       (e) => {
-        console.error(e);
+        console.error("🔥 Firestore steps error:", e);
         setError("FIRESTORE_ERROR");
         setLoading(false);
       }
@@ -2986,7 +2986,7 @@ function StepsTracker({ user }) {
             </p>
           )}
 
-          {!loading && stepsData.length === 0 && (
+          {!loading && stepsData.length === 0 && !error && (
             <>
               <p className="text-sm text-gray-500">
                 Google Fit n’est pas connecté.
@@ -3017,7 +3017,12 @@ function StepsTracker({ user }) {
                   <XAxis dataKey="date" />
                   <YAxis />
                   <Tooltip />
-                  <Line type="monotone" dataKey="steps" strokeWidth={3} dot />
+                  <Line
+                    type="monotone"
+                    dataKey="steps"
+                    strokeWidth={3}
+                    dot
+                  />
                 </LineChart>
               </ResponsiveContainer>
             </div>
