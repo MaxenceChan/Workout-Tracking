@@ -3049,7 +3049,7 @@ function StepsTracker({ user }) {
                             {label}
                           </div>
                           <div style={{ fontSize: 14 }}>
-                            Tonnage : <strong>{value} kg</strong>
+                            Tonnage : <strong>{value} pas</strong>
                           </div>
                         </div>
                       );
