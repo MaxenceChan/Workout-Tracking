@@ -3095,17 +3095,25 @@ function StepsTracker({ user }) {
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={monthlySteps}>
             <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="month" />
-            <YAxis />
+            <XAxis
+              dataKey="month"
+              tick={{ fill: "#000000", fontSize: 12 }}
+            />
+            <YAxis
+              tick={{ fill: "#000000", fontSize: 12 }}
+            />
             <Tooltip
               formatter={(v) => `${v.toLocaleString()} pas`}
             />
             <Bar dataKey="total" fill="#3b82f6">
-              <LabelList
-                dataKey="totalK"
-                position="top"
-                formatter={(v) => `${v}k`}
-              />
+            <LabelList
+              dataKey="totalK"
+              position="top"
+              formatter={(v) => `${v}k`}
+              fill="#000000"
+              fontSize={12}
+              fontWeight={600}
+            />
             </Bar>
           </BarChart>
         </ResponsiveContainer>
