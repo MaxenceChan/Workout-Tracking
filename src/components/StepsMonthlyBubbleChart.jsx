@@ -1,8 +1,19 @@
 import React, { useMemo, useState } from "react";
 
-const WEEKDAYS = ["L", "M", "M", "J", "V", "S", "D"];
+const WEEKDAYS = [
+  "Lundi",
+  "Mardi",
+  "Mercredi",
+  "Jeudi",
+  "Vendredi",
+  "Samedi",
+  "Dimanche",
+];
 
 export default function StepsMonthlyBubbleChart({ stepsData }) {
+  // ✅ STATE AU BON ENDROIT
+  const [selectedDay, setSelectedDay] = useState(null);
+
   const [current, setCurrent] = useState(
     stepsData.at(-1)?.date?.slice(0, 7) ||
       new Date().toISOString().slice(0, 7)
@@ -45,24 +56,27 @@ export default function StepsMonthlyBubbleChart({ stepsData }) {
     });
   }
 
-  const maxSteps = Math.max(...cells.map(c => c?.steps || 0), 1);
+  const maxSteps = Math.max(...cells.map((c) => c?.steps || 0), 1);
 
   const totalSteps = cells.reduce(
     (sum, c) => sum + (c?.steps || 0),
     0
   );
 
-const changeMonth = (dir) => {
-  const [y, m] = current.split("-").map(Number);
-  const d = new Date(y, m - 1 + dir, 1);
-  setCurrent(d.toISOString().slice(0, 7));
-};
+  // ✅ NAVIGATION MOIS FIXÉE
+  const changeMonth = (dir) => {
+    const [y, m] = current.split("-").map(Number);
+    const d = new Date(y, m - 1 + dir, 1);
+    setCurrent(d.toISOString().slice(0, 7));
+  };
 
   return (
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <button onClick={() => changeMonth(-1)} className="text-xl">←</button>
+        <button onClick={() => changeMonth(-1)} className="text-xl">
+          ←
+        </button>
 
         <div className="text-center">
           <div className="font-semibold text-lg capitalize">
@@ -73,7 +87,9 @@ const changeMonth = (dir) => {
           </div>
         </div>
 
-        <button onClick={() => changeMonth(1)} className="text-xl">→</button>
+        <button onClick={() => changeMonth(1)} className="text-xl">
+          →
+        </button>
       </div>
 
       {/* Weekdays */}
@@ -84,17 +100,24 @@ const changeMonth = (dir) => {
       </div>
 
       {/* Calendar grid */}
-      <div className="grid grid-cols-7 gap-y-6 gap-x-2 justify-items-center">
+      <div className="grid grid-cols-7 auto-rows-[64px] gap-x-2 gap-y-2">
         {cells.map((c, i) => {
           if (!c) return <div key={i} />;
 
-          const size = 18 + (c.steps / maxSteps) * 36;
+          const min = 18;
+          const max = 42;
+          const size =
+            min + Math.min(c.steps / maxSteps, 1) * (max - min);
 
           return (
-            <div key={i} className="flex flex-col items-center gap-1">
+            <div key={i} className="flex items-center justify-center">
               <div
-                title={`${c.steps.toLocaleString()} pas`}
-                className="rounded-full bg-blue-500/70 hover:bg-blue-500 transition cursor-pointer flex items-center justify-center text-white text-xs"
+                onClick={() =>
+                  setSelectedDay(
+                    selectedDay?.date === c.date ? null : c
+                  )
+                }
+                className="rounded-full bg-blue-500 hover:bg-blue-600 transition cursor-pointer flex items-center justify-center text-white text-xs"
                 style={{ width: size, height: size }}
               >
                 {c.day}
@@ -103,6 +126,36 @@ const changeMonth = (dir) => {
           );
         })}
       </div>
+
+      {/* ✅ TOOLTIP PC + MOBILE */}
+      {selectedDay && (
+        <div
+          className="fixed inset-0 z-50"
+          onClick={() => setSelectedDay(null)}
+        >
+          <div
+            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2
+                       bg-white text-black rounded-lg shadow-lg border
+                       px-4 py-3 text-sm"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="font-semibold mb-1">
+              {new Date(selectedDay.date).toLocaleDateString("fr-FR", {
+                weekday: "long",
+                day: "numeric",
+                month: "long",
+                year: "numeric",
+              })}
+            </div>
+
+            <div>
+              👣{" "}
+              <strong>{selectedDay.steps.toLocaleString()}</strong>{" "}
+              pas
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
