@@ -2957,6 +2957,33 @@ function buildMonthlyStepsSeries(stepsData) {
     });
 }
 
+const BlackTooltip = ({ active, payload, label }) => {
+  if (!active || !payload || !payload.length) return null;
+
+  return (
+    <div
+      style={{
+        background: "#ffffff",
+        color: "#000000",
+        padding: "8px 10px",
+        borderRadius: "6px",
+        fontSize: "12px",
+        boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+      }}
+    >
+      <div style={{ fontWeight: 600, marginBottom: 4 }}>
+        {label}
+      </div>
+
+      {payload.map((p, i) => (
+        <div key={i}>
+          {p.name} : <strong>{p.value.toLocaleString()}</strong>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 // ───────────────────────────────────────────────
 // Suivi des pas (Google Fit)
 // ───────────────────────────────────────────────
@@ -3163,14 +3190,7 @@ function StepsTracker({ user }) {
                 <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                 <XAxis dataKey="date" tick={{ fill: axisColor }} />
                 <YAxis tick={{ fill: axisColor }} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#ffffff",
-                    color: "#000000",
-                    borderRadius: 6,
-                    fontSize: 12,
-                  }}
-                />
+                <Tooltip content={<BlackTooltip />} />
                 <Line dataKey="steps" stroke="#3b82f6" dot />
               </LineChart>
             </ResponsiveContainer>
@@ -3181,14 +3201,7 @@ function StepsTracker({ user }) {
                 <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                 <XAxis dataKey="month" tick={{ fill: axisColor }} />
                 <YAxis tick={{ fill: axisColor }} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#ffffff",
-                    color: "#000000",
-                    borderRadius: 6,
-                    fontSize: 12,
-                  }}
-                />
+                <Tooltip content={<BlackTooltip />} />
                 <Bar dataKey="total" fill="#3b82f6">
                   <LabelList
                     dataKey="totalK"
