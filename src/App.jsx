@@ -2961,19 +2961,21 @@ function buildMonthlyStepsSeries(stepsData) {
 // Suivi des pas (Google Fit)
 // ───────────────────────────────────────────────
 function StepsTracker({ user }) {
-  const [stepsData, setStepsData] = React.useState([]);
-  const monthlySteps = useMemo(
-  () => buildMonthlyStepsSeries(stepsData),
-  [stepsData]
-  );
-  const [loading, setLoading] = React.useState(false);
-  const [error, setError] = React.useState(null);
+  const [stepsData, setStepsData] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
+  // ─────────────────────────────
+  // Connexion Google Fit
+  // ─────────────────────────────
   const connectGoogleFit = () => {
     window.location.href = `/api/auth/google-fit?uid=${user.id}`;
   };
 
-  React.useEffect(() => {
+  // ─────────────────────────────
+  // Fetch des pas
+  // ─────────────────────────────
+  useEffect(() => {
     if (!user?.id) return;
 
     const fetchSteps = async () => {
@@ -2984,13 +2986,9 @@ function StepsTracker({ user }) {
         const res = await fetch(`/api/steps?uid=${user.id}`);
 
         if (res.status === 401 || res.status === 404) {
-          // 👉 Google Fit non connecté
           throw new Error("NOT_CONNECTED");
         }
-
-        if (!res.ok) {
-          throw new Error("API_ERROR");
-        }
+        if (!res.ok) throw new Error("API_ERROR");
 
         const data = await res.json();
         setStepsData(data);
@@ -3009,135 +3007,217 @@ function StepsTracker({ user }) {
     fetchSteps();
   }, [user?.id]);
 
+  // ─────────────────────────────
+  // Calculs période / moyenne
+  // ─────────────────────────────
+  const today = todayISO();
+
+  const firstStepDate = useMemo(() => {
+    if (!stepsData.length) return today;
+    return stepsData.map(d => d.date).sort()[0];
+  }, [stepsData]);
+
+  const [startDate, setStartDate] = useState(firstStepDate);
+  const [endDate, setEndDate] = useState(today);
+
+  useEffect(() => {
+    if (firstStepDate) setStartDate(firstStepDate);
+  }, [firstStepDate]);
+
+  const filteredSteps = useMemo(() => {
+    return stepsData.filter(
+      d => d.date >= startDate && d.date <= endDate
+    );
+  }, [stepsData, startDate, endDate]);
+
+  const avgStepsPerDay = useMemo(() => {
+    if (!filteredSteps.length) return 0;
+
+    const totalSteps = filteredSteps.reduce(
+      (acc, d) => acc + d.steps,
+      0
+    );
+
+    const diffDays =
+      Math.floor(
+        (new Date(endDate) - new Date(startDate)) /
+        (1000 * 60 * 60 * 24)
+      ) + 1;
+
+    return diffDays > 0 ? Math.round(totalSteps / diffDays) : 0;
+  }, [filteredSteps, startDate, endDate]);
+
+  // ─────────────────────────────
+  // Agrégation mensuelle
+  // ─────────────────────────────
+  const monthlySteps = useMemo(
+    () => buildMonthlyStepsSeries(stepsData),
+    [stepsData]
+  );
+
+  // ─────────────────────────────
+  // RENDER
+  // ─────────────────────────────
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {/* 🔹 Carte connexion */}
-      <Card>
-        <CardContent className="space-y-4">
-          <h3 className="font-semibold text-lg">🚶 Suivi des pas</h3>
+    <div className="space-y-6">
 
-          {loading && (
-            <p className="text-sm text-gray-500">Chargement…</p>
-          )}
+      {/* ───── Connexion Google Fit ───── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card>
+          <CardContent className="space-y-4">
+            <h3 className="font-semibold text-lg">🚶 Suivi des pas</h3>
 
-          {error === "NOT_CONNECTED" && (
-            <>
-              <p className="text-sm text-gray-500">
-                Google Fit n’est pas connecté.
+            {loading && (
+              <p className="text-sm text-gray-500">Chargement…</p>
+            )}
+
+            {error === "NOT_CONNECTED" && (
+              <>
+                <p className="text-sm text-gray-500">
+                  Google Fit n’est pas connecté.
+                </p>
+                <Button onClick={connectGoogleFit}>
+                  Se connecter à Google Fit
+                </Button>
+              </>
+            )}
+
+            {error === "API_ERROR" && (
+              <p className="text-sm text-red-500">
+                Erreur serveur. Réessaie plus tard.
               </p>
-              <Button onClick={connectGoogleFit}>
-                Se connecter à Google Fit
-              </Button>
-            </>
-          )}
+            )}
 
-          {error === "API_ERROR" && (
-            <p className="text-sm text-red-500">
-              Erreur serveur. Réessaie plus tard.
-            </p>
-          )}
+            {!error && stepsData.length > 0 && (
+              <p className="text-sm text-green-600">
+                ✅ Google Fit connecté
+              </p>
+            )}
+          </CardContent>
+        </Card>
 
-          {!error && stepsData.length > 0 && (
-            <p className="text-sm text-green-600">
-              ✅ Google Fit connecté
+        {/* ───── Carte moyenne pas / jour ───── */}
+        <Card>
+          <CardContent className="p-5 sm:p-6 space-y-4">
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                  👣 Pas moyens
+                </h3>
+
+                <div className="mt-3 flex items-baseline gap-2">
+                  <span className="text-4xl sm:text-5xl font-extrabold">
+                    {avgStepsPerDay.toLocaleString()}
+                  </span>
+                  <span className="text-sm text-gray-500">/ jour</span>
+                </div>
+
+                <p className="mt-1 text-xs sm:text-sm text-gray-500">
+                  Moyenne calculée sur la période sélectionnée
+                </p>
+              </div>
+
+              <div className="h-12 w-12 rounded-xl bg-blue-100 dark:bg-blue-500/20 
+                              flex items-center justify-center text-blue-600 dark:text-blue-400 text-xl">
+                🚶
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t">
+              <div>
+                <Label>Date de début</Label>
+                <Input
+                  type="date"
+                  value={startDate}
+                  min={firstStepDate || undefined}
+                  max={endDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <Label>Date de fin</Label>
+                <Input
+                  type="date"
+                  value={endDate}
+                  min={startDate}
+                  max={today}
+                  onChange={(e) => setEndDate(e.target.value)}
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ───── Graphiques ───── */}
+      <Card>
+        <CardContent className="space-y-6">
+          <h3 className="font-semibold text-lg">📈 Évolution des pas</h3>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Pas par jour */}
+            <div className="h-64 md:h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={stepsData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" tick={{ fill: "#000" }} />
+                  <YAxis />
+                  <Tooltip
+                    content={({ active, payload, label }) => {
+                      if (!active || !payload?.length) return null;
+                      return (
+                        <div className="bg-white border rounded p-2 text-black">
+                          <div className="font-bold">{label}</div>
+                          <div>👣 {payload[0].value.toLocaleString()} pas</div>
+                        </div>
+                      );
+                    }}
+                  />
+                  <Line type="monotone" dataKey="steps" strokeWidth={2} dot />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Pas par mois */}
+            <div className="h-64 md:h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={monthlySteps}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" tick={{ fill: "#000" }} />
+                  <YAxis />
+                  <Tooltip formatter={(v) => `${v.toLocaleString()} pas`} />
+                  <Bar dataKey="total" fill="#3b82f6">
+                    <LabelList
+                      dataKey="totalK"
+                      position="top"
+                      fill="#000"
+                      formatter={(v) => `${v}k`}
+                    />
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ───── Calendrier mensuel ───── */}
+      <Card>
+        <CardContent>
+          <h3 className="font-semibold text-lg mb-4">
+            📅 Activité mensuelle – vue calendrier
+          </h3>
+
+          {stepsData.length === 0 ? (
+            <p className="text-sm text-gray-500">
+              Aucune donnée disponible.
             </p>
+          ) : (
+            <StepsMonthlyBubbleChart stepsData={stepsData} />
           )}
         </CardContent>
       </Card>
-      {/* 🔹 Ancien graphique – évolution des pas */}
-<Card className="md:col-span-2">
-  <CardContent className="space-y-4">
-    <h3 className="font-semibold text-lg">
-      📈 Évolution des pas
-    </h3>
-
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {/* 🔹 PAS PAR JOUR */}
-      <div className="h-64 md:h-80">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={stepsData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="date" />
-            <YAxis />
-            <Tooltip
-              content={({ active, payload, label }) => {
-                if (!active || !payload?.length) return null;
-                return (
-                  <div
-                    style={{
-                      background: "#fff",
-                      border: "1px solid #e5e7eb",
-                      borderRadius: 8,
-                      padding: 8,
-                      color: "#000",
-                    }}
-                  >
-                    <div style={{ fontWeight: 700 }}>{label}</div>
-                    <div>
-                      👣 <strong>{payload[0].value.toLocaleString()}</strong> pas
-                    </div>
-                  </div>
-                );
-              }}
-            />
-            <Line
-              type="monotone"
-              dataKey="steps"
-              strokeWidth={2}
-              dot
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-
-      {/* 🔹 PAS PAR MOIS */}
-      <div className="h-64 md:h-80">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={monthlySteps}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis
-              dataKey="month"
-              tick={{ fill: "#000000", fontSize: 12 }}
-            />
-            <YAxis
-              tick={{ fill: "#000000", fontSize: 12 }}
-            />
-            <Tooltip
-              formatter={(v) => `${v.toLocaleString()} pas`}
-            />
-            <Bar dataKey="total" fill="#3b82f6">
-            <LabelList
-              dataKey="totalK"
-              position="top"
-              formatter={(v) => `${v}k`}
-              fill="#000000"
-              fontSize={12}
-              fontWeight={600}
-            />
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-  </CardContent>
-</Card>
-{/* 🔹 Calendrier mensuel à bulles (Google Fit style) */}
-<Card className="md:col-span-2">
-  <CardContent className="space-y-4">
-    <h3 className="font-semibold text-lg">
-      📅 Activité mensuelle – vue calendrier
-    </h3>
-
-    {stepsData.length === 0 ? (
-      <p className="text-sm text-gray-500">
-        Aucune donnée disponible.
-      </p>
-    ) : (
-      <StepsMonthlyBubbleChart stepsData={stepsData} />
-    )}
-  </CardContent>
-</Card>
-
     </div>
   );
 }
