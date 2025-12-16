@@ -10,34 +10,29 @@ const WEEKDAYS = [
   "Dimanche",
 ];
 
-export default function StepsMonthlyBubbleChart({ stepsData }) {
-  // ✅ état du tooltip (PC + mobile)
-  const [selectedDay, setSelectedDay] = useState(null);
+// 🔑 utilitaire date locale (ANTI UTC BUG)
+const formatLocalDate = (year, month, day) => {
+  const m = String(month + 1).padStart(2, "0");
+  const d = String(day).padStart(2, "0");
+  return `${year}-${m}-${d}`;
+};
 
-  // ✅ état du mois courant (STABLE, pas dépendant des données async)
+export default function StepsMonthlyBubbleChart({ stepsData }) {
+  /* ───────────── State ───────────── */
+  const [selectedDay, setSelectedDay] = useState(null);
   const [current, setCurrent] = useState(() =>
     new Date().toISOString().slice(0, 7)
   );
 
-  /**
-   * ✅ Synchronisation UNE SEULE FOIS
-   * → on initialise le calendrier sur le dernier mois disponible
-   * → sans casser la navigation
-   */
+  /* ───── Init sur dernier mois dispo ───── */
   useEffect(() => {
     if (!stepsData?.length) return;
-
-    const lastDate = stepsData.at(-1)?.date;
-    if (!lastDate) return;
-
-    const lastMonth = lastDate.slice(0, 7);
-
-    setCurrent((cur) => (cur ? cur : lastMonth));
+    const last = stepsData.at(-1)?.date;
+    if (!last) return;
+    setCurrent((c) => c || last.slice(0, 7));
   }, [stepsData]);
 
-  // ──────────────────────────────
-  // Calculs dates
-  // ──────────────────────────────
+  /* ───────────── Dates ───────────── */
   const monthDate = new Date(current + "-01");
   const year = monthDate.getFullYear();
   const month = monthDate.getMonth();
@@ -47,7 +42,7 @@ export default function StepsMonthlyBubbleChart({ stepsData }) {
     year: "numeric",
   });
 
-  // Map date → steps
+  /* ───── Map date → steps ───── */
   const stepsMap = useMemo(() => {
     const m = {};
     stepsData.forEach((d) => {
@@ -56,33 +51,33 @@ export default function StepsMonthlyBubbleChart({ stepsData }) {
     return m;
   }, [stepsData]);
 
+  /* ───── Construction calendrier ───── */
   const firstDay = new Date(year, month, 1);
   const lastDay = new Date(year, month + 1, 0);
   const daysInMonth = lastDay.getDate();
 
-  // Lundi = 0
+  // lundi = 0
   const startOffset = (firstDay.getDay() + 6) % 7;
 
   const cells = [];
   for (let i = 0; i < startOffset; i++) cells.push(null);
 
   for (let d = 1; d <= daysInMonth; d++) {
-    const iso = new Date(year, month, d).toISOString().slice(0, 10);
+    const localDate = formatLocalDate(year, month, d);
     cells.push({
       day: d,
-      date: iso,
-      steps: stepsMap[iso] || 0,
+      date: localDate, // ✅ DATE LOCALE
+      steps: stepsMap[localDate] || 0,
     });
   }
 
   const maxSteps = Math.max(...cells.map((c) => c?.steps || 0), 1);
-
   const totalSteps = cells.reduce(
     (sum, c) => sum + (c?.steps || 0),
     0
   );
 
-  // ✅ NAVIGATION MOIS — CORRECTE (±1 mois garanti)
+  /* ───── Navigation mois (OK) ───── */
   const changeMonth = (dir) => {
     const [y, m] = current.split("-").map(Number);
     const d = new Date(y, m - 1 + dir, 1);
@@ -90,12 +85,10 @@ export default function StepsMonthlyBubbleChart({ stepsData }) {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 relative">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <button onClick={() => changeMonth(-1)} className="text-xl">
-          ←
-        </button>
+        <button onClick={() => changeMonth(-1)} className="text-xl">←</button>
 
         <div className="text-center">
           <div className="font-semibold text-lg capitalize">
@@ -106,38 +99,37 @@ export default function StepsMonthlyBubbleChart({ stepsData }) {
           </div>
         </div>
 
-        <button onClick={() => changeMonth(1)} className="text-xl">
-          →
-        </button>
+        <button onClick={() => changeMonth(1)} className="text-xl">→</button>
       </div>
 
-      {/* Jours */}
+      {/* Weekdays */}
       <div className="grid grid-cols-7 text-center text-xs text-gray-400">
-        {WEEKDAYS.map((d) => (
-          <div key={d}>{d}</div>
-        ))}
+        {WEEKDAYS.map((d) => <div key={d}>{d}</div>)}
       </div>
 
-      {/* Calendrier */}
+      {/* Calendar */}
       <div className="grid grid-cols-7 auto-rows-[64px] gap-x-2 gap-y-2">
         {cells.map((c, i) => {
           if (!c) return <div key={i} />;
 
           const min = 18;
           const max = 42;
-          const size =
-            min + Math.min(c.steps / maxSteps, 1) * (max - min);
+          const size = min + (c.steps / maxSteps) * (max - min);
 
           return (
             <div key={i} className="flex items-center justify-center">
               <div
-                onClick={() =>
-                  setSelectedDay(
-                    selectedDay?.date === c.date ? null : c
-                  )
-                }
-                className="rounded-full bg-blue-500 hover:bg-blue-600 transition cursor-pointer
-                           flex items-center justify-center text-white text-xs"
+                onClick={(e) => {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  setSelectedDay({
+                    ...c,
+                    x: rect.left + rect.width / 2,
+                    y: rect.top,
+                  });
+                }}
+                className="rounded-full bg-blue-500 hover:bg-blue-600
+                           cursor-pointer flex items-center justify-center
+                           text-white text-xs transition"
                 style={{ width: size, height: size }}
               >
                 {c.day}
@@ -147,21 +139,21 @@ export default function StepsMonthlyBubbleChart({ stepsData }) {
         })}
       </div>
 
-      {/* Tooltip PC + Mobile */}
+      {/* Tooltip ancré */}
       {selectedDay && (
         <div
-          className="fixed inset-0 z-50"
-          onClick={() => setSelectedDay(null)}
+          className="fixed z-50"
+          style={{
+            left: selectedDay.x,
+            top: selectedDay.y - 10,
+            transform: "translate(-50%, -100%)",
+          }}
         >
-          <div
-            className="absolute left-1/2 top-1/2
-                       -translate-x-1/2 -translate-y-1/2
-                       bg-white text-black rounded-lg shadow-lg border
-                       px-4 py-3 text-sm"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="bg-white text-black rounded-lg shadow-lg border px-4 py-3 text-sm">
             <div className="font-semibold mb-1">
-              {new Date(selectedDay.date).toLocaleDateString("fr-FR", {
+              {new Date(
+                selectedDay.date + "T12:00:00"
+              ).toLocaleDateString("fr-FR", {
                 weekday: "long",
                 day: "numeric",
                 month: "long",
@@ -170,8 +162,7 @@ export default function StepsMonthlyBubbleChart({ stepsData }) {
             </div>
 
             <div>
-              👣 <strong>{selectedDay.steps.toLocaleString()}</strong>{" "}
-              pas
+              👣 <strong>{selectedDay.steps.toLocaleString()}</strong> pas
             </div>
           </div>
         </div>
