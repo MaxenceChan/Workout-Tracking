@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 
 const WEEKDAYS = [
   "Lundi",
@@ -11,14 +11,33 @@ const WEEKDAYS = [
 ];
 
 export default function StepsMonthlyBubbleChart({ stepsData }) {
-  // ✅ STATE AU BON ENDROIT
+  // ✅ état du tooltip (PC + mobile)
   const [selectedDay, setSelectedDay] = useState(null);
 
-  const [current, setCurrent] = useState(
-    stepsData.at(-1)?.date?.slice(0, 7) ||
-      new Date().toISOString().slice(0, 7)
+  // ✅ état du mois courant (STABLE, pas dépendant des données async)
+  const [current, setCurrent] = useState(() =>
+    new Date().toISOString().slice(0, 7)
   );
 
+  /**
+   * ✅ Synchronisation UNE SEULE FOIS
+   * → on initialise le calendrier sur le dernier mois disponible
+   * → sans casser la navigation
+   */
+  useEffect(() => {
+    if (!stepsData?.length) return;
+
+    const lastDate = stepsData.at(-1)?.date;
+    if (!lastDate) return;
+
+    const lastMonth = lastDate.slice(0, 7);
+
+    setCurrent((cur) => (cur ? cur : lastMonth));
+  }, [stepsData]);
+
+  // ──────────────────────────────
+  // Calculs dates
+  // ──────────────────────────────
   const monthDate = new Date(current + "-01");
   const year = monthDate.getFullYear();
   const month = monthDate.getMonth();
@@ -28,7 +47,7 @@ export default function StepsMonthlyBubbleChart({ stepsData }) {
     year: "numeric",
   });
 
-  // Map date -> steps
+  // Map date → steps
   const stepsMap = useMemo(() => {
     const m = {};
     stepsData.forEach((d) => {
@@ -41,7 +60,7 @@ export default function StepsMonthlyBubbleChart({ stepsData }) {
   const lastDay = new Date(year, month + 1, 0);
   const daysInMonth = lastDay.getDate();
 
-  // Monday-based index
+  // Lundi = 0
   const startOffset = (firstDay.getDay() + 6) % 7;
 
   const cells = [];
@@ -63,7 +82,7 @@ export default function StepsMonthlyBubbleChart({ stepsData }) {
     0
   );
 
-  // ✅ NAVIGATION MOIS FIXÉE
+  // ✅ NAVIGATION MOIS — CORRECTE (±1 mois garanti)
   const changeMonth = (dir) => {
     const [y, m] = current.split("-").map(Number);
     const d = new Date(y, m - 1 + dir, 1);
@@ -92,14 +111,14 @@ export default function StepsMonthlyBubbleChart({ stepsData }) {
         </button>
       </div>
 
-      {/* Weekdays */}
+      {/* Jours */}
       <div className="grid grid-cols-7 text-center text-xs text-gray-400">
         {WEEKDAYS.map((d) => (
           <div key={d}>{d}</div>
         ))}
       </div>
 
-      {/* Calendar grid */}
+      {/* Calendrier */}
       <div className="grid grid-cols-7 auto-rows-[64px] gap-x-2 gap-y-2">
         {cells.map((c, i) => {
           if (!c) return <div key={i} />;
@@ -117,7 +136,8 @@ export default function StepsMonthlyBubbleChart({ stepsData }) {
                     selectedDay?.date === c.date ? null : c
                   )
                 }
-                className="rounded-full bg-blue-500 hover:bg-blue-600 transition cursor-pointer flex items-center justify-center text-white text-xs"
+                className="rounded-full bg-blue-500 hover:bg-blue-600 transition cursor-pointer
+                           flex items-center justify-center text-white text-xs"
                 style={{ width: size, height: size }}
               >
                 {c.day}
@@ -127,14 +147,15 @@ export default function StepsMonthlyBubbleChart({ stepsData }) {
         })}
       </div>
 
-      {/* ✅ TOOLTIP PC + MOBILE */}
+      {/* Tooltip PC + Mobile */}
       {selectedDay && (
         <div
           className="fixed inset-0 z-50"
           onClick={() => setSelectedDay(null)}
         >
           <div
-            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2
+            className="absolute left-1/2 top-1/2
+                       -translate-x-1/2 -translate-y-1/2
                        bg-white text-black rounded-lg shadow-lg border
                        px-4 py-3 text-sm"
             onClick={(e) => e.stopPropagation()}
@@ -149,8 +170,7 @@ export default function StepsMonthlyBubbleChart({ stepsData }) {
             </div>
 
             <div>
-              👣{" "}
-              <strong>{selectedDay.steps.toLocaleString()}</strong>{" "}
+              👣 <strong>{selectedDay.steps.toLocaleString()}</strong>{" "}
               pas
             </div>
           </div>
