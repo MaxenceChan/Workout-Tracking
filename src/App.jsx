@@ -1047,7 +1047,11 @@ if (!sessions || sessions.length === 0) {
         </Card>
       ) : (
         filtered.map((s) => (
-<SessionCard
+    const allTypes = useMemo(
+      () => Array.from(new Set(sessions.map(s => s.type || "Libre"))),
+      [sessions]
+    );
+  <SessionCard
   key={s.id}
   session={s}
   onDelete={async () => {
@@ -1059,6 +1063,7 @@ if (!sessions || sessions.length === 0) {
     }
   }}
   onEdit={onEdit}
+  allTypes={allTypes}
 />
 
         ))
@@ -1093,7 +1098,7 @@ function FilterBar({ filter, setFilter, total, types }) {
 // ───────────────────────────────────────────────────────────────
 // SessionCard (affichage + édition séance individuelle)
 // ───────────────────────────────────────────────────────────────
-function SessionCard({ session, onDelete, onEdit }) {
+function SessionCard({ session, onDelete, onEdit, allTypes = [] }) {
   if (!session) return null;   // ⬅ sécurité anti-écran blanc
 
   const [editing, setEditing] = useState(false);
@@ -1170,26 +1175,41 @@ const cardRef = React.useRef(null);
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
                         <div className="text-xs sm:text-sm text-gray-500 flex items-center gap-2">
-              {editing ? (
-                <>
-                  <input
-                    type="date"
-                    value={local.date}
-                    onChange={(e) =>
-                      setLocal((cur) => ({
-                        ...cur,
-                        date: e.target.value,
-                      }))
-                    }
-                    className="border rounded px-2 py-1 text-xs"
-                  />
-                  <span>• {local.type}</span>
-                </>
-              ) : (
-                <>
-                  {prettyDate(local.date)} • {local.type}
-                </>
-              )}
+                        {editing ? (
+                          <div className="flex flex-wrap items-center gap-2">
+                            {/* Date */}
+                            <input
+                              type="date"
+                              value={local.date}
+                              onChange={(e) =>
+                                setLocal((cur) => ({ ...cur, date: e.target.value }))
+                              }
+                              className="border rounded px-2 py-1 text-xs"
+                            />
+                        
+                            {/* Type de séance */}
+                            <select
+                              value={local.type || "Libre"}
+                              onChange={(e) =>
+                                setLocal((cur) => ({ ...cur, type: e.target.value }))
+                              }
+                              className="border rounded px-2 py-1 text-xs"
+                            >
+                              <option value="Libre">Libre</option>
+                              {allTypes
+                                .filter((t) => t !== "Libre")
+                                .map((t) => (
+                                  <option key={t} value={t}>
+                                    {t}
+                                  </option>
+                                ))}
+                            </select>
+                          </div>
+                        ) : (
+                          <>
+                            {prettyDate(local.date)} • {local.type}
+                          </>
+                        )}
             </div>
             <div className="text-lg sm:text-2xl font-semibold">{Math.round(tonnage)} kg</div>
             {local.totalDuration !== undefined && (
