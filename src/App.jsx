@@ -1035,7 +1035,10 @@ if (!sessions || sessions.length === 0) {
   );
 }
 
-
+    const allTypes = useMemo(
+      () => Array.from(new Set(sessions.map(s => s.type || "Libre"))),
+      [sessions]
+    );
   return (
     <div className="space-y-3 sm:space-y-4">
       <FilterBar filter={filter} setFilter={setFilter} total={filtered.length} types={types} />
@@ -1047,10 +1050,7 @@ if (!sessions || sessions.length === 0) {
         </Card>
       ) : (
         filtered.map((s) => (
-    const allTypes = useMemo(
-      () => Array.from(new Set(sessions.map(s => s.type || "Libre"))),
-      [sessions]
-    );
+
   <SessionCard
   key={s.id}
   session={s}
