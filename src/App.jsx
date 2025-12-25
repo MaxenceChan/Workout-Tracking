@@ -348,7 +348,7 @@ function App() {
     if (isMenuOpen) {
       setIsMenuOpen(false);
     }
-  }, [tab, isMenuOpen]);
+  }, [tab]);
 
   useEffect(() => {
     let unsubscribeSessions = null;
