@@ -3325,4 +3325,4 @@ function StepsTracker({ user }) {
       </Card>
     </div>
   );
-}
+} 
