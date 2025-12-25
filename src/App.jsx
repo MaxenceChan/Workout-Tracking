@@ -2671,6 +2671,7 @@ const muscleLabelMap = {
   pectoraux_haut: "Pectoraux (haut)",
   grand_dorsal: "Grand dorsal",
   ischio_jambiers: "Ischio-jambiers",
+  autres: "Autres",
 };
 const formatMuscleLabel = (value) =>
   muscleLabelMap[value] ||
@@ -2699,6 +2700,118 @@ const muscleCandidateLabels = muscleCandidateKeys.map((key) =>
 const muscleLabelToKey = new Map(
   muscleCandidateLabels.map((label, index) => [label, muscleCandidateKeys[index]])
 );
+const muscleKeywordMap = {
+  pectoraux_bas: [
+    "developpe decline",
+    "decline",
+    "dips",
+    "cross over",
+    "cross-over",
+    "pompe pieds sureleves",
+    "pompes pieds sureleves",
+  ],
+  pectoraux_milieu: [
+    "developpe couche",
+    "couche",
+    "chest press",
+    "pec deck",
+    "pompe",
+    "pompes",
+    "push up",
+    "push-up",
+  ],
+  pectoraux_haut: [
+    "developpe incline",
+    "incline",
+    "pompe incline",
+    "pompes incline",
+    "landmine",
+  ],
+  épaules: [
+    "epaule",
+    "epaules",
+    "shoulder",
+    "militaire",
+    "arnold",
+    "elevation",
+    "oiseau",
+    "handstand",
+    "pike",
+  ],
+  grand_dorsal: [
+    "traction",
+    "tirage",
+    "rowing",
+    "row",
+    "pullover",
+    "dorsal",
+    "lat",
+  ],
+  trapèzes: [
+    "shrug",
+    "trap",
+    "upright row",
+    "face pull",
+    "farmer",
+    "rack pull",
+    "high pull",
+  ],
+  quadriceps: [
+    "squat",
+    "front squat",
+    "hack",
+    "presse",
+    "leg press",
+    "fente",
+    "split squat",
+    "bulgarian",
+    "step up",
+    "step-up",
+    "sissy",
+  ],
+  fessiers: [
+    "hip thrust",
+    "glute",
+    "bridge",
+    "sumo",
+    "kickback",
+    "pull through",
+    "pull-through",
+    "frog",
+  ],
+  ischio_jambiers: [
+    "ischio",
+    "hamstring",
+    "leg curl",
+    "nordic",
+    "romanian",
+    "rdl",
+    "good morning",
+    "souleve de terre",
+    "deadlift",
+  ],
+  mollets: [
+    "mollet",
+    "calf",
+    "donkey",
+    "corde",
+    "saut",
+    "jump",
+  ],
+  abdos: [
+    "abdos",
+    "crunch",
+    "gainage",
+    "plank",
+    "ab wheel",
+    "russian",
+    "mountain",
+    "dead bug",
+    "releve de jambes",
+    "leg raise",
+  ],
+};
+const muscleKeywordEntries = Object.entries(muscleKeywordMap);
 const HUGGING_FACE_MODEL = "facebook/bart-large-mnli";
 const HUGGING_FACE_ENDPOINT = `https://api-inference.huggingface.co/models/${HUGGING_FACE_MODEL}`;
 const MUSCLE_AI_CACHE_KEY = "muscle-ai-cache-v1";
@@ -2815,6 +2928,36 @@ const fetchMusclesFromHuggingFace = async (exerciseName, signal) => {
     )
   );
 };
+const getMusclesFromKeywords = (exerciseName) => {
+  const normalized = normalizeExerciseName(exerciseName || "");
+  if (!normalized) return [];
+  const tokens = tokenizeExercise(normalized);
+  let bestScore = 0;
+  let bestMuscles = [];
+  muscleKeywordEntries.forEach(([muscle, keywords]) => {
+    let score = 0;
+    keywords.forEach((keyword) => {
+      if (!keyword) return;
+      if (keyword.includes(" ")) {
+        if (normalized.includes(keyword)) score += 2;
+        return;
+      }
+      if (tokens.includes(keyword)) {
+        score += 1;
+      } else if (normalized.includes(keyword)) {
+        score += 0.5;
+      }
+    });
+    if (score <= 0) return;
+    if (score > bestScore) {
+      bestScore = score;
+      bestMuscles = [muscle];
+    } else if (score === bestScore) {
+      bestMuscles = [...bestMuscles, muscle];
+    }
+  });
+  return bestMuscles;
+};
 async function buildMuscleSplitByAI(sessions, signal) {
   const map = new Map();
   const exerciseNames = Array.from(
@@ -2856,6 +2999,11 @@ async function buildMuscleSplitByAI(sessions, signal) {
     } catch (error) {
       if (error?.name === "AbortError") throw error;
     }
+    const keywordMuscles = getMusclesFromKeywords(exerciseName);
+    if (keywordMuscles.length) {
+      exerciseMuscleMap.set(exerciseName, keywordMuscles);
+      continue;
+    }
     exerciseMuscleMap.set(exerciseName, []);
   }
 
@@ -2864,8 +3012,7 @@ async function buildMuscleSplitByAI(sessions, signal) {
   sessions.forEach((session) => {
     session.exercises.forEach((exercise) => {
       const muscles = exerciseMuscleMap.get(exercise.name) || [];
-      const fallbackMuscle = exercise.name?.trim() || "Exercice sans nom";
-      const buckets = muscles.length > 0 ? muscles : [fallbackMuscle];
+      const buckets = muscles.length > 0 ? muscles : ["autres"];
       buckets.forEach((muscle) => {
         map.set(muscle, (map.get(muscle) || 0) + 1);
       });
