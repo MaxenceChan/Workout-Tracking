@@ -329,6 +329,16 @@ function App() {
     ],
     []
   );
+  const mobileNavItems = useMemo(() => {
+    const order = ["tpl", "log", "sessions", "last", "analytics", "weight", "steps"];
+    const byValue = new Map(navItems.map((item) => [item.value, item]));
+    return order
+      .map((value) => byValue.get(value))
+      .filter(Boolean)
+      .map((item) =>
+        item.value === "tpl" ? { ...item, shortLabel: "Templates" } : item
+      );
+  }, [navItems]);
   const handleTabChange = (value) => {
     setTab(value);
     setIsMenuOpen(false);
@@ -397,6 +407,14 @@ function App() {
 >
 <div className="max-w-[1600px] mx-auto px-6 py-3 sm:py-4 flex flex-col sm:flex-row items-center justify-between gap-2">
     <div className="flex items-center gap-2">
+      <Button
+        variant="ghost"
+        onClick={() => setIsMenuOpen((prev) => !prev)}
+        title="Ouvrir le menu"
+        className="hidden md:inline-flex text-black dark:text-white hover:bg-black/5 dark:hover:bg-white/20"
+      >
+        <Menu className="h-4 w-4" /> Menu
+      </Button>
       <Dumbbell className="h-5 w-5 text-current" />
       <h1 className="text-lg sm:text-xl md:text-2xl font-bold tracking-tight">Workout Tracker</h1>
       <div className="hidden sm:block text-xs text-black/60 dark:text-white/70">
@@ -407,41 +425,6 @@ function App() {
     <div className="flex items-center gap-3">
       <div className="text-xs sm:text-sm text-black dark:text-white truncate">
         {user.email}
-      </div>
-      <div className="relative hidden md:block">
-        <Button
-          variant="ghost"
-          onClick={() => setIsMenuOpen((prev) => !prev)}
-          title="Ouvrir le menu"
-          className="text-black dark:text-white hover:bg-black/5 dark:hover:bg-white/20"
-        >
-          <Menu className="h-4 w-4" /> Menu
-        </Button>
-        {isMenuOpen && (
-          <div className="absolute right-0 mt-2 w-64 rounded-xl border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-[#111111]">
-            <div className="p-2 space-y-1">
-              {navItems.map((item) => {
-                const Icon = item.icon;
-                const active = tab === item.value;
-                return (
-                  <button
-                    key={item.value}
-                    onClick={() => handleTabChange(item.value)}
-                    className={cn(
-                      "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition",
-                      active
-                        ? "bg-gray-100 text-gray-900 dark:bg-[#1f1f1f] dark:text-white"
-                        : "text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-[#1c1c1c]"
-                    )}
-                  >
-                    <Icon className="h-4 w-4" />
-                    <span>{item.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
       </div>
       <ThemeToggleButton />
       <Button
@@ -454,6 +437,31 @@ function App() {
       </Button>
     </div>
   </div>
+  {isMenuOpen && (
+    <div className="hidden md:block border-t border-gray-200 bg-white/95 dark:border-[#00634A] dark:bg-[#0b5e47]">
+      <div className="max-w-[1600px] mx-auto flex flex-wrap items-center gap-2 px-6 py-2">
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          const active = tab === item.value;
+          return (
+            <button
+              key={item.value}
+              onClick={() => handleTabChange(item.value)}
+              className={cn(
+                "flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium transition",
+                active
+                  ? "bg-black/10 text-gray-900 dark:bg-white/15 dark:text-white"
+                  : "text-gray-700 hover:bg-black/5 dark:text-white/80 dark:hover:bg-white/10"
+              )}
+            >
+              <Icon className="h-4 w-4" />
+              <span>{item.label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  )}
 </header>
 
 <main className="max-w-[1600px] mx-auto px-6 py-4 pb-24 md:pb-4">
@@ -535,7 +543,7 @@ function App() {
       </main>
       <nav className="fixed bottom-0 left-0 right-0 z-20 border-t border-gray-200 bg-white/95 backdrop-blur dark:border-gray-700 dark:bg-[#111111]/95 md:hidden">
         <div className="mx-auto flex max-w-[1600px] items-center justify-between px-3 py-2">
-          {navItems.map((item) => {
+          {mobileNavItems.map((item) => {
             const Icon = item.icon;
             const active = tab === item.value;
             return (
