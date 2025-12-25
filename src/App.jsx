@@ -180,7 +180,7 @@ function TabsTrigger({ value, children }) {
 
 const TabsContent = ({ value, className, children }) => {
   const ctx = useContext(TabsCtx); if (ctx?.value !== value) return null;
-  return <div className={className}>{children}</div>;
+  return <div className={cn("tab-fade-in", className)}>{children}</div>;
 };
 
 // ───────────────────────────────────────────────────────────────
@@ -415,10 +415,9 @@ function App() {
         <Menu className="h-4 w-4" /> Menu
       </Button>
       <Dumbbell className="h-5 w-5 text-current motion-safe:animate-bounce" />
-      <h1 className="text-lg sm:text-xl md:text-2xl font-bold tracking-tight">Workout Tracker</h1>
-      <div className="hidden sm:block text-xs text-black/60 dark:text-white/70">
-        UID: {user?.id}
-      </div>
+      <h1 className="text-lg sm:text-xl md:text-2xl font-bold tracking-tight">
+        <span className="typewriter-title">Workout Tracker</span>
+      </h1>
     </div>
 
     <div className="flex items-center gap-3">
