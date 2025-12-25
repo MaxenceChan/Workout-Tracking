@@ -322,8 +322,8 @@ function App() {
       { value: "tpl", label: "Séances pré-créées", shortLabel: "Séances", icon: ClipboardList },
       { value: "log", label: "Saisir une séance", shortLabel: "Saisie", icon: Plus },
       { value: "sessions", label: "Historique", shortLabel: "Historique", icon: History },
-      { value: "analytics", label: "Datavisualisation", shortLabel: "Stats", icon: BarChart3 },
       { value: "last", label: "Dernière séance", shortLabel: "Dernière", icon: Clock },
+      { value: "analytics", label: "Statistiques", shortLabel: "Stats", icon: BarChart3 },
       { value: "weight", label: "Suivi du poids", shortLabel: "Poids", icon: Scale },
       { value: "steps", label: "Suivi des pas", shortLabel: "Pas", icon: Footprints },
     ],
@@ -1658,8 +1658,22 @@ function Analytics({ sessions }) {
   useEffect(() => {
     if (!exerciseLast3 && allExercises.length) setExerciseLast3(allExercises[0]);
   }, [allExercises, exerciseLast3]);
-  const [typeProgressSort, setTypeProgressSort] = useState("asc");
-  const [exerciseProgressSort, setExerciseProgressSort] = useState("asc");
+  const [typeProgressSort, setTypeProgressSort] = useState({
+    key: "label",
+    direction: "asc",
+  });
+  const [exerciseProgressSort, setExerciseProgressSort] = useState({
+    key: "label",
+    direction: "asc",
+  });
+  const toggleProgressSort = (setSort, key) => {
+    setSort((prev) => ({
+      key,
+      direction: prev.key === key && prev.direction === "asc" ? "desc" : "asc",
+    }));
+  };
+  const sortIndicator = (sortState, key) =>
+    sortState.key === key ? (sortState.direction === "asc" ? "▲" : "▼") : "↕";
 
   const typeProgressRows = useMemo(() => {
     const rows = allTypes
@@ -1682,13 +1696,23 @@ function Analytics({ sessions }) {
         progressPercent,
       };
       });
-    return rows.sort((a, b) => {
-      const labelA = a.label?.toLowerCase() ?? "";
-      const labelB = b.label?.toLowerCase() ?? "";
-      return typeProgressSort === "desc"
-        ? labelB.localeCompare(labelA, "fr")
-        : labelA.localeCompare(labelB, "fr");
-    });
+    const compare = (a, b) => {
+      const { key, direction } = typeProgressSort;
+      if (key === "label") {
+        const labelA = a.label?.toLowerCase() ?? "";
+        const labelB = b.label?.toLowerCase() ?? "";
+        return direction === "desc"
+          ? labelB.localeCompare(labelA, "fr")
+          : labelA.localeCompare(labelB, "fr");
+      }
+      const valA = a[key];
+      const valB = b[key];
+      if (valA === null && valB === null) return 0;
+      if (valA === null) return 1;
+      if (valB === null) return -1;
+      return direction === "desc" ? valB - valA : valA - valB;
+    };
+    return rows.sort(compare);
   }, [allTypes, sessions, typeMonthStart, typeMonthEnd, typeProgressSort]);
 
   const exerciseProgressRows = useMemo(() => {
@@ -1720,13 +1744,23 @@ function Analytics({ sessions }) {
           row.session2Key &&
           row.session1Key !== row.session2Key
       );
-    return rows.sort((a, b) => {
-      const labelA = a.label?.toLowerCase() ?? "";
-      const labelB = b.label?.toLowerCase() ?? "";
-      return exerciseProgressSort === "desc"
-        ? labelB.localeCompare(labelA, "fr")
-        : labelA.localeCompare(labelB, "fr");
-    });
+    const compare = (a, b) => {
+      const { key, direction } = exerciseProgressSort;
+      if (key === "label") {
+        const labelA = a.label?.toLowerCase() ?? "";
+        const labelB = b.label?.toLowerCase() ?? "";
+        return direction === "desc"
+          ? labelB.localeCompare(labelA, "fr")
+          : labelA.localeCompare(labelB, "fr");
+      }
+      const valA = a[key];
+      const valB = b[key];
+      if (valA === null && valB === null) return 0;
+      if (valA === null) return 1;
+      if (valB === null) return -1;
+      return direction === "desc" ? valB - valA : valA - valB;
+    };
+    return rows.sort(compare);
   }, [
     allExercises,
     sessions,
@@ -2104,22 +2138,53 @@ function Analytics({ sessions }) {
                     <th className="py-2 pr-4">
                       <button
                         type="button"
-                        onClick={() =>
-                          setTypeProgressSort((prev) =>
-                            prev === "asc" ? "desc" : "asc"
-                          )
-                        }
+                        onClick={() => toggleProgressSort(setTypeProgressSort, "label")}
                         className="inline-flex items-center gap-1 font-semibold"
                       >
                         Type de séance
                         <span aria-hidden="true">
-                          {typeProgressSort === "asc" ? "▲" : "▼"}
+                          {sortIndicator(typeProgressSort, "label")}
                         </span>
                       </button>
                     </th>
-                    <th className="py-2 pr-4">Poids total séance 1</th>
-                    <th className="py-2 pr-4">Poids total séance 2</th>
-                    <th className="py-2 pr-4">Progression %</th>
+                    <th className="py-2 pr-4">
+                      <button
+                        type="button"
+                        onClick={() => toggleProgressSort(setTypeProgressSort, "session1")}
+                        className="inline-flex items-center gap-1 font-semibold"
+                      >
+                        Poids total séance 1
+                        <span aria-hidden="true">
+                          {sortIndicator(typeProgressSort, "session1")}
+                        </span>
+                      </button>
+                    </th>
+                    <th className="py-2 pr-4">
+                      <button
+                        type="button"
+                        onClick={() => toggleProgressSort(setTypeProgressSort, "session2")}
+                        className="inline-flex items-center gap-1 font-semibold"
+                      >
+                        Poids total séance 2
+                        <span aria-hidden="true">
+                          {sortIndicator(typeProgressSort, "session2")}
+                        </span>
+                      </button>
+                    </th>
+                    <th className="py-2 pr-4">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          toggleProgressSort(setTypeProgressSort, "progressPercent")
+                        }
+                        className="inline-flex items-center gap-1 font-semibold"
+                      >
+                        Progression %
+                        <span aria-hidden="true">
+                          {sortIndicator(typeProgressSort, "progressPercent")}
+                        </span>
+                      </button>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -2194,21 +2259,61 @@ function Analytics({ sessions }) {
                       <button
                         type="button"
                         onClick={() =>
-                          setExerciseProgressSort((prev) =>
-                            prev === "asc" ? "desc" : "asc"
-                          )
+                          toggleProgressSort(setExerciseProgressSort, "label")
                         }
                         className="inline-flex items-center gap-1 font-semibold"
                       >
                         Exercice
                         <span aria-hidden="true">
-                          {exerciseProgressSort === "asc" ? "▲" : "▼"}
+                          {sortIndicator(exerciseProgressSort, "label")}
                         </span>
                       </button>
                     </th>
-                    <th className="py-2 pr-4">Poids total séance 1</th>
-                    <th className="py-2 pr-4">Poids total séance 2</th>
-                    <th className="py-2 pr-4">Progression %</th>
+                    <th className="py-2 pr-4">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          toggleProgressSort(setExerciseProgressSort, "session1")
+                        }
+                        className="inline-flex items-center gap-1 font-semibold"
+                      >
+                        Poids total séance 1
+                        <span aria-hidden="true">
+                          {sortIndicator(exerciseProgressSort, "session1")}
+                        </span>
+                      </button>
+                    </th>
+                    <th className="py-2 pr-4">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          toggleProgressSort(setExerciseProgressSort, "session2")
+                        }
+                        className="inline-flex items-center gap-1 font-semibold"
+                      >
+                        Poids total séance 2
+                        <span aria-hidden="true">
+                          {sortIndicator(exerciseProgressSort, "session2")}
+                        </span>
+                      </button>
+                    </th>
+                    <th className="py-2 pr-4">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          toggleProgressSort(
+                            setExerciseProgressSort,
+                            "progressPercent"
+                          )
+                        }
+                        className="inline-flex items-center gap-1 font-semibold"
+                      >
+                        Progression %
+                        <span aria-hidden="true">
+                          {sortIndicator(exerciseProgressSort, "progressPercent")}
+                        </span>
+                      </button>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
