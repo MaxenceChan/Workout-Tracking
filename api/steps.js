@@ -16,9 +16,24 @@ export default async function handler(req, res) {
 
     const { refresh_token } = userSnap.data().googleFit || {};
 
-    // 🔥 SEULE CONDITION VALABLE
+    const loadStoredSteps = async () => {
+      const stepsSnap = await userRef
+        .collection("steps")
+        .orderBy("date", "asc")
+        .get();
+
+      return stepsSnap.docs.map((doc) => {
+        const data = doc.data();
+        return {
+          date: data.date,
+          steps: data.steps || 0,
+        };
+      });
+    };
+
     if (!refresh_token) {
-      return res.status(401).json({ error: "Google Fit not connected" });
+      const storedSteps = await loadStoredSteps();
+      return res.status(200).json(storedSteps);
     }
 
     // 🔐 OAuth client (refresh_token uniquement)
@@ -64,7 +79,8 @@ export default async function handler(req, res) {
           { merge: true }
         );
 
-        return res.status(401).json({ error: "Google Fit token expired" });
+        const storedSteps = await loadStoredSteps();
+        return res.status(200).json(storedSteps);
       }
 
       throw error;
