@@ -1531,6 +1531,10 @@ function Analytics({ sessions }) {
     const names = sessions.flatMap(s => s.exercises.map(ex => ex.name));
     return Array.from(new Set(names));
   }, [sessions]);
+  const allTypes = useMemo(() => {
+    if (!sessions || sessions.length === 0) return [];
+    return Array.from(new Set(sessions.map((s) => s.type || "Libre")));
+  }, [sessions]);
 
   // Sélecteurs initiaux
   const [exerciseTS, setExerciseTS] = useState(allExercises[0] || "");
@@ -1538,6 +1542,10 @@ function Analytics({ sessions }) {
   const [exerciseTonnage, setExerciseTonnage] = useState(allExercises[0] || "");
   const [intensityTypeFilter, setIntensityTypeFilter] = useState("ALL");
   const [sessionTypeTonnage, setSessionTypeTonnage] = useState("ALL");
+  const [typeMonthStart, setTypeMonthStart] = useState("");
+  const [typeMonthEnd, setTypeMonthEnd] = useState("");
+  const [exerciseMonthStart, setExerciseMonthStart] = useState("");
+  const [exerciseMonthEnd, setExerciseMonthEnd] = useState("");
 
   const firstSessionDate = useMemo(() => {
   if (!sessions.length) return null;
@@ -1617,6 +1625,34 @@ function Analytics({ sessions }) {
   useEffect(() => {
     if (!exerciseLast3 && allExercises.length) setExerciseLast3(allExercises[0]);
   }, [allExercises, exerciseLast3]);
+
+  const typeProgressRows = useMemo(() => {
+    return allTypes.map((type) => {
+      const first = getFirstSessionByType(sessions, type, typeMonthStart);
+      const last = getLastSessionByType(sessions, type, typeMonthEnd);
+      return {
+        label: type,
+        session1: first ? Math.round(computeSessionTonnage(first)) : null,
+        session1Date: first?.date || null,
+        session2: last ? Math.round(computeSessionTonnage(last)) : null,
+        session2Date: last?.date || null,
+      };
+    });
+  }, [allTypes, sessions, typeMonthStart, typeMonthEnd]);
+
+  const exerciseProgressRows = useMemo(() => {
+    return allExercises.map((exercise) => {
+      const first = getFirstSessionByExercise(sessions, exercise, exerciseMonthStart);
+      const last = getLastSessionByExercise(sessions, exercise, exerciseMonthEnd);
+      return {
+        label: exercise,
+        session1: first ? Math.round(computeExerciseTonnageInSession(first, exercise)) : null,
+        session1Date: first?.date || null,
+        session2: last ? Math.round(computeExerciseTonnageInSession(last, exercise)) : null,
+        session2Date: last?.date || null,
+      };
+    });
+  }, [allExercises, sessions, exerciseMonthStart, exerciseMonthEnd]);
   
   return (
     <div className="space-y-6">
@@ -1948,6 +1984,149 @@ function Analytics({ sessions }) {
     </CardContent>
   </Card>
 </div>
+
+      {/* Bloc 5 : Progression tonnage (séances + exercices) */}
+      <div className="grid gap-4">
+        <Card>
+          <CardContent className="p-4 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <h3 className="font-semibold">Progression sur le type de Séance</h3>
+                <p className="text-xs text-gray-500">
+                  Séance 1 = première séance du type (ou du mois sélectionné). Séance 2 = dernière séance du type (ou du mois sélectionné).
+                </p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div>
+                  <Label>Mois séance 1</Label>
+                  <Input
+                    type="month"
+                    value={typeMonthStart}
+                    onChange={(e) => setTypeMonthStart(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label>Mois séance 2</Label>
+                  <Input
+                    type="month"
+                    value={typeMonthEnd}
+                    onChange={(e) => setTypeMonthEnd(e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr className="text-left border-b">
+                    <th className="py-2 pr-4">Type de séance</th>
+                    <th className="py-2 pr-4">Poids total séance 1</th>
+                    <th className="py-2 pr-4">Poids total séance 2</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {typeProgressRows.length === 0 ? (
+                    <tr>
+                      <td className="py-3 text-gray-500" colSpan={3}>
+                        Aucun type de séance disponible.
+                      </td>
+                    </tr>
+                  ) : (
+                    typeProgressRows.map((row) => (
+                      <tr key={row.label} className="border-b last:border-b-0">
+                        <td className="py-2 pr-4 font-medium">{row.label}</td>
+                        <td className="py-2 pr-4">
+                          {row.session1 !== null ? `${row.session1} kg` : "—"}
+                          {row.session1Date && (
+                            <div className="text-xs text-gray-500">{shortFR(row.session1Date)}</div>
+                          )}
+                        </td>
+                        <td className="py-2 pr-4">
+                          {row.session2 !== null ? `${row.session2} kg` : "—"}
+                          {row.session2Date && (
+                            <div className="text-xs text-gray-500">{shortFR(row.session2Date)}</div>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <h3 className="font-semibold">Progression sur les exercices</h3>
+                <p className="text-xs text-gray-500">
+                  Séance 1 = première séance avec l’exercice (ou du mois sélectionné). Séance 2 = dernière séance avec l’exercice (ou du mois sélectionné).
+                </p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div>
+                  <Label>Mois séance 1</Label>
+                  <Input
+                    type="month"
+                    value={exerciseMonthStart}
+                    onChange={(e) => setExerciseMonthStart(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label>Mois séance 2</Label>
+                  <Input
+                    type="month"
+                    value={exerciseMonthEnd}
+                    onChange={(e) => setExerciseMonthEnd(e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr className="text-left border-b">
+                    <th className="py-2 pr-4">Exercice</th>
+                    <th className="py-2 pr-4">Poids total séance 1</th>
+                    <th className="py-2 pr-4">Poids total séance 2</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {exerciseProgressRows.length === 0 ? (
+                    <tr>
+                      <td className="py-3 text-gray-500" colSpan={3}>
+                        Aucun exercice disponible.
+                      </td>
+                    </tr>
+                  ) : (
+                    exerciseProgressRows.map((row) => (
+                      <tr key={row.label} className="border-b last:border-b-0">
+                        <td className="py-2 pr-4 font-medium">{row.label}</td>
+                        <td className="py-2 pr-4">
+                          {row.session1 !== null ? `${row.session1} kg` : "—"}
+                          {row.session1Date && (
+                            <div className="text-xs text-gray-500">{shortFR(row.session1Date)}</div>
+                          )}
+                        </td>
+                        <td className="py-2 pr-4">
+                          {row.session2 !== null ? `${row.session2} kg` : "—"}
+                          {row.session2Date && (
+                            <div className="text-xs text-gray-500">{shortFR(row.session2Date)}</div>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
     </div>
   );
@@ -2361,9 +2540,62 @@ const exportLastSession = async () => {
   );
 }
 
-function getLastSessionByType(sessions, type) {
+function getMonthKey(dateStr) {
+  return dateStr ? dateStr.slice(0, 7) : "";
+}
+
+function filterSessionsByMonth(sessions, month) {
+  if (!month) return sessions;
+  return sessions.filter((s) => getMonthKey(s.date) === month);
+}
+
+function getFirstSessionByType(sessions, type, month = "") {
   if (!sessions || sessions.length === 0) return null;
-  const rows = sessions.filter((s) => s.type === type);
+  const rows = filterSessionsByMonth(sessions, month).filter(
+    (s) => (s.type || "Libre") === type
+  );
+  if (rows.length === 0) return null;
+  rows.sort((a, b) => (a.date > b.date ? 1 : -1));
+  return rows[0];
+}
+
+function getLastSessionByType(sessions, type, month = "") {
+  if (!sessions || sessions.length === 0) return null;
+  const rows = filterSessionsByMonth(sessions, month).filter(
+    (s) => (s.type || "Libre") === type
+  );
+  if (rows.length === 0) return null;
+  rows.sort((a, b) => (a.date < b.date ? 1 : -1));
+  return rows[0];
+}
+
+function computeExerciseTonnageInSession(session, exerciseName) {
+  if (!session) return 0;
+  return session.exercises
+    .filter((ex) => ex.name === exerciseName)
+    .flatMap((ex) => ex.sets)
+    .reduce(
+      (sum, set) =>
+        sum + Number(set.weight || 0) * Number(set.reps || 0),
+      0
+    );
+}
+
+function getFirstSessionByExercise(sessions, exerciseName, month = "") {
+  if (!sessions || sessions.length === 0) return null;
+  const rows = filterSessionsByMonth(sessions, month).filter((s) =>
+    s.exercises.some((ex) => ex.name === exerciseName)
+  );
+  if (rows.length === 0) return null;
+  rows.sort((a, b) => (a.date > b.date ? 1 : -1));
+  return rows[0];
+}
+
+function getLastSessionByExercise(sessions, exerciseName, month = "") {
+  if (!sessions || sessions.length === 0) return null;
+  const rows = filterSessionsByMonth(sessions, month).filter((s) =>
+    s.exercises.some((ex) => ex.name === exerciseName)
+  );
   if (rows.length === 0) return null;
   rows.sort((a, b) => (a.date < b.date ? 1 : -1));
   return rows[0];
