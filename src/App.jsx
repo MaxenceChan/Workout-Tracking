@@ -1547,11 +1547,22 @@ function Analytics({ sessions }) {
   const [exerciseMonthStart, setExerciseMonthStart] = useState("");
   const [exerciseMonthEnd, setExerciseMonthEnd] = useState("");
 
-  const firstSessionDate = useMemo(() => {
-  if (!sessions.length) return null;
-  return sessions
-    .map(s => s.date)
-    .sort()[0];
+  const { firstSessionDate, firstSessionMonth, lastSessionMonth } = useMemo(() => {
+    if (!sessions.length) {
+      return {
+        firstSessionDate: null,
+        firstSessionMonth: "",
+        lastSessionMonth: "",
+      };
+    }
+    const sortedDates = sessions.map((s) => s.date).sort();
+    const firstDate = sortedDates[0];
+    const lastDate = sortedDates[sortedDates.length - 1];
+    return {
+      firstSessionDate: firstDate,
+      firstSessionMonth: firstDate.slice(0, 7),
+      lastSessionMonth: lastDate.slice(0, 7),
+    };
   }, [sessions]);
   
   const today = todayISO();
@@ -1570,6 +1581,28 @@ function Analytics({ sessions }) {
     setStartDate(firstSessionDate);
   }
   }, [firstSessionDate]);
+
+  useEffect(() => {
+    if (!typeMonthStart && firstSessionMonth) {
+      setTypeMonthStart(firstSessionMonth);
+    }
+    if (!typeMonthEnd && lastSessionMonth) {
+      setTypeMonthEnd(lastSessionMonth);
+    }
+    if (!exerciseMonthStart && firstSessionMonth) {
+      setExerciseMonthStart(firstSessionMonth);
+    }
+    if (!exerciseMonthEnd && lastSessionMonth) {
+      setExerciseMonthEnd(lastSessionMonth);
+    }
+  }, [
+    typeMonthStart,
+    typeMonthEnd,
+    exerciseMonthStart,
+    exerciseMonthEnd,
+    firstSessionMonth,
+    lastSessionMonth,
+  ]);
 
   const filteredSessionsByDate = useMemo(() => {
   return sessions.filter(s =>
