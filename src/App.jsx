@@ -45,7 +45,6 @@ import {
   Clock,
   Scale,
   Footprints,
-  MessageSquare,
   Send,
   Sparkles,
 } from "lucide-react";
@@ -367,14 +366,13 @@ function App() {
       { value: "sessions", label: "Historique", shortLabel: "Historique", icon: History },
       { value: "last", label: "Dernière séance", shortLabel: "Dernière", icon: Clock },
       { value: "analytics", label: "Statistiques", shortLabel: "Stats", icon: BarChart3 },
-      { value: "chatbot", label: "Coach IA", shortLabel: "Coach IA", icon: MessageSquare },
       { value: "weight", label: "Suivi du poids", shortLabel: "Poids", icon: Scale },
       { value: "steps", label: "Suivi des pas", shortLabel: "Pas", icon: Footprints },
     ],
     []
   );
   const mobileNavItems = useMemo(() => {
-    const order = ["tpl", "log", "sessions", "last", "analytics", "chatbot", "weight", "steps"];
+    const order = ["tpl", "log", "sessions", "last", "analytics", "weight", "steps"];
     const byValue = new Map(navItems.map((item) => [item.value, item]));
     return order
       .map((value) => byValue.get(value))
