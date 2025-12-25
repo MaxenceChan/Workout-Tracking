@@ -3110,6 +3110,7 @@ function StepsTracker({ user }) {
   const [stepsData, setStepsData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [needsReauth, setNeedsReauth] = useState(false);
 
   /* ─────────────────────────────
      FETCH GOOGLE FIT
@@ -3126,7 +3127,13 @@ function StepsTracker({ user }) {
         if (!res.ok) throw new Error("API_ERROR");
 
         const data = await res.json();
-        setStepsData(data);
+        if (Array.isArray(data)) {
+          setStepsData(data);
+          setNeedsReauth(false);
+        } else {
+          setStepsData(data?.steps || []);
+          setNeedsReauth(Boolean(data?.needsReauth));
+        }
       } catch {
         setError("API_ERROR");
       } finally {
@@ -3221,10 +3228,26 @@ function StepsTracker({ user }) {
         <Card>
           <CardContent>
             <h3 className="font-semibold">🚶 Suivi des pas</h3>
-            {!loading && !error && (
+            {!loading && !error && !needsReauth && (
               <p className="text-sm text-green-500 mt-2">
                 ✅ Google Fit connecté
               </p>
+            )}
+            {!loading && !error && needsReauth && (
+              <div className="mt-2 space-y-2">
+                <p className="text-sm text-amber-500">
+                  ⚠️ Reconnexion Google Fit nécessaire pour récupérer les
+                  90 derniers jours de pas.
+                </p>
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    window.location.href = `/api/auth/google-fit?uid=${user.id}`;
+                  }}
+                >
+                  Se reconnecter
+                </Button>
+              </div>
             )}
           </CardContent>
         </Card>
