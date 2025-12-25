@@ -414,7 +414,7 @@ function App() {
       >
         <Menu className="h-4 w-4" /> Menu
       </Button>
-      <Dumbbell className="h-5 w-5 text-current" />
+      <Dumbbell className="h-5 w-5 text-current motion-safe:animate-bounce" />
       <h1 className="text-lg sm:text-xl md:text-2xl font-bold tracking-tight">Workout Tracker</h1>
       <div className="hidden sm:block text-xs text-black/60 dark:text-white/70">
         UID: {user?.id}
@@ -599,7 +599,7 @@ function AuthScreen() {
       <Card className="w-full max-w-sm sm:max-w-md">
         <CardContent className="space-y-4 sm:space-y-5">
           <div className="text-center space-y-1">
-            <Dumbbell className="mx-auto h-7 w-7 sm:h-8 sm:w-8" />
+            <Dumbbell className="mx-auto h-7 w-7 sm:h-8 sm:w-8 motion-safe:animate-bounce" />
             <h2 className="text-lg sm:text-xl font-semibold">Workout Tracker</h2>
             <p className="text-xs sm:text-sm text-gray-600">
               {mode === "login"
