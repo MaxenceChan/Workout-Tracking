@@ -437,35 +437,34 @@ function App() {
       </Button>
     </div>
   </div>
-  {isMenuOpen && (
-    <div className="hidden md:block border-t border-gray-200 bg-white/95 dark:border-[#00634A] dark:bg-[#0b5e47]">
-      <div className="max-w-[1600px] mx-auto flex flex-col gap-2 px-6 py-3">
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          const active = tab === item.value;
-          return (
-            <button
-              key={item.value}
-              onClick={() => handleTabChange(item.value)}
-              className={cn(
-                "flex w-full items-center gap-2 rounded-xl px-4 py-2 text-left text-sm font-medium transition",
-                active
-                  ? "bg-black/10 text-gray-900 dark:bg-white/15 dark:text-white"
-                  : "text-gray-700 hover:bg-black/5 dark:text-white/80 dark:hover:bg-white/10"
-              )}
-            >
-              <Icon className="h-4 w-4" />
-              <span>{item.label}</span>
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  )}
 </header>
 
-<main className="max-w-[1600px] mx-auto px-6 py-4 pb-24 md:pb-4">
-        <Tabs value={tab} onValueChange={handleTabChange}>
+<div className="mx-auto flex max-w-[1600px] px-6 py-4 pb-24 md:pb-4">
+  {isMenuOpen && (
+    <aside className="hidden md:flex w-64 shrink-0 flex-col gap-2 pr-4">
+      {navItems.map((item) => {
+        const Icon = item.icon;
+        const active = tab === item.value;
+        return (
+          <button
+            key={item.value}
+            onClick={() => handleTabChange(item.value)}
+            className={cn(
+              "flex w-full items-center gap-2 rounded-xl px-4 py-2 text-left text-sm font-medium transition",
+              active
+                ? "bg-black/10 text-gray-900 dark:bg-white/15 dark:text-white"
+                : "text-gray-700 hover:bg-black/5 dark:text-white/80 dark:hover:bg-white/10"
+            )}
+          >
+            <Icon className="h-4 w-4" />
+            <span>{item.label}</span>
+          </button>
+        );
+      })}
+    </aside>
+  )}
+  <main className="min-w-0 flex-1">
+    <Tabs value={tab} onValueChange={handleTabChange}>
           <TabsContent value="tpl" className="mt-3 sm:mt-4">
             <TemplatesManager
               user={user}
@@ -541,6 +540,7 @@ function App() {
 </TabsContent>
            </Tabs>
       </main>
+    </div>
       <nav className="fixed bottom-0 left-0 right-0 z-20 border-t border-gray-200 bg-white/95 backdrop-blur dark:border-gray-700 dark:bg-[#111111]/95 md:hidden">
         <div className="mx-auto flex max-w-[1600px] items-center justify-between px-3 py-2">
           {mobileNavItems.map((item) => {
