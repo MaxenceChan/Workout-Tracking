@@ -34,23 +34,16 @@ export default async function handler(req, res) {
     if (!refresh_token) {
       const storedSteps = await loadStoredSteps();
 
-      if (!storedSteps.length) {
-        await userRef.set(
-          {
-            "googleFit.needs_reauth": true,
-            "googleFit.updated_at": admin.firestore.FieldValue.serverTimestamp(),
-          },
-          { merge: true }
-        );
-
-        return res.status(200).json({
-          needsReauth: true,
-          steps: [],
-        });
-      }
+      await userRef.set(
+        {
+          "googleFit.needs_reauth": true,
+          "googleFit.updated_at": admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
 
       return res.status(200).json({
-        needsReauth: false,
+        needsReauth: true,
         steps: storedSteps,
       });
     }
