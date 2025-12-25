@@ -1,8 +1,32 @@
-import muscleRag from "../src/data/muscleRag.json";
+import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
+import { dirname, resolve } from "node:path";
+
+const normalizeExerciseAliases = (value) => {
+  if (!value) return "";
+  let normalized = value;
+  const replacements = [
+    [/\bbench press\b/g, "developpe couche"],
+    [/\bincline bench\b/g, "developpe incline"],
+    [/\bdecline bench\b/g, "developpe decline"],
+    [/\boverhead press\b/g, "developpe militaire"],
+    [/\bmilitary press\b/g, "developpe militaire"],
+    [/\bshoulder press\b/g, "developpe militaire"],
+    [/\blat pulldown\b/g, "tirage poitrine"],
+    [/\bpull ?up\b/g, "tractions"],
+    [/\bchin ?up\b/g, "tractions supination"],
+    [/\bstiff leg deadlift\b/g, "souleve de terre jambes tendues"],
+    [/\bdeadlift\b/g, "souleve de terre"],
+  ];
+  replacements.forEach(([pattern, replacement]) => {
+    normalized = normalized.replace(pattern, replacement);
+  });
+  return normalized;
+};
 
 const normalizeExerciseName = (value) => {
   if (!value) return "";
-  return value
+  const normalized = value
     .normalize("NFD")
     .replace(/\p{Diacritic}/gu, "")
     .toLowerCase()
@@ -10,12 +34,38 @@ const normalizeExerciseName = (value) => {
     .replace(/[^a-z0-9]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+  return normalizeExerciseAliases(normalized);
 };
 
+const stopTokens = new Set([
+  "de",
+  "du",
+  "des",
+  "la",
+  "le",
+  "les",
+  "a",
+  "au",
+  "aux",
+  "avec",
+  "sans",
+  "sur",
+  "en",
+]);
+const tokenReplacements = {
+  dc: ["developpe", "couche"],
+  di: ["developpe", "incline"],
+  dd: ["developpe", "decline"],
+  dm: ["developpe", "militaire"],
+  sdt: ["souleve", "de", "terre"],
+  rdl: ["romanian", "deadlift"],
+};
 const tokenizeExercise = (value) =>
   normalizeExerciseName(value)
     .split(" ")
-    .filter(Boolean);
+    .filter(Boolean)
+    .flatMap((token) => tokenReplacements[token] || [token])
+    .filter((token) => token && !stopTokens.has(token));
 
 const jaccardSimilarity = (aTokens, bTokens) => {
   if (!aTokens.length || !bTokens.length) return 0;
@@ -29,15 +79,31 @@ const jaccardSimilarity = (aTokens, bTokens) => {
   return union === 0 ? 0 : intersection / union;
 };
 
-const buildRagCandidates = (exerciseName) => {
+let ragCache = null;
+const loadMuscleRag = async () => {
+  if (ragCache) return ragCache;
+  const __dirname = dirname(fileURLToPath(import.meta.url));
+  const ragPath = resolve(__dirname, "../src/data/muscleRag.json");
+  const raw = await readFile(ragPath, "utf-8");
+  const muscleRag = JSON.parse(raw);
+  ragCache = {
+    data: muscleRag,
+    entries: muscleRag.map(({ exercise, muscles }) => ({
+      exercise,
+      muscles,
+      tokens: tokenizeExercise(exercise),
+      normalized: normalizeExerciseName(exercise),
+    })),
+    musclesList: Array.from(
+      new Set(muscleRag.flatMap((entry) => entry.muscles))
+    ).sort(),
+  };
+  return ragCache;
+};
+
+const buildRagCandidates = (exerciseName, entries) => {
   const tokens = tokenizeExercise(exerciseName);
   const normalized = normalizeExerciseName(exerciseName);
-  const entries = muscleRag.map(({ exercise, muscles }) => ({
-    exercise,
-    muscles,
-    tokens: tokenizeExercise(exercise),
-    normalized: normalizeExerciseName(exercise),
-  }));
   return entries
     .map((entry) => ({
       ...entry,
@@ -73,10 +139,8 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Missing exerciseName" });
     }
 
-    const candidates = buildRagCandidates(exerciseName);
-    const musclesList = Array.from(
-      new Set(muscleRag.flatMap((entry) => entry.muscles))
-    ).sort();
+    const { entries, musclesList } = await loadMuscleRag();
+    const candidates = buildRagCandidates(exerciseName, entries);
     const prompt = `Tu es un coach sportif. Ta tâche: associer un exercice à 1-3 muscles.
 
 Exercice: "${exerciseName}"
