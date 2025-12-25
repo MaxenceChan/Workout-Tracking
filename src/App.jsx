@@ -396,7 +396,7 @@ function App() {
   if (user === null) return <AuthScreen />;
 
   return (
-<div className="min-h-screen w-full bg-gray-50 dark:bg-[#1c1c1c] text-gray-900 dark:bg-[#0d0d0d] dark:text-white transition-colors duration-300">
+<div className="min-h-screen w-full bg-gray-50 dark:bg-[#1c1c1c] text-gray-900 dark:bg-[#0d0d0d] dark:text-white transition-colors duration-300 tear-reveal">
 <header
   className="sticky top-0 z-10 
   bg-white dark:bg-[#007B5E]
@@ -405,7 +405,7 @@ function App() {
   transition-colors duration-300"
 >
 <div className="max-w-[1600px] mx-auto px-6 py-3 sm:py-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2 logo-sway">
       <Button
         variant="ghost"
         onClick={() => setIsMenuOpen((prev) => !prev)}
@@ -414,7 +414,7 @@ function App() {
       >
         <Menu className="h-4 w-4" /> Menu
       </Button>
-      <Dumbbell className="h-5 w-5 text-current motion-safe:animate-bounce" />
+      <Dumbbell className="h-5 w-5 text-current" />
       <h1 className="text-lg sm:text-xl md:text-2xl font-bold tracking-tight">
         <span className="typewriter-title">Workout Tracker</span>
       </h1>

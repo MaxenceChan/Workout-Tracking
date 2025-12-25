@@ -64,6 +64,42 @@ html.dark p {
   100% { transform: translateX(0); }
 }
 
+@keyframes logo-sway {
+  0% { transform: translateX(-8px); }
+  50% { transform: translateX(8px); }
+  100% { transform: translateX(-8px); }
+}
+
+@keyframes tear-reveal {
+  0% {
+    clip-path: polygon(
+      0 0,
+      100% 0,
+      100% 100%,
+      0 100%,
+      0 0
+    );
+  }
+  100% {
+    clip-path: polygon(
+      100% 0,
+      100% 0,
+      100% 100%,
+      100% 100%,
+      100% 0
+    );
+  }
+}
+
+@keyframes tear-edge {
+  0% {
+    transform: translateX(-110%);
+  }
+  100% {
+    transform: translateX(110%);
+  }
+}
+
 @keyframes tab-fade {
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
@@ -77,10 +113,47 @@ html.dark p {
   width: 0;
   animation:
     typewriter 2.4s steps(15, end) 0.2s forwards,
-    typewriter-caret 2.6s step-end 0.2s forwards,
-    title-sway 3s ease-in-out 2.8s infinite;
+    typewriter-caret 2.6s step-end 0.2s forwards;
 }
 
 .tab-fade-in {
   animation: tab-fade 240ms ease-out;
+}
+
+.logo-sway {
+  animation: logo-sway 3s ease-in-out infinite;
+}
+
+.tear-reveal {
+  position: relative;
+  overflow: hidden;
+}
+
+.tear-reveal::before,
+.tear-reveal::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+}
+
+.tear-reveal::before {
+  background: linear-gradient(90deg, #0b0b0b 0%, #1a1a1a 100%);
+  animation: tear-reveal 900ms ease-out forwards;
+  transform-origin: left center;
+}
+
+.tear-reveal::after {
+  width: 220%;
+  left: -60%;
+  background:
+    linear-gradient(90deg, transparent 0%, transparent 30%, rgba(255, 255, 255, 0.8) 50%, transparent 70%, transparent 100%),
+    repeating-linear-gradient(
+      -5deg,
+      rgba(255, 255, 255, 0.5) 0 6px,
+      rgba(255, 255, 255, 0) 6px 12px
+    );
+  mix-blend-mode: screen;
+  animation: tear-edge 900ms ease-out forwards;
 }
