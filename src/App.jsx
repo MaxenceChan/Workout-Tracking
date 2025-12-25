@@ -524,7 +524,7 @@ function App() {
 
 
 <TabsContent value="analytics" className="mt-3 sm:mt-4">
-  <Analytics sessions={data.sessions} sessionTemplates={data.sessionTemplates} />
+  <Analytics sessions={data.sessions} />
 </TabsContent>
 
 <TabsContent value="last" className="mt-3 sm:mt-4">
@@ -1524,7 +1524,7 @@ const cardRef = React.useRef(null);
 // Analytics (graphiques + calendrier)
 // ───────────────────────────────────────────────────────────────
 
-function Analytics({ sessions, sessionTemplates }) {
+function Analytics({ sessions }) {
   // Exos filtrés : uniquement ceux avec des données
   const allExercises = useMemo(() => {
     if (!sessions || sessions.length === 0) return [];
@@ -1535,24 +1535,25 @@ function Analytics({ sessions, sessionTemplates }) {
     if (!sessions || sessions.length === 0) return [];
     return Array.from(new Set(sessions.map((s) => s.type || "Libre")));
   }, [sessions]);
-  const templateTypes = useMemo(() => {
-    if (!sessionTemplates || sessionTemplates.length === 0) return [];
-    return Array.from(
-      new Set(sessionTemplates.map((tpl) => tpl?.name).filter(Boolean))
-    );
-  }, [sessionTemplates]);
+  const templateTypes = useMemo(
+    () => allTypes.filter((type) => type && type.toLowerCase() !== "libre"),
+    [allTypes]
+  );
   const exerciseTemplateMap = useMemo(() => {
     const map = new Map();
-    if (!sessionTemplates || sessionTemplates.length === 0) return map;
-    sessionTemplates.forEach((tpl) => {
-      if (!tpl?.name) return;
-      (tpl.exercises || []).forEach((ex) => {
-        if (!map.has(ex)) map.set(ex, new Set());
-        map.get(ex).add(tpl.name);
+    if (!sessions || sessions.length === 0) return map;
+    sessions.forEach((session) => {
+      const sessionType = session?.type || "Libre";
+      if (sessionType.toLowerCase() === "libre") return;
+      session?.exercises?.forEach((exercise) => {
+        const name = exercise?.name;
+        if (!name) return;
+        if (!map.has(name)) map.set(name, new Set());
+        map.get(name).add(sessionType);
       });
     });
     return map;
-  }, [sessionTemplates]);
+  }, [sessions]);
 
   // Sélecteurs initiaux
   const [exerciseTS, setExerciseTS] = useState(allExercises[0] || "");
