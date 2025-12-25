@@ -396,7 +396,7 @@ function App() {
   if (user === null) return <AuthScreen />;
 
   return (
-<div className="min-h-screen w-full bg-gray-50 dark:bg-[#1c1c1c] text-gray-900 dark:bg-[#0d0d0d] dark:text-white transition-colors duration-300 tear-reveal">
+<div className="min-h-screen w-full bg-gray-50 dark:bg-[#1c1c1c] text-gray-900 dark:bg-[#0d0d0d] dark:text-white transition-colors duration-300">
 <header
   className="sticky top-0 z-10 
   bg-white dark:bg-[#007B5E]
@@ -416,7 +416,7 @@ function App() {
       </Button>
       <Dumbbell className="h-5 w-5 text-current" />
       <h1 className="text-lg sm:text-xl md:text-2xl font-bold tracking-tight">
-        <span className="typewriter-title">Workout Tracker</span>
+        <span>Workout Tracker</span>
       </h1>
     </div>
 
