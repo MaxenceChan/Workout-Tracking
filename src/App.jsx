@@ -3228,7 +3228,42 @@ function StepsTracker({ user }) {
         <Card>
           <CardContent>
             <h3 className="font-semibold">🚶 Suivi des pas</h3>
-            {!loading && !error && !needsReauth && (
+            {loading && (
+              <p className="text-sm text-gray-500 mt-2">
+                Chargement des pas…
+              </p>
+            )}
+            {!loading && error && (
+              <div className="mt-2 space-y-2">
+                <p className="text-sm text-red-500">
+                  ❌ Impossible de récupérer les pas pour le moment.
+                </p>
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    window.location.href = `/api/auth/google-fit?uid=${user.id}`;
+                  }}
+                >
+                  Connecter Google Fit
+                </Button>
+              </div>
+            )}
+            {!loading && !error && !needsReauth && !stepsData.length && (
+              <div className="mt-2 space-y-2">
+                <p className="text-sm text-gray-500">
+                  ⚡ Connecte Google Fit pour commencer le suivi des pas.
+                </p>
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    window.location.href = `/api/auth/google-fit?uid=${user.id}`;
+                  }}
+                >
+                  Connecter Google Fit
+                </Button>
+              </div>
+            )}
+            {!loading && !error && !needsReauth && stepsData.length > 0 && (
               <p className="text-sm text-green-500 mt-2">
                 ✅ Google Fit connecté
               </p>
