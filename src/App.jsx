@@ -1660,9 +1660,11 @@ function Analytics({ sessions }) {
   }, [allExercises, exerciseLast3]);
 
   const typeProgressRows = useMemo(() => {
-    return allTypes.map((type) => {
-      const first = getFirstSessionByType(sessions, type, typeMonthStart);
-      const last = getLastSessionByType(sessions, type, typeMonthEnd);
+    return allTypes
+      .filter((type) => type && type.toLowerCase() !== "libre")
+      .map((type) => {
+        const first = getFirstSessionByType(sessions, type, typeMonthStart);
+        const last = getLastSessionByType(sessions, type, typeMonthEnd);
       const session1 = first ? Math.round(computeSessionTonnage(first)) : null;
       const session2 = last ? Math.round(computeSessionTonnage(last)) : null;
       const progressPercent =
@@ -1677,13 +1679,15 @@ function Analytics({ sessions }) {
         session2Date: last?.date || null,
         progressPercent,
       };
-    });
+      });
   }, [allTypes, sessions, typeMonthStart, typeMonthEnd]);
 
   const exerciseProgressRows = useMemo(() => {
-    return allExercises.map((exercise) => {
-      const first = getFirstSessionByExercise(sessions, exercise, exerciseMonthStart);
-      const last = getLastSessionByExercise(sessions, exercise, exerciseMonthEnd);
+    const getSessionKey = (session) => session?.id || session?.date || "";
+    return allExercises
+      .map((exercise) => {
+        const first = getFirstSessionByExercise(sessions, exercise, exerciseMonthStart);
+        const last = getLastSessionByExercise(sessions, exercise, exerciseMonthEnd);
       const session1 = first ? Math.round(computeExerciseTonnageInSession(first, exercise)) : null;
       const session2 = last ? Math.round(computeExerciseTonnageInSession(last, exercise)) : null;
       const progressPercent =
@@ -1694,11 +1698,19 @@ function Analytics({ sessions }) {
         label: exercise,
         session1,
         session1Date: first?.date || null,
+        session1Key: getSessionKey(first),
         session2,
         session2Date: last?.date || null,
+        session2Key: getSessionKey(last),
         progressPercent,
       };
-    });
+      })
+      .filter(
+        (row) =>
+          row.session1Key &&
+          row.session2Key &&
+          row.session1Key !== row.session2Key
+      );
   }, [allExercises, sessions, exerciseMonthStart, exerciseMonthEnd]);
   
   return (
