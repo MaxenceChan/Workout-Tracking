@@ -439,7 +439,7 @@ function App() {
   </div>
   {isMenuOpen && (
     <div className="hidden md:block border-t border-gray-200 bg-white/95 dark:border-[#00634A] dark:bg-[#0b5e47]">
-      <div className="max-w-[1600px] mx-auto flex flex-wrap items-center gap-2 px-6 py-2">
+      <div className="max-w-[1600px] mx-auto flex flex-col gap-2 px-6 py-3">
         {navItems.map((item) => {
           const Icon = item.icon;
           const active = tab === item.value;
@@ -448,7 +448,7 @@ function App() {
               key={item.value}
               onClick={() => handleTabChange(item.value)}
               className={cn(
-                "flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium transition",
+                "flex w-full items-center gap-2 rounded-xl px-4 py-2 text-left text-sm font-medium transition",
                 active
                   ? "bg-black/10 text-gray-900 dark:bg-white/15 dark:text-white"
                   : "text-gray-700 hover:bg-black/5 dark:text-white/80 dark:hover:bg-white/10"
