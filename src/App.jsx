@@ -2864,7 +2864,8 @@ async function buildMuscleSplitByAI(sessions, signal) {
   sessions.forEach((session) => {
     session.exercises.forEach((exercise) => {
       const muscles = exerciseMuscleMap.get(exercise.name) || [];
-      const buckets = muscles.length > 0 ? muscles : ["Autres"];
+      const fallbackMuscle = exercise.name?.trim() || "Exercice sans nom";
+      const buckets = muscles.length > 0 ? muscles : [fallbackMuscle];
       buckets.forEach((muscle) => {
         map.set(muscle, (map.get(muscle) || 0) + 1);
       });
