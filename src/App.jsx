@@ -524,7 +524,7 @@ function App() {
 
 
 <TabsContent value="analytics" className="mt-3 sm:mt-4">
-  <Analytics sessions={data.sessions} />
+  <Analytics sessions={data.sessions} sessionTemplates={data.sessionTemplates} />
 </TabsContent>
 
 <TabsContent value="last" className="mt-3 sm:mt-4">
@@ -1524,7 +1524,7 @@ const cardRef = React.useRef(null);
 // Analytics (graphiques + calendrier)
 // ───────────────────────────────────────────────────────────────
 
-function Analytics({ sessions }) {
+function Analytics({ sessions, sessionTemplates }) {
   // Exos filtrés : uniquement ceux avec des données
   const allExercises = useMemo(() => {
     if (!sessions || sessions.length === 0) return [];
@@ -1535,6 +1535,24 @@ function Analytics({ sessions }) {
     if (!sessions || sessions.length === 0) return [];
     return Array.from(new Set(sessions.map((s) => s.type || "Libre")));
   }, [sessions]);
+  const templateTypes = useMemo(() => {
+    if (!sessionTemplates || sessionTemplates.length === 0) return [];
+    return Array.from(
+      new Set(sessionTemplates.map((tpl) => tpl?.name).filter(Boolean))
+    );
+  }, [sessionTemplates]);
+  const exerciseTemplateMap = useMemo(() => {
+    const map = new Map();
+    if (!sessionTemplates || sessionTemplates.length === 0) return map;
+    sessionTemplates.forEach((tpl) => {
+      if (!tpl?.name) return;
+      (tpl.exercises || []).forEach((ex) => {
+        if (!map.has(ex)) map.set(ex, new Set());
+        map.get(ex).add(tpl.name);
+      });
+    });
+    return map;
+  }, [sessionTemplates]);
 
   // Sélecteurs initiaux
   const [exerciseTS, setExerciseTS] = useState(allExercises[0] || "");
@@ -1546,6 +1564,7 @@ function Analytics({ sessions }) {
   const [typeMonthEnd, setTypeMonthEnd] = useState("");
   const [exerciseMonthStart, setExerciseMonthStart] = useState("");
   const [exerciseMonthEnd, setExerciseMonthEnd] = useState("");
+  const [exerciseTypeFilter, setExerciseTypeFilter] = useState("ALL");
 
   const { firstSessionDate, firstSessionMonth, lastSessionMonth } = useMemo(() => {
     if (!sessions.length) {
@@ -1626,12 +1645,38 @@ function Analytics({ sessions }) {
   useEffect(() => {
   setIntensityTypeFilter("ALL");
   }, []);
+  const otherExercises = useMemo(
+    () => allExercises.filter((ex) => !exerciseTemplateMap.has(ex)),
+    [allExercises, exerciseTemplateMap]
+  );
+  const exerciseTypeOptions = useMemo(() => {
+    const options = [
+      { value: "ALL", label: "Tous les types" },
+      ...templateTypes.map((type) => ({ value: type, label: type })),
+    ];
+    if (otherExercises.length > 0) {
+      options.push({ value: "OTHER_EXERCISES", label: "Autres exercices" });
+    }
+    return options;
+  }, [templateTypes, otherExercises]);
 
   useEffect(() => {
     if (!exerciseTS && allExercises.length) setExerciseTS(allExercises[0]);
     if (!exerciseSetTon && allExercises.length) setExerciseSetTon(allExercises[0]);
     if (!exerciseTonnage && allExercises.length) setExerciseTonnage(allExercises[0]); // 👈 AJOUT
   }, [allExercises, exerciseTS, exerciseSetTon, exerciseTonnage]);
+  useEffect(() => {
+    if (exerciseTypeFilter === "OTHER_EXERCISES") {
+      if (otherExercises.length === 0) setExerciseTypeFilter("ALL");
+      return;
+    }
+    if (
+      exerciseTypeFilter !== "ALL" &&
+      !templateTypes.includes(exerciseTypeFilter)
+    ) {
+      setExerciseTypeFilter("ALL");
+    }
+  }, [exerciseTypeFilter, otherExercises, templateTypes]);
 
   // Données calculées
   const intensitySeries = useMemo(
@@ -1685,6 +1730,13 @@ function Analytics({ sessions }) {
   const exerciseProgressRows = useMemo(() => {
     const getSessionKey = (session) => session?.id || session?.date || "";
     return allExercises
+      .filter((exercise) => {
+        if (exerciseTypeFilter === "ALL") return true;
+        if (exerciseTypeFilter === "OTHER_EXERCISES") {
+          return !exerciseTemplateMap.has(exercise);
+        }
+        return exerciseTemplateMap.get(exercise)?.has(exerciseTypeFilter);
+      })
       .map((exercise) => {
         const first = getFirstSessionByExercise(sessions, exercise, exerciseMonthStart);
         const last = getLastSessionByExercise(sessions, exercise, exerciseMonthEnd);
@@ -1711,7 +1763,14 @@ function Analytics({ sessions }) {
           row.session2Key &&
           row.session1Key !== row.session2Key
       );
-  }, [allExercises, sessions, exerciseMonthStart, exerciseMonthEnd]);
+  }, [
+    allExercises,
+    sessions,
+    exerciseMonthStart,
+    exerciseMonthEnd,
+    exerciseTypeFilter,
+    exerciseTemplateMap,
+  ]);
   
   return (
     <div className="space-y-6">
@@ -2129,7 +2188,7 @@ function Analytics({ sessions }) {
                   Séance 1 = première séance avec l’exercice (ou du mois sélectionné). Séance 2 = dernière séance avec l’exercice (ou du mois sélectionné).
                 </p>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <div>
                   <Label>Mois séance 1</Label>
                   <Input
@@ -2145,6 +2204,20 @@ function Analytics({ sessions }) {
                     value={exerciseMonthEnd}
                     onChange={(e) => setExerciseMonthEnd(e.target.value)}
                   />
+                </div>
+                <div>
+                  <Label>Type de séance</Label>
+                  <select
+                    className="w-full border rounded-xl p-2 text-sm"
+                    value={exerciseTypeFilter}
+                    onChange={(e) => setExerciseTypeFilter(e.target.value)}
+                  >
+                    {exerciseTypeOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
             </div>
