@@ -2,6 +2,7 @@
 import React, { useMemo, useState, useEffect, useContext, createContext } from "react";
 import html2canvas from "html2canvas";
 import StepsMonthlyBubbleChart from "./components/StepsMonthlyBubbleChart";
+import muscleRag from "./data/muscleRag.json";
 // ───────────────────────────────────────────────
 // Thème clair / sombre (global)
 // ───────────────────────────────────────────────
@@ -2145,7 +2146,7 @@ function Analytics({ sessions, sessionTemplates = [] }) {
         <div>
           <h3 className="font-semibold">Répartition charge</h3>
           <p className="text-xs text-gray-500">
-            Catégorisation IA des exercices réalisés par groupe musculaire.
+            Catégorisation IA des exercices via le référentiel RAG musculaire.
           </p>
         </div>
         <div className="text-sm text-gray-500">Muscles</div>
@@ -2485,57 +2486,42 @@ const normalizeExerciseName = (value) =>
     .normalize("NFD")
     .replace(/\p{Diacritic}/gu, "")
     .toLowerCase();
-const categorizeExerciseWithAI = (exerciseName) => {
-  const name = normalizeExerciseName(exerciseName || "");
-  const matchers = [
-    {
-      group: "Jambes",
-      keywords: ["squat", "leg", "presse", "lunge", "fente", "quad", "ischio", "mollet", "calf", "deadlift"],
-    },
-    {
-      group: "Fessiers",
-      keywords: ["hip thrust", "glute", "fessier", "bridge"],
-    },
-    {
-      group: "Poitrine",
-      keywords: ["bench", "developpe", "chest", "pec", "pompe", "push-up"],
-    },
-    {
-      group: "Dos",
-      keywords: ["row", "tirage", "pull", "lat", "rowing", "traction", "back"],
-    },
-    {
-      group: "Épaules",
-      keywords: ["shoulder", "epaule", "delto", "lateral", "military", "overhead"],
-    },
-    {
-      group: "Bras",
-      keywords: ["biceps", "triceps", "curl", "extension", "arm"],
-    },
-    {
-      group: "Abdos",
-      keywords: ["abdo", "core", "crunch", "plank", "gainage"],
-    },
-    {
-      group: "Cardio",
-      keywords: ["running", "course", "bike", "velo", "rower", "rameur", "cardio", "hiit"],
-    },
-  ];
-
-  const found = matchers.find(({ keywords }) =>
-    keywords.some((keyword) => name.includes(keyword))
-  );
-  return found ? found.group : "Autres";
+const muscleLabelMap = {
+  pectoraux_bas: "Pectoraux (bas)",
+  pectoraux_milieu: "Pectoraux (milieu)",
+  pectoraux_haut: "Pectoraux (haut)",
+  grand_dorsal: "Grand dorsal",
+  ischio_jambiers: "Ischio-jambiers",
 };
+const formatMuscleLabel = (value) =>
+  muscleLabelMap[value] ||
+  value
+    .split("_")
+    .map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1)}`)
+    .join(" ");
+const muscleRagLookup = new Map(
+  muscleRag.map(({ exercise, muscles }) => [
+    normalizeExerciseName(exercise),
+    muscles,
+  ])
+);
+const getMusclesFromRag = (exerciseName) =>
+  muscleRagLookup.get(normalizeExerciseName(exerciseName || "")) || [];
 function buildMuscleSplitByAI(sessions) {
   const map = new Map();
   sessions.forEach((session) => {
     session.exercises.forEach((exercise) => {
-      const group = categorizeExerciseWithAI(exercise.name);
-      map.set(group, (map.get(group) || 0) + 1);
+      const muscles = getMusclesFromRag(exercise.name);
+      const buckets = muscles.length > 0 ? muscles : ["Autres"];
+      buckets.forEach((muscle) => {
+        map.set(muscle, (map.get(muscle) || 0) + 1);
+      });
     });
   });
-  return Array.from(map.entries()).map(([name, value]) => ({ name, value }));
+  return Array.from(map.entries()).map(([name, value]) => ({
+    name: formatMuscleLabel(name),
+    value,
+  }));
 }
 function computeExerciseShare(sessions) {
   const map = {};
