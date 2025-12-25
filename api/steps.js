@@ -34,17 +34,41 @@ export default async function handler(req, res) {
     const end = Date.now();
     const start = end - 90 * 24 * 60 * 60 * 1000; // 90 jours
 
-    const response = await fitness.users.dataset.aggregate({
-      userId: "me",
-      requestBody: {
-        aggregateBy: [
-          { dataTypeName: "com.google.step_count.delta" },
-        ],
-        bucketByTime: { durationMillis: 24 * 60 * 60 * 1000 },
-        startTimeMillis: start,
-        endTimeMillis: end,
-      },
-    });
+    let response;
+    try {
+      response = await fitness.users.dataset.aggregate({
+        userId: "me",
+        requestBody: {
+          aggregateBy: [
+            { dataTypeName: "com.google.step_count.delta" },
+          ],
+          bucketByTime: { durationMillis: 24 * 60 * 60 * 1000 },
+          startTimeMillis: start,
+          endTimeMillis: end,
+        },
+      });
+    } catch (error) {
+      const errorMessage = String(error?.message || "").toLowerCase();
+      const apiError = error?.response?.data?.error;
+      const status = error?.response?.status || error?.code;
+      const invalidGrant =
+        apiError === "invalid_grant" ||
+        errorMessage.includes("invalid_grant") ||
+        status === 401;
+
+      if (invalidGrant) {
+        await userRef.set(
+          {
+            googleFit: admin.firestore.FieldValue.delete(),
+          },
+          { merge: true }
+        );
+
+        return res.status(401).json({ error: "Google Fit token expired" });
+      }
+
+      throw error;
+    }
 
     const dailySteps = (response.data.bucket || []).map((b) => {
     const date = new Date(Number(b.startTimeMillis))
