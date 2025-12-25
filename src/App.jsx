@@ -440,7 +440,7 @@ function App() {
 
 <div className="mx-auto flex max-w-[1600px] px-6 py-4 pb-24 md:pb-4">
   {isMenuOpen && (
-    <aside className="hidden md:flex w-64 shrink-0 flex-col gap-2 pr-4">
+    <aside className="hidden md:flex w-64 shrink-0 flex-col gap-2 rounded-2xl border border-gray-200 bg-white p-3 dark:border-[#00634A] dark:bg-[#007B5E] mr-4">
       {navItems.map((item) => {
         const Icon = item.icon;
         const active = tab === item.value;
