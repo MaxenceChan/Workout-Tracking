@@ -29,7 +29,22 @@ function useTheme() {
 }
 
 import { v4 as uuidv4 } from "uuid";
-import { Trash2, Plus, BarChart3, Save, Edit3, Dumbbell, LogOut, Share2 } from "lucide-react";
+import {
+  Trash2,
+  Plus,
+  BarChart3,
+  Save,
+  Edit3,
+  Dumbbell,
+  LogOut,
+  Share2,
+  Menu,
+  ClipboardList,
+  History,
+  Clock,
+  Scale,
+  Footprints,
+} from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer,
   BarChart, Bar, PieChart, Pie, Cell, Legend, LabelList
@@ -301,6 +316,23 @@ function App() {
   const [data, setData] = useState({ sessions: [], customExercises: [], sessionTemplates: [] });
   const [tab, setTab] = useState("log");
   const [user, setUser] = useState(undefined);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const navItems = useMemo(
+    () => [
+      { value: "tpl", label: "Séances pré-créées", shortLabel: "Séances", icon: ClipboardList },
+      { value: "log", label: "Saisir une séance", shortLabel: "Saisie", icon: Plus },
+      { value: "sessions", label: "Historique", shortLabel: "Historique", icon: History },
+      { value: "analytics", label: "Datavisualisation", shortLabel: "Stats", icon: BarChart3 },
+      { value: "last", label: "Dernière séance", shortLabel: "Dernière", icon: Clock },
+      { value: "weight", label: "Suivi du poids", shortLabel: "Poids", icon: Scale },
+      { value: "steps", label: "Suivi des pas", shortLabel: "Pas", icon: Footprints },
+    ],
+    []
+  );
+  const handleTabChange = (value) => {
+    setTab(value);
+    setIsMenuOpen(false);
+  };
 
   useEffect(() => {
     let unsubscribeSessions = null;
@@ -376,6 +408,41 @@ function App() {
       <div className="text-xs sm:text-sm text-black dark:text-white truncate">
         {user.email}
       </div>
+      <div className="relative hidden md:block">
+        <Button
+          variant="ghost"
+          onClick={() => setIsMenuOpen((prev) => !prev)}
+          title="Ouvrir le menu"
+          className="text-black dark:text-white hover:bg-black/5 dark:hover:bg-white/20"
+        >
+          <Menu className="h-4 w-4" /> Menu
+        </Button>
+        {isMenuOpen && (
+          <div className="absolute right-0 mt-2 w-64 rounded-xl border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-[#111111]">
+            <div className="p-2 space-y-1">
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                const active = tab === item.value;
+                return (
+                  <button
+                    key={item.value}
+                    onClick={() => handleTabChange(item.value)}
+                    className={cn(
+                      "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition",
+                      active
+                        ? "bg-gray-100 text-gray-900 dark:bg-[#1f1f1f] dark:text-white"
+                        : "text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-[#1c1c1c]"
+                    )}
+                  >
+                    <Icon className="h-4 w-4" />
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
       <ThemeToggleButton />
       <Button
         variant="ghost"
@@ -389,18 +456,8 @@ function App() {
   </div>
 </header>
 
-<main className="max-w-[1600px] mx-auto px-6 py-4">
-        <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 w-full text-xs sm:text-sm">
-            <TabsTrigger value="tpl">Séances pré-créées</TabsTrigger>
-            <TabsTrigger value="log">Saisir une séance</TabsTrigger>
-            <TabsTrigger value="sessions">Historique</TabsTrigger>
-            <TabsTrigger value="analytics">Datavisualisation</TabsTrigger>
-            <TabsTrigger value="last">Dernière séance</TabsTrigger>
-            <TabsTrigger value="weight">Suivi du poids</TabsTrigger>
-            <TabsTrigger value="steps">Suivi des pas</TabsTrigger>
-          </TabsList>
-
+<main className="max-w-[1600px] mx-auto px-6 py-4 pb-24 md:pb-4">
+        <Tabs value={tab} onValueChange={handleTabChange}>
           <TabsContent value="tpl" className="mt-3 sm:mt-4">
             <TemplatesManager
               user={user}
@@ -476,6 +533,29 @@ function App() {
 </TabsContent>
            </Tabs>
       </main>
+      <nav className="fixed bottom-0 left-0 right-0 z-20 border-t border-gray-200 bg-white/95 backdrop-blur dark:border-gray-700 dark:bg-[#111111]/95 md:hidden">
+        <div className="mx-auto flex max-w-[1600px] items-center justify-between px-3 py-2">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const active = tab === item.value;
+            return (
+              <button
+                key={item.value}
+                onClick={() => handleTabChange(item.value)}
+                className={cn(
+                  "flex flex-1 flex-col items-center gap-1 rounded-lg px-2 py-2 text-[11px] font-medium transition",
+                  active
+                    ? "text-gray-900 dark:text-white"
+                    : "text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+                )}
+              >
+                <Icon className={cn("h-4 w-4", active && "scale-105")} />
+                <span className="text-center leading-tight">{item.shortLabel}</span>
+              </button>
+            );
+          })}
+        </div>
+      </nav>
     </div>
   );
 }
@@ -3245,4 +3325,4 @@ function StepsTracker({ user }) {
       </Card>
     </div>
   );
-}
+} 
