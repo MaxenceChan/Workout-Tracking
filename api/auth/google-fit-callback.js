@@ -18,16 +18,25 @@ export default async function handler(req, res) {
     );
 
     const { tokens } = await oauth2Client.getToken(code);
+    const userRef = admin.firestore().collection("users").doc(uid);
 
-    if (!tokens.refresh_token) {
+    let refreshToken = tokens.refresh_token;
+
+    if (!refreshToken) {
+      const existingUser = await userRef.get();
+      refreshToken = existingUser.data()?.googleFit?.refresh_token;
+    }
+
+    if (!refreshToken) {
       return res.status(400).send("No refresh token returned");
     }
 
-    await admin.firestore().collection("users").doc(uid).set(
+    await userRef.set(
       {
         googleFit: {
-          refresh_token: tokens.refresh_token,
+          refresh_token: refreshToken,
           connected_at: admin.firestore.FieldValue.serverTimestamp(),
+          needs_reauth: false,
         },
       },
       { merge: true }
