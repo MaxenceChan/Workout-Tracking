@@ -72,6 +72,7 @@ import {
 // ───────────────────────────────────────────────────────────────
 const SESSION_DRAFT_KEY = "workout-tracker-current-session";
 const TEMPLATE_DRAFT_KEY = "workout-tracker-template-draft";
+const headerGif = new URL("./components/gif deadlift.gif", import.meta.url).href;
 const cn = (...c) => c.filter(Boolean).join(" ");
 const Card = React.forwardRef(({ className, children }, ref) => (
   <div
@@ -416,7 +417,12 @@ function App() {
         <Menu className="h-4 w-4" /> Menu
       </Button>
       <Dumbbell className="h-5 w-5 text-current" />
-      <h1 className="text-lg sm:text-xl md:text-2xl font-bold tracking-tight">
+      <h1 className="text-lg sm:text-xl md:text-2xl font-bold tracking-tight flex items-center gap-2">
+        <img
+          src={headerGif}
+          alt="Workout Tracker"
+          className="h-7 w-7 sm:h-8 sm:w-8 object-contain"
+        />
         <span>Workout Tracker</span>
       </h1>
     </div>
@@ -600,7 +606,14 @@ function AuthScreen() {
         <CardContent className="space-y-4 sm:space-y-5">
           <div className="text-center space-y-1">
             <Dumbbell className="mx-auto h-7 w-7 sm:h-8 sm:w-8 motion-safe:animate-bounce" />
-            <h2 className="text-lg sm:text-xl font-semibold">Workout Tracker</h2>
+            <h2 className="text-lg sm:text-xl font-semibold inline-flex items-center justify-center gap-2">
+              <img
+                src={headerGif}
+                alt="Workout Tracker"
+                className="h-6 w-6 sm:h-7 sm:w-7 object-contain"
+              />
+              Workout Tracker
+            </h2>
             <p className="text-xs sm:text-sm text-gray-600">
               {mode === "login"
                 ? "Connecte-toi pour retrouver tes données"
