@@ -1,5 +1,5 @@
 // App.jsx (Bloc 1)
-import React, { useMemo, useState, useEffect, useContext, createContext } from "react";
+import React, { useMemo, useState, useEffect, useContext, createContext, useRef } from "react";
 import html2canvas from "html2canvas";
 import StepsMonthlyBubbleChart from "./components/StepsMonthlyBubbleChart";
 import muscleRag from "./data/muscleRag.json";
@@ -45,6 +45,9 @@ import {
   Clock,
   Scale,
   Footprints,
+  MessageSquare,
+  Send,
+  Sparkles,
 } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer,
@@ -326,13 +329,14 @@ function App() {
       { value: "sessions", label: "Historique", shortLabel: "Historique", icon: History },
       { value: "last", label: "Dernière séance", shortLabel: "Dernière", icon: Clock },
       { value: "analytics", label: "Statistiques", shortLabel: "Stats", icon: BarChart3 },
+      { value: "chatbot", label: "Coach IA", shortLabel: "Coach IA", icon: MessageSquare },
       { value: "weight", label: "Suivi du poids", shortLabel: "Poids", icon: Scale },
       { value: "steps", label: "Suivi des pas", shortLabel: "Pas", icon: Footprints },
     ],
     []
   );
   const mobileNavItems = useMemo(() => {
-    const order = ["tpl", "log", "sessions", "last", "analytics", "weight", "steps"];
+    const order = ["tpl", "log", "sessions", "last", "analytics", "chatbot", "weight", "steps"];
     const byValue = new Map(navItems.map((item) => [item.value, item]));
     return order
       .map((value) => byValue.get(value))
@@ -542,6 +546,10 @@ function App() {
   <LastSession sessions={data.sessions} />
 </TabsContent>
 
+<TabsContent value="chatbot" className="mt-3 sm:mt-4">
+  <ChatbotSection sessions={data.sessions} user={user} />
+</TabsContent>
+
 <TabsContent value="weight" className="mt-3 sm:mt-4">
   <WeightTracker user={user} />
 </TabsContent>
@@ -578,6 +586,212 @@ function App() {
   );
 }
 // App.jsx (Bloc 2)
+
+// ───────────────────────────────────────────────────────────────
+// Chatbot IA (analyse locale des données utilisateur)
+// ───────────────────────────────────────────────────────────────
+function buildExerciseTotals(sessions) {
+  const totals = new Map();
+  sessions.forEach((session) => {
+    session.exercises.forEach((exercise) => {
+      const volume = exercise.sets.reduce(
+        (acc, set) => acc + Number(set.reps || 0) * Number(set.weight || 0),
+        0
+      );
+      totals.set(exercise.name, (totals.get(exercise.name) || 0) + volume);
+    });
+  });
+  return Array.from(totals.entries())
+    .map(([name, volume]) => ({ name, volume }))
+    .sort((a, b) => b.volume - a.volume);
+}
+
+function buildChatbotReply(message, insights) {
+  if (!insights.sessionCount) {
+    return [
+      "Je n'ai pas encore de séances à analyser.",
+      "Ajoute une première séance pour que je puisse te donner des conseils personnalisés (volumes, fréquence, progression).",
+    ].join("\n");
+  }
+
+  const lines = [
+    "Voici ce que j'observe dans tes données :",
+    `• ${insights.sessionCount} séances enregistrées`,
+    `• Dernière séance : ${insights.lastSessionLabel}`,
+    `• Tonnage total cumulé : ${insights.totalTonnage} kg`,
+    `• Tonnage moyen par séance : ${insights.avgTonnage} kg`,
+    `• Fréquence (28 derniers jours) : ${insights.avgSessionsPerWeek} séances / semaine`,
+  ];
+
+  if (insights.topExercise) {
+    lines.push(`• Exercice le plus travaillé : ${insights.topExercise.name} (${insights.topExercise.volume} kg)`);
+  }
+
+  if (message.toLowerCase().includes("tonnage")) {
+    lines.push(
+      "👉 Pour booster ton tonnage, vise soit +1 série, soit +2 reps par exercice clé sur la prochaine séance."
+    );
+  }
+
+  if (message.toLowerCase().includes("fréquence") || message.toLowerCase().includes("regulier")) {
+    lines.push(
+      "👉 Pour progresser régulièrement, essaie de garder 2 à 4 séances par semaine selon ta récupération."
+    );
+  }
+
+  if (message.toLowerCase().includes("progression") || message.toLowerCase().includes("progress")) {
+    lines.push(
+      "👉 Ta progression est plus visible quand tu répètes les mêmes exercices sur 3 à 4 séances consécutives."
+    );
+  }
+
+  lines.push("Pose-moi une question plus précise (tonnage, exercices, fréquence, objectifs) pour affiner.");
+  return lines.join("\n");
+}
+
+function ChatbotSection({ sessions, user }) {
+  const [messages, setMessages] = useState(() => [
+    {
+      id: uuidv4(),
+      role: "assistant",
+      content: `Salut ${user?.email || "coaché"} ! Je peux analyser tes séances et te proposer des axes de progression.`,
+    },
+  ]);
+  const [input, setInput] = useState("");
+  const bottomRef = useRef(null);
+
+  const insights = useMemo(() => {
+    const sessionCount = sessions.length;
+    const totalTonnage = sessions.reduce(
+      (acc, session) => acc + computeSessionTonnage(session),
+      0
+    );
+    const avgTonnage = sessionCount ? Math.round(totalTonnage / sessionCount) : 0;
+    const sortedSessions = sessionCount ? sortByDateAsc(sessions) : [];
+    const lastSession = sortedSessions[sortedSessions.length - 1];
+    const lastSessionLabel = lastSession
+      ? new Date(lastSession.date).toLocaleDateString("fr-FR")
+      : "—";
+    const topExercise = buildExerciseTotals(sessions)[0];
+    const endDate = todayISO();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 27);
+    const avgSessionsPerWeek = Number(
+      computeAvgSessionsPerWeek(
+        sessions,
+        startDate.toISOString().slice(0, 10),
+        endDate
+      ).toFixed(1)
+    );
+
+    return {
+      sessionCount,
+      totalTonnage: Math.round(totalTonnage),
+      avgTonnage,
+      lastSessionLabel,
+      topExercise,
+      avgSessionsPerWeek,
+    };
+  }, [sessions]);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const handleSend = () => {
+    if (!input.trim()) return;
+    const userMessage = { id: uuidv4(), role: "user", content: input.trim() };
+    const reply = buildChatbotReply(input, insights);
+    const assistantMessage = { id: uuidv4(), role: "assistant", content: reply };
+    setMessages((cur) => [...cur, userMessage, assistantMessage]);
+    setInput("");
+  };
+
+  const quickPrompts = [
+    "Analyse mon tonnage cette semaine",
+    "Comment améliorer ma fréquence ?",
+    "Quels exercices dominent mes séances ?",
+  ];
+
+  return (
+    <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+      <Card className="xl:col-span-2">
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <h3 className="text-lg font-semibold">🤖 Coach IA & Analyse</h3>
+              <p className="text-xs sm:text-sm text-gray-500">
+                Analyse locale basée sur tes séances, sans envoi vers un serveur externe.
+              </p>
+            </div>
+            <Sparkles className="h-5 w-5 text-gray-400" />
+          </div>
+
+          <div className="border rounded-xl p-3 sm:p-4 bg-gray-50 dark:bg-[#1c1c1c] space-y-3 max-h-[420px] overflow-y-auto">
+            {messages.map((msg) => (
+              <div
+                key={msg.id}
+                className={cn(
+                  "rounded-xl px-3 py-2 text-sm whitespace-pre-line",
+                  msg.role === "assistant"
+                    ? "bg-white text-gray-800 border dark:bg-[#0f0f0f] dark:text-white"
+                    : "bg-gray-900 text-white ml-auto dark:bg-black"
+                )}
+              >
+                {msg.content}
+              </div>
+            ))}
+            <div ref={bottomRef} />
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Demande un diagnostic, une synthèse ou un objectif..."
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSend();
+              }}
+            />
+            <Button onClick={handleSend}>
+              <Send className="h-4 w-4" /> Envoyer
+            </Button>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {quickPrompts.map((prompt) => (
+              <Button
+                key={prompt}
+                variant="secondary"
+                onClick={() => {
+                  setInput(prompt);
+                }}
+              >
+                {prompt}
+              </Button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="space-y-3">
+          <h4 className="font-semibold">📌 Synthèse instantanée</h4>
+          <div className="text-sm text-gray-600 space-y-1">
+            <div>• Séances : {insights.sessionCount}</div>
+            <div>• Dernière séance : {insights.lastSessionLabel}</div>
+            <div>• Tonnage total : {insights.totalTonnage} kg</div>
+            <div>• Tonnage moyen : {insights.avgTonnage} kg</div>
+            <div>• Fréquence 28 j : {insights.avgSessionsPerWeek} / semaine</div>
+          </div>
+          <div className="rounded-lg border p-3 text-xs sm:text-sm bg-gray-50 dark:bg-[#1c1c1c]">
+            💡 Astuce : répète 2 à 3 mouvements clés chaque semaine pour suivre ta progression plus facilement.
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
 
 // ───────────────────────────────────────────────────────────────
 // Auth screen (responsive login / register)
