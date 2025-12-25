@@ -33,7 +33,26 @@ export default async function handler(req, res) {
 
     if (!refresh_token) {
       const storedSteps = await loadStoredSteps();
-      return res.status(200).json(storedSteps);
+
+      if (!storedSteps.length) {
+        await userRef.set(
+          {
+            "googleFit.needs_reauth": true,
+            "googleFit.updated_at": admin.firestore.FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
+
+        return res.status(200).json({
+          needsReauth: true,
+          steps: [],
+        });
+      }
+
+      return res.status(200).json({
+        needsReauth: false,
+        steps: storedSteps,
+      });
     }
 
     // 🔐 OAuth client (refresh_token uniquement)
@@ -85,7 +104,10 @@ export default async function handler(req, res) {
         );
 
         const storedSteps = await loadStoredSteps();
-        return res.status(200).json(storedSteps);
+        return res.status(200).json({
+          needsReauth: true,
+          steps: storedSteps,
+        });
       }
 
       throw error;
@@ -122,7 +144,10 @@ export default async function handler(req, res) {
 
     await batch.commit();
 
-    return res.status(200).json(dailySteps);
+    return res.status(200).json({
+      needsReauth: false,
+      steps: dailySteps,
+    });
   } catch (e) {
     console.error("Steps error:", e);
     return res.status(500).json({ error: "Failed to fetch steps" });
