@@ -2481,11 +2481,118 @@ function Analytics({ sessions, sessionTemplates = [] }) {
 // Helpers Analytics
 // ───────────────────────────────────────────────────────────────
 const colors = ["#8884d8", "#82ca9d", "#ffc658", "#ff7f50", "#6a5acd", "#40e0d0"];
-const normalizeExerciseName = (value) =>
-  value
+const normalizeExerciseName = (value) => {
+  if (!value) return "";
+  const normalized = value
     .normalize("NFD")
     .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase();
+    .toLowerCase()
+    .replace(/['’]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return normalizeExerciseAliases(normalized);
+};
+const normalizeExerciseAliases = (value) => {
+  if (!value) return "";
+  let normalized = value;
+  const phraseReplacements = [
+    [/\bbench press\b/g, "developpe couche"],
+    [/\bincline bench\b/g, "developpe incline"],
+    [/\bdecline bench\b/g, "developpe decline"],
+    [/\boverhead press\b/g, "developpe militaire"],
+    [/\bmilitary press\b/g, "developpe militaire"],
+    [/\bshoulder press\b/g, "developpe militaire"],
+    [/\blat pulldown\b/g, "tirage poitrine"],
+    [/\bpull ?up\b/g, "tractions"],
+    [/\bchin ?up\b/g, "tractions supination"],
+    [/\bstiff leg deadlift\b/g, "souleve de terre jambes tendues"],
+    [/\bromanian deadlift\b/g, "romanian deadlift"],
+    [/\bdeadlift\b/g, "souleve de terre"],
+    [/\bhip thrust\b/g, "hip thrust"],
+  ];
+  phraseReplacements.forEach(([pattern, replacement]) => {
+    normalized = normalized.replace(pattern, replacement);
+  });
+  return normalized;
+};
+const tokenReplacements = {
+  dc: ["developpe", "couche"],
+  di: ["developpe", "incline"],
+  dd: ["developpe", "decline"],
+  dm: ["developpe", "militaire"],
+  sdt: ["souleve", "de", "terre"],
+  rdl: ["romanian", "deadlift"],
+  ohp: ["overhead", "press"],
+  row: ["rowing"],
+  pulldown: ["tirage"],
+};
+const stopTokens = new Set([
+  "de",
+  "du",
+  "des",
+  "la",
+  "le",
+  "les",
+  "a",
+  "au",
+  "aux",
+  "avec",
+  "sans",
+  "sur",
+  "en",
+  "d",
+  "l",
+]);
+const tokenizeExercise = (value) => {
+  const tokens = value.split(" ").filter(Boolean);
+  return tokens
+    .flatMap((token) => tokenReplacements[token] || [token])
+    .filter((token) => token && !stopTokens.has(token));
+};
+const jaccardSimilarity = (aTokens, bTokens) => {
+  if (!aTokens.length || !bTokens.length) return 0;
+  const aSet = new Set(aTokens);
+  const bSet = new Set(bTokens);
+  let intersection = 0;
+  aSet.forEach((token) => {
+    if (bSet.has(token)) intersection += 1;
+  });
+  const union = new Set([...aSet, ...bSet]).size;
+  return union === 0 ? 0 : intersection / union;
+};
+const levenshteinDistance = (a, b) => {
+  if (a === b) return 0;
+  if (!a) return b.length;
+  if (!b) return a.length;
+  const rows = Array.from({ length: a.length + 1 }, () => []);
+  for (let i = 0; i <= a.length; i += 1) rows[i][0] = i;
+  for (let j = 0; j <= b.length; j += 1) rows[0][j] = j;
+  for (let i = 1; i <= a.length; i += 1) {
+    for (let j = 1; j <= b.length; j += 1) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      rows[i][j] = Math.min(
+        rows[i - 1][j] + 1,
+        rows[i][j - 1] + 1,
+        rows[i - 1][j - 1] + cost
+      );
+    }
+  }
+  return rows[a.length][b.length];
+};
+const stringSimilarity = (a, b) => {
+  const maxLen = Math.max(a.length, b.length);
+  if (!maxLen) return 0;
+  return 1 - levenshteinDistance(a, b) / maxLen;
+};
+const partialMatchScore = (a, b) => {
+  if (!a || !b) return 0;
+  if (a.includes(b) || b.includes(a)) {
+    const ratio = Math.min(a.length, b.length) / Math.max(a.length, b.length);
+    return 0.75 + ratio * 0.25;
+  }
+  return 0;
+};
 const muscleLabelMap = {
   pectoraux_bas: "Pectoraux (bas)",
   pectoraux_milieu: "Pectoraux (milieu)",
@@ -2499,14 +2606,42 @@ const formatMuscleLabel = (value) =>
     .split("_")
     .map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1)}`)
     .join(" ");
-const muscleRagLookup = new Map(
-  muscleRag.map(({ exercise, muscles }) => [
-    normalizeExerciseName(exercise),
+const muscleRagEntries = muscleRag.map(({ exercise, muscles }) => {
+  const normalized = normalizeExerciseName(exercise);
+  return {
+    exercise,
     muscles,
-  ])
+    normalized,
+    tokens: tokenizeExercise(normalized),
+  };
+});
+const muscleRagLookup = new Map(
+  muscleRagEntries.map(({ normalized, muscles }) => [normalized, muscles])
 );
-const getMusclesFromRag = (exerciseName) =>
-  muscleRagLookup.get(normalizeExerciseName(exerciseName || "")) || [];
+const getMusclesFromRag = (exerciseName) => {
+  const normalized = normalizeExerciseName(exerciseName || "");
+  if (!normalized) return [];
+  const direct = muscleRagLookup.get(normalized);
+  if (direct) return direct;
+  const tokens = tokenizeExercise(normalized);
+  let bestScore = 0;
+  let bestMatch = null;
+  muscleRagEntries.forEach((entry) => {
+    const tokenScore = jaccardSimilarity(tokens, entry.tokens);
+    const partialScore = partialMatchScore(normalized, entry.normalized);
+    const levenshteinScore = stringSimilarity(normalized, entry.normalized);
+    const score = Math.max(
+      tokenScore,
+      partialScore,
+      levenshteinScore * 0.9
+    );
+    if (score > bestScore) {
+      bestScore = score;
+      bestMatch = entry;
+    }
+  });
+  return bestMatch && bestScore >= 0.45 ? bestMatch.muscles : [];
+};
 function buildMuscleSplitByAI(sessions) {
   const map = new Map();
   sessions.forEach((session) => {
