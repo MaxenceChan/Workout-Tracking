@@ -524,7 +524,7 @@ function App() {
 
 
 <TabsContent value="analytics" className="mt-3 sm:mt-4">
-  <Analytics sessions={data.sessions} />
+  <Analytics sessions={data.sessions} sessionTemplates={data.sessionTemplates} />
 </TabsContent>
 
 <TabsContent value="last" className="mt-3 sm:mt-4">
@@ -1524,7 +1524,7 @@ const cardRef = React.useRef(null);
 // Analytics (graphiques + calendrier)
 // ───────────────────────────────────────────────────────────────
 
-function Analytics({ sessions }) {
+function Analytics({ sessions, sessionTemplates = [] }) {
   // Exos filtrés : uniquement ceux avec des données
   const allExercises = useMemo(() => {
     if (!sessions || sessions.length === 0) return [];
@@ -1542,6 +1542,7 @@ function Analytics({ sessions }) {
   const [exerciseTonnage, setExerciseTonnage] = useState(allExercises[0] || "");
   const [intensityTypeFilter, setIntensityTypeFilter] = useState("ALL");
   const [sessionTypeTonnage, setSessionTypeTonnage] = useState("ALL");
+  const [exerciseTemplateFilter, setExerciseTemplateFilter] = useState("ALL");
   const [typeMonthStart, setTypeMonthStart] = useState("");
   const [typeMonthEnd, setTypeMonthEnd] = useState("");
   const [exerciseMonthStart, setExerciseMonthStart] = useState("");
@@ -1622,6 +1623,16 @@ function Analytics({ sessions }) {
   useEffect(() => {
   if (!sessionTypeTonnage) setSessionTypeTonnage("ALL");
   }, [sessionTypeTonnage]);
+
+  useEffect(() => {
+    if (
+      exerciseTemplateFilter !== "ALL" &&
+      exerciseTemplateFilter !== "OTHERS" &&
+      !sessionTemplates.some((tpl) => tpl.id === exerciseTemplateFilter)
+    ) {
+      setExerciseTemplateFilter("ALL");
+    }
+  }, [exerciseTemplateFilter, sessionTemplates]);
   
   useEffect(() => {
   setIntensityTypeFilter("ALL");
@@ -1715,9 +1726,30 @@ function Analytics({ sessions }) {
     return rows.sort(compare);
   }, [allTypes, sessions, typeMonthStart, typeMonthEnd, typeProgressSort]);
 
+  const templateExerciseSet = useMemo(
+    () => new Set(sessionTemplates.flatMap((tpl) => tpl.exercises || [])),
+    [sessionTemplates]
+  );
+
+  const exerciseProgressExercises = useMemo(() => {
+    if (exerciseTemplateFilter === "ALL") return allExercises;
+    if (exerciseTemplateFilter === "OTHERS") {
+      return allExercises.filter((exercise) => !templateExerciseSet.has(exercise));
+    }
+    const template = sessionTemplates.find((tpl) => tpl.id === exerciseTemplateFilter);
+    if (!template) return [];
+    const templateExercises = new Set(template.exercises || []);
+    return allExercises.filter((exercise) => templateExercises.has(exercise));
+  }, [
+    allExercises,
+    exerciseTemplateFilter,
+    sessionTemplates,
+    templateExerciseSet,
+  ]);
+
   const exerciseProgressRows = useMemo(() => {
     const getSessionKey = (session) => session?.id || session?.date || "";
-    const rows = allExercises
+    const rows = exerciseProgressExercises
       .map((exercise) => {
         const first = getFirstSessionByExercise(sessions, exercise, exerciseMonthStart);
         const last = getLastSessionByExercise(sessions, exercise, exerciseMonthEnd);
@@ -1762,7 +1794,7 @@ function Analytics({ sessions }) {
     };
     return rows.sort(compare);
   }, [
-    allExercises,
+    exerciseProgressExercises,
     sessions,
     exerciseMonthStart,
     exerciseMonthEnd,
@@ -2231,7 +2263,7 @@ function Analytics({ sessions }) {
                   Séance 1 = première séance avec l’exercice (ou du mois sélectionné). Séance 2 = dernière séance avec l’exercice (ou du mois sélectionné).
                 </p>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <div>
                   <Label>Mois séance 1</Label>
                   <Input
@@ -2247,6 +2279,22 @@ function Analytics({ sessions }) {
                     value={exerciseMonthEnd}
                     onChange={(e) => setExerciseMonthEnd(e.target.value)}
                   />
+                </div>
+                <div>
+                  <Label>Type de séance</Label>
+                  <select
+                    className="w-full rounded-lg border p-2 text-sm"
+                    value={exerciseTemplateFilter}
+                    onChange={(e) => setExerciseTemplateFilter(e.target.value)}
+                  >
+                    <option value="ALL">Tous les templates</option>
+                    {sessionTemplates.map((template) => (
+                      <option key={template.id} value={template.id}>
+                        {template.name}
+                      </option>
+                    ))}
+                    <option value="OTHERS">Autres exercices</option>
+                  </select>
                 </div>
               </div>
             </div>
