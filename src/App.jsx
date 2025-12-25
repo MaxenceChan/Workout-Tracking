@@ -1658,9 +1658,11 @@ function Analytics({ sessions }) {
   useEffect(() => {
     if (!exerciseLast3 && allExercises.length) setExerciseLast3(allExercises[0]);
   }, [allExercises, exerciseLast3]);
+  const [typeProgressSort, setTypeProgressSort] = useState("asc");
+  const [exerciseProgressSort, setExerciseProgressSort] = useState("asc");
 
   const typeProgressRows = useMemo(() => {
-    return allTypes
+    const rows = allTypes
       .filter((type) => type && type.toLowerCase() !== "libre")
       .map((type) => {
         const first = getFirstSessionByType(sessions, type, typeMonthStart);
@@ -1680,11 +1682,18 @@ function Analytics({ sessions }) {
         progressPercent,
       };
       });
-  }, [allTypes, sessions, typeMonthStart, typeMonthEnd]);
+    return rows.sort((a, b) => {
+      const labelA = a.label?.toLowerCase() ?? "";
+      const labelB = b.label?.toLowerCase() ?? "";
+      return typeProgressSort === "desc"
+        ? labelB.localeCompare(labelA, "fr")
+        : labelA.localeCompare(labelB, "fr");
+    });
+  }, [allTypes, sessions, typeMonthStart, typeMonthEnd, typeProgressSort]);
 
   const exerciseProgressRows = useMemo(() => {
     const getSessionKey = (session) => session?.id || session?.date || "";
-    return allExercises
+    const rows = allExercises
       .map((exercise) => {
         const first = getFirstSessionByExercise(sessions, exercise, exerciseMonthStart);
         const last = getLastSessionByExercise(sessions, exercise, exerciseMonthEnd);
@@ -1711,7 +1720,20 @@ function Analytics({ sessions }) {
           row.session2Key &&
           row.session1Key !== row.session2Key
       );
-  }, [allExercises, sessions, exerciseMonthStart, exerciseMonthEnd]);
+    return rows.sort((a, b) => {
+      const labelA = a.label?.toLowerCase() ?? "";
+      const labelB = b.label?.toLowerCase() ?? "";
+      return exerciseProgressSort === "desc"
+        ? labelB.localeCompare(labelA, "fr")
+        : labelA.localeCompare(labelB, "fr");
+    });
+  }, [
+    allExercises,
+    sessions,
+    exerciseMonthStart,
+    exerciseMonthEnd,
+    exerciseProgressSort,
+  ]);
   
   return (
     <div className="space-y-6">
@@ -2079,7 +2101,22 @@ function Analytics({ sessions }) {
               <table className="min-w-full text-sm">
                 <thead>
                   <tr className="text-left border-b">
-                    <th className="py-2 pr-4">Type de séance</th>
+                    <th className="py-2 pr-4">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setTypeProgressSort((prev) =>
+                            prev === "asc" ? "desc" : "asc"
+                          )
+                        }
+                        className="inline-flex items-center gap-1 font-semibold"
+                      >
+                        Type de séance
+                        <span aria-hidden="true">
+                          {typeProgressSort === "asc" ? "▲" : "▼"}
+                        </span>
+                      </button>
+                    </th>
                     <th className="py-2 pr-4">Poids total séance 1</th>
                     <th className="py-2 pr-4">Poids total séance 2</th>
                     <th className="py-2 pr-4">Progression %</th>
@@ -2153,7 +2190,22 @@ function Analytics({ sessions }) {
               <table className="min-w-full text-sm">
                 <thead>
                   <tr className="text-left border-b">
-                    <th className="py-2 pr-4">Exercice</th>
+                    <th className="py-2 pr-4">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setExerciseProgressSort((prev) =>
+                            prev === "asc" ? "desc" : "asc"
+                          )
+                        }
+                        className="inline-flex items-center gap-1 font-semibold"
+                      >
+                        Exercice
+                        <span aria-hidden="true">
+                          {exerciseProgressSort === "asc" ? "▲" : "▼"}
+                        </span>
+                      </button>
+                    </th>
                     <th className="py-2 pr-4">Poids total séance 1</th>
                     <th className="py-2 pr-4">Poids total séance 2</th>
                     <th className="py-2 pr-4">Progression %</th>
