@@ -341,14 +341,7 @@ function App() {
   }, [navItems]);
   const handleTabChange = (value) => {
     setTab(value);
-    setIsMenuOpen(false);
   };
-
-  useEffect(() => {
-    if (isMenuOpen) {
-      setIsMenuOpen(false);
-    }
-  }, [tab]);
 
   useEffect(() => {
     let unsubscribeSessions = null;
