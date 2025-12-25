@@ -1675,7 +1675,8 @@ function Analytics({ sessions, sessionTemplates = [] }) {
   () => buildExerciseTonnageOverTime(sessions, exerciseTonnage),
   [sessions, exerciseTonnage]
   );
-  const muscleSplitAI = useMemo(() => buildMuscleSplitByAI(sessions), [sessions]);
+  const [muscleSplitAI, setMuscleSplitAI] = useState([]);
+  const [isMuscleSplitLoading, setIsMuscleSplitLoading] = useState(false);
   const tonnageByTypeSeries = useMemo(
   () =>
     buildTonnageBySessionTypeOverTime(
@@ -1819,6 +1820,33 @@ function Analytics({ sessions, sessionTemplates = [] }) {
     exerciseMonthEnd,
     exerciseProgressSort,
   ]);
+
+  useEffect(() => {
+    let active = true;
+    const controller = new AbortController();
+    if (!sessions.length) {
+      setMuscleSplitAI([]);
+      return undefined;
+    }
+    setIsMuscleSplitLoading(true);
+    buildMuscleSplitByAI(sessions, controller.signal)
+      .then((data) => {
+        if (!active) return;
+        setMuscleSplitAI(data);
+      })
+      .catch((error) => {
+        if (!active || error?.name === "AbortError") return;
+        setMuscleSplitAI([]);
+      })
+      .finally(() => {
+        if (!active) return;
+        setIsMuscleSplitLoading(false);
+      });
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [sessions]);
   
   return (
     <div className="space-y-6">
@@ -2159,12 +2187,16 @@ function Analytics({ sessions, sessionTemplates = [] }) {
         <div>
           <h3 className="font-semibold">Répartition charge</h3>
           <p className="text-xs text-gray-500">
-            Catégorisation IA des exercices via le référentiel RAG musculaire.
+            Catégorisation IA (Hugging Face) avec repli sur le référentiel RAG musculaire.
           </p>
         </div>
         <div className="text-sm text-gray-500">Muscles</div>
       </div>
-      {muscleSplitAI.length === 0 ? (
+      {isMuscleSplitLoading ? (
+        <div className="text-sm text-gray-600 animate-pulse">
+          Analyse IA en cours… Résultats mis en cache localement.
+        </div>
+      ) : muscleSplitAI.length === 0 ? (
         <div className="text-sm text-gray-600">
           Pas encore de données pour générer la répartition.
         </div>
@@ -2501,6 +2533,7 @@ const normalizeExerciseName = (value) => {
     .replace(/\p{Diacritic}/gu, "")
     .toLowerCase()
     .replace(/['’]/g, "")
+    .replace(/&/g, " et ")
     .replace(/[^a-z0-9]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -2516,13 +2549,25 @@ const normalizeExerciseAliases = (value) => {
     [/\boverhead press\b/g, "developpe militaire"],
     [/\bmilitary press\b/g, "developpe militaire"],
     [/\bshoulder press\b/g, "developpe militaire"],
+    [/\bmachine press\b/g, "chest press machine"],
+    [/\bchest press\b/g, "chest press machine"],
+    [/\bpec deck\b/g, "pec deck"],
     [/\blat pulldown\b/g, "tirage poitrine"],
     [/\bpull ?up\b/g, "tractions"],
     [/\bchin ?up\b/g, "tractions supination"],
+    [/\bbodyweight\b/g, "poids du corps"],
     [/\bstiff leg deadlift\b/g, "souleve de terre jambes tendues"],
     [/\bromanian deadlift\b/g, "romanian deadlift"],
     [/\bdeadlift\b/g, "souleve de terre"],
     [/\bhip thrust\b/g, "hip thrust"],
+    [/\bhip\s*thrusts?\b/g, "hip thrust"],
+    [/\bdumbbell\b/g, "halteres"],
+    [/\bbarbell\b/g, "barre"],
+    [/\bkettlebell\b/g, "kettlebell"],
+    [/\bsmith machine\b/g, "smith"],
+    [/\bbulgarian split squat\b/g, "bulgarian split squat"],
+    [/\blunge(s)?\b/g, "fentes"],
+    [/\bcalf raise(s)?\b/g, "mollets"],
   ];
   phraseReplacements.forEach(([pattern, replacement]) => {
     normalized = normalized.replace(pattern, replacement);
@@ -2534,11 +2579,24 @@ const tokenReplacements = {
   di: ["developpe", "incline"],
   dd: ["developpe", "decline"],
   dm: ["developpe", "militaire"],
+  dch: ["developpe", "couche", "halteres"],
+  dcb: ["developpe", "couche", "barre"],
+  dmi: ["developpe", "militaire"],
+  dp: ["developpe", "presse"],
   sdt: ["souleve", "de", "terre"],
   rdl: ["romanian", "deadlift"],
   ohp: ["overhead", "press"],
   row: ["rowing"],
   pulldown: ["tirage"],
+  db: ["halteres"],
+  bb: ["barre"],
+  bw: ["poids", "du", "corps"],
+  kb: ["kettlebell"],
+  pushup: ["pompes"],
+  pullup: ["tractions"],
+  dips: ["dips"],
+  calf: ["mollets"],
+  abs: ["abdos"],
 };
 const stopTokens = new Set([
   "de",
@@ -2554,6 +2612,7 @@ const stopTokens = new Set([
   "sans",
   "sur",
   "en",
+  "et",
   "d",
   "l",
 ]);
@@ -2631,6 +2690,65 @@ const muscleRagEntries = muscleRag.map(({ exercise, muscles }) => {
 const muscleRagLookup = new Map(
   muscleRagEntries.map(({ normalized, muscles }) => [normalized, muscles])
 );
+const muscleCandidateKeys = Array.from(
+  new Set(muscleRagEntries.flatMap((entry) => entry.muscles))
+).sort();
+const muscleCandidateLabels = muscleCandidateKeys.map((key) =>
+  formatMuscleLabel(key)
+);
+const muscleLabelToKey = new Map(
+  muscleCandidateLabels.map((label, index) => [label, muscleCandidateKeys[index]])
+);
+const HUGGING_FACE_MODEL = "facebook/bart-large-mnli";
+const HUGGING_FACE_ENDPOINT = `https://api-inference.huggingface.co/models/${HUGGING_FACE_MODEL}`;
+const MUSCLE_AI_CACHE_KEY = "muscle-ai-cache-v1";
+const MUSCLE_AI_CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 45;
+let muscleAiCacheLoaded = false;
+const muscleAiCache = new Map();
+
+const loadMuscleAiCache = () => {
+  if (muscleAiCacheLoaded) return;
+  muscleAiCacheLoaded = true;
+  if (typeof window === "undefined") return;
+  try {
+    const raw = localStorage.getItem(MUSCLE_AI_CACHE_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    Object.entries(parsed).forEach(([key, value]) => {
+      if (!value?.updatedAt || !Array.isArray(value?.muscles)) return;
+      if (Date.now() - value.updatedAt > MUSCLE_AI_CACHE_TTL_MS) return;
+      muscleAiCache.set(key, value);
+    });
+  } catch (error) {
+    console.warn("Erreur de lecture du cache IA :", error);
+  }
+};
+const persistMuscleAiCache = () => {
+  if (typeof window === "undefined") return;
+  const payload = {};
+  muscleAiCache.forEach((value, key) => {
+    payload[key] = value;
+  });
+  try {
+    localStorage.setItem(MUSCLE_AI_CACHE_KEY, JSON.stringify(payload));
+  } catch (error) {
+    console.warn("Erreur d'écriture du cache IA :", error);
+  }
+};
+const getCachedMuscles = (normalized) => {
+  loadMuscleAiCache();
+  const cached = muscleAiCache.get(normalized);
+  if (!cached) return null;
+  if (Date.now() - cached.updatedAt > MUSCLE_AI_CACHE_TTL_MS) {
+    muscleAiCache.delete(normalized);
+    return null;
+  }
+  return cached.muscles || null;
+};
+const updateMuscleCache = (normalized, muscles) => {
+  if (!normalized) return;
+  muscleAiCache.set(normalized, { muscles, updatedAt: Date.now() });
+};
 const getMusclesFromRag = (exerciseName) => {
   const normalized = normalizeExerciseName(exerciseName || "");
   if (!normalized) return [];
@@ -2655,11 +2773,97 @@ const getMusclesFromRag = (exerciseName) => {
   });
   return bestMatch && bestScore >= 0.45 ? bestMatch.muscles : [];
 };
-function buildMuscleSplitByAI(sessions) {
+const fetchMusclesFromHuggingFace = async (exerciseName, signal) => {
+  if (!exerciseName) return [];
+  if (!muscleCandidateLabels.length) return [];
+  const payload = {
+    inputs: `Exercice: ${exerciseName}`,
+    parameters: {
+      candidate_labels: muscleCandidateLabels,
+      multi_label: true,
+    },
+  };
+  const response = await fetch(HUGGING_FACE_ENDPOINT, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+    signal,
+  });
+  const data = await response.json();
+  if (!response.ok || data?.error) return [];
+  const labels = Array.isArray(data.labels) ? data.labels : [];
+  const scores = Array.isArray(data.scores) ? data.scores : [];
+  const ranked = labels
+    .map((label, index) => ({
+      label,
+      score: scores[index] ?? 0,
+    }))
+    .sort((a, b) => b.score - a.score);
+  const confident = ranked.filter((item) => item.score >= 0.45);
+  const selected = confident.length
+    ? confident
+    : ranked[0]?.score >= 0.32
+      ? [ranked[0]]
+      : [];
+  return Array.from(
+    new Set(
+      selected
+        .map((item) => muscleLabelToKey.get(item.label))
+        .filter(Boolean)
+    )
+  );
+};
+async function buildMuscleSplitByAI(sessions, signal) {
   const map = new Map();
+  const exerciseNames = Array.from(
+    new Set(
+      sessions.flatMap((session) =>
+        session.exercises.map((exercise) => exercise.name)
+      )
+    )
+  );
+  const exerciseMuscleMap = new Map();
+  let cacheUpdated = false;
+
+  for (const exerciseName of exerciseNames) {
+    if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+    const ragMuscles = getMusclesFromRag(exerciseName);
+    if (ragMuscles.length) {
+      exerciseMuscleMap.set(exerciseName, ragMuscles);
+      continue;
+    }
+    const normalized = normalizeExerciseName(exerciseName || "");
+    const cached = normalized ? getCachedMuscles(normalized) : null;
+    if (cached?.length) {
+      exerciseMuscleMap.set(exerciseName, cached);
+      continue;
+    }
+    try {
+      const aiMuscles = await fetchMusclesFromHuggingFace(
+        exerciseName,
+        signal
+      );
+      if (normalized) {
+        updateMuscleCache(normalized, aiMuscles);
+        cacheUpdated = true;
+      }
+      if (aiMuscles.length) {
+        exerciseMuscleMap.set(exerciseName, aiMuscles);
+        continue;
+      }
+    } catch (error) {
+      if (error?.name === "AbortError") throw error;
+    }
+    exerciseMuscleMap.set(exerciseName, []);
+  }
+
+  if (cacheUpdated) persistMuscleAiCache();
+
   sessions.forEach((session) => {
     session.exercises.forEach((exercise) => {
-      const muscles = getMusclesFromRag(exercise.name);
+      const muscles = exerciseMuscleMap.get(exercise.name) || [];
       const buckets = muscles.length > 0 ? muscles : ["Autres"];
       buckets.forEach((muscle) => {
         map.set(muscle, (map.get(muscle) || 0) + 1);
