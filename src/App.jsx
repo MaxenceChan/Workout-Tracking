@@ -401,7 +401,7 @@ function App() {
   className="sticky top-0 z-10 
   bg-white dark:bg-[#007B5E]
   text-black dark:text-white 
-  shadow-md border-b border-gray-200 dark:border-[#00634A] 
+  shadow-md border-b border-[#00634A] 
   transition-colors duration-300"
 >
 <div className="max-w-[1600px] mx-auto px-6 py-3 sm:py-4 flex flex-col sm:flex-row items-center justify-between gap-2">
@@ -440,7 +440,7 @@ function App() {
 
 <div className="mx-auto flex max-w-[1600px] px-6 py-4 pb-24 md:pb-4">
   {isMenuOpen && (
-    <aside className="hidden md:flex w-64 shrink-0 flex-col gap-2 rounded-2xl border border-gray-200 bg-white p-3 dark:border-[#00634A] dark:bg-[#007B5E] mr-4 -ml-6 pl-6">
+    <aside className="hidden md:flex w-64 shrink-0 flex-col gap-2 rounded-2xl border border-[#00634A] bg-white p-3 dark:bg-[#007B5E] mr-4 -ml-6 pl-6">
       {navItems.map((item) => {
         const Icon = item.icon;
         const active = tab === item.value;
@@ -540,7 +540,7 @@ function App() {
            </Tabs>
       </main>
     </div>
-      <nav className="fixed bottom-0 left-0 right-0 z-20 border-t border-gray-200 bg-white/95 backdrop-blur dark:border-gray-700 dark:bg-[#111111]/95 md:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-20 border-t border-[#00634A] bg-white/95 backdrop-blur dark:bg-[#111111]/95 md:hidden">
         <div className="mx-auto flex max-w-[1600px] items-center justify-between px-3 py-2">
           {mobileNavItems.map((item) => {
             const Icon = item.icon;
