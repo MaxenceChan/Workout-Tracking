@@ -2,6 +2,7 @@
 import React, { useMemo, useState, useEffect, useContext, createContext } from "react";
 import html2canvas from "html2canvas";
 import StepsMonthlyBubbleChart from "./components/StepsMonthlyBubbleChart";
+const DEADLIFT_GIF_URL = import.meta.env.VITE_DEADLIFT_GIF_URL;
 // ───────────────────────────────────────────────
 // Thème clair / sombre (global)
 // ───────────────────────────────────────────────
@@ -599,7 +600,16 @@ function AuthScreen() {
         <CardContent className="space-y-4 sm:space-y-5">
           <div className="text-center space-y-1">
             <Dumbbell className="mx-auto h-7 w-7 sm:h-8 sm:w-8 motion-safe:animate-bounce" />
-            <h2 className="text-lg sm:text-xl font-semibold">Workout Tracker</h2>
+            <div className="flex items-center justify-center gap-2">
+              <h2 className="text-lg sm:text-xl font-semibold">Workout Tracker</h2>
+              {DEADLIFT_GIF_URL && (
+                <img
+                  src={DEADLIFT_GIF_URL}
+                  alt="Workout Tracker lifter"
+                  className="h-7 w-7 sm:h-8 sm:w-8 motion-safe:animate-bounce"
+                />
+              )}
+            </div>
             <p className="text-xs sm:text-sm text-gray-600">
               {mode === "login"
                 ? "Connecte-toi pour retrouver tes données"
