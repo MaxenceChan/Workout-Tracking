@@ -1630,12 +1630,19 @@ function Analytics({ sessions }) {
     return allTypes.map((type) => {
       const first = getFirstSessionByType(sessions, type, typeMonthStart);
       const last = getLastSessionByType(sessions, type, typeMonthEnd);
+      const session1 = first ? Math.round(computeSessionTonnage(first)) : null;
+      const session2 = last ? Math.round(computeSessionTonnage(last)) : null;
+      const progressPercent =
+        session1 > 0 && session2 !== null
+          ? ((session2 - session1) / session1) * 100
+          : null;
       return {
         label: type,
-        session1: first ? Math.round(computeSessionTonnage(first)) : null,
+        session1,
         session1Date: first?.date || null,
-        session2: last ? Math.round(computeSessionTonnage(last)) : null,
+        session2,
         session2Date: last?.date || null,
+        progressPercent,
       };
     });
   }, [allTypes, sessions, typeMonthStart, typeMonthEnd]);
@@ -1644,12 +1651,19 @@ function Analytics({ sessions }) {
     return allExercises.map((exercise) => {
       const first = getFirstSessionByExercise(sessions, exercise, exerciseMonthStart);
       const last = getLastSessionByExercise(sessions, exercise, exerciseMonthEnd);
+      const session1 = first ? Math.round(computeExerciseTonnageInSession(first, exercise)) : null;
+      const session2 = last ? Math.round(computeExerciseTonnageInSession(last, exercise)) : null;
+      const progressPercent =
+        session1 > 0 && session2 !== null
+          ? ((session2 - session1) / session1) * 100
+          : null;
       return {
         label: exercise,
-        session1: first ? Math.round(computeExerciseTonnageInSession(first, exercise)) : null,
+        session1,
         session1Date: first?.date || null,
-        session2: last ? Math.round(computeExerciseTonnageInSession(last, exercise)) : null,
+        session2,
         session2Date: last?.date || null,
+        progressPercent,
       };
     });
   }, [allExercises, sessions, exerciseMonthStart, exerciseMonthEnd]);
@@ -2023,12 +2037,13 @@ function Analytics({ sessions }) {
                     <th className="py-2 pr-4">Type de séance</th>
                     <th className="py-2 pr-4">Poids total séance 1</th>
                     <th className="py-2 pr-4">Poids total séance 2</th>
+                    <th className="py-2 pr-4">Progression %</th>
                   </tr>
                 </thead>
                 <tbody>
                   {typeProgressRows.length === 0 ? (
                     <tr>
-                      <td className="py-3 text-gray-500" colSpan={3}>
+                      <td className="py-3 text-gray-500" colSpan={4}>
                         Aucun type de séance disponible.
                       </td>
                     </tr>
@@ -2047,6 +2062,9 @@ function Analytics({ sessions }) {
                           {row.session2Date && (
                             <div className="text-xs text-gray-500">{shortFR(row.session2Date)}</div>
                           )}
+                        </td>
+                        <td className="py-2 pr-4">
+                          {row.progressPercent !== null ? `${row.progressPercent.toFixed(1)}%` : "—"}
                         </td>
                       </tr>
                     ))
@@ -2093,12 +2111,13 @@ function Analytics({ sessions }) {
                     <th className="py-2 pr-4">Exercice</th>
                     <th className="py-2 pr-4">Poids total séance 1</th>
                     <th className="py-2 pr-4">Poids total séance 2</th>
+                    <th className="py-2 pr-4">Progression %</th>
                   </tr>
                 </thead>
                 <tbody>
                   {exerciseProgressRows.length === 0 ? (
                     <tr>
-                      <td className="py-3 text-gray-500" colSpan={3}>
+                      <td className="py-3 text-gray-500" colSpan={4}>
                         Aucun exercice disponible.
                       </td>
                     </tr>
@@ -2117,6 +2136,9 @@ function Analytics({ sessions }) {
                           {row.session2Date && (
                             <div className="text-xs text-gray-500">{shortFR(row.session2Date)}</div>
                           )}
+                        </td>
+                        <td className="py-2 pr-4">
+                          {row.progressPercent !== null ? `${row.progressPercent.toFixed(1)}%` : "—"}
                         </td>
                       </tr>
                     ))
