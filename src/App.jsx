@@ -2618,9 +2618,12 @@ function filterSessionsByMonth(sessions, month) {
 
 function getFirstSessionByType(sessions, type, month = "") {
   if (!sessions || sessions.length === 0) return null;
-  const rows = filterSessionsByMonth(sessions, month).filter(
+  let rows = filterSessionsByMonth(sessions, month).filter(
     (s) => (s.type || "Libre") === type
   );
+  if (rows.length === 0 && month) {
+    rows = sessions.filter((s) => (s.type || "Libre") === type);
+  }
   if (rows.length === 0) return null;
   rows.sort((a, b) => (a.date > b.date ? 1 : -1));
   return rows[0];
@@ -2628,9 +2631,12 @@ function getFirstSessionByType(sessions, type, month = "") {
 
 function getLastSessionByType(sessions, type, month = "") {
   if (!sessions || sessions.length === 0) return null;
-  const rows = filterSessionsByMonth(sessions, month).filter(
+  let rows = filterSessionsByMonth(sessions, month).filter(
     (s) => (s.type || "Libre") === type
   );
+  if (rows.length === 0 && month) {
+    rows = sessions.filter((s) => (s.type || "Libre") === type);
+  }
   if (rows.length === 0) return null;
   rows.sort((a, b) => (a.date < b.date ? 1 : -1));
   return rows[0];
@@ -2650,9 +2656,14 @@ function computeExerciseTonnageInSession(session, exerciseName) {
 
 function getFirstSessionByExercise(sessions, exerciseName, month = "") {
   if (!sessions || sessions.length === 0) return null;
-  const rows = filterSessionsByMonth(sessions, month).filter((s) =>
+  let rows = filterSessionsByMonth(sessions, month).filter((s) =>
     s.exercises.some((ex) => ex.name === exerciseName)
   );
+  if (rows.length === 0 && month) {
+    rows = sessions.filter((s) =>
+      s.exercises.some((ex) => ex.name === exerciseName)
+    );
+  }
   if (rows.length === 0) return null;
   rows.sort((a, b) => (a.date > b.date ? 1 : -1));
   return rows[0];
@@ -2660,9 +2671,14 @@ function getFirstSessionByExercise(sessions, exerciseName, month = "") {
 
 function getLastSessionByExercise(sessions, exerciseName, month = "") {
   if (!sessions || sessions.length === 0) return null;
-  const rows = filterSessionsByMonth(sessions, month).filter((s) =>
+  let rows = filterSessionsByMonth(sessions, month).filter((s) =>
     s.exercises.some((ex) => ex.name === exerciseName)
   );
+  if (rows.length === 0 && month) {
+    rows = sessions.filter((s) =>
+      s.exercises.some((ex) => ex.name === exerciseName)
+    );
+  }
   if (rows.length === 0) return null;
   rows.sort((a, b) => (a.date < b.date ? 1 : -1));
   return rows[0];
