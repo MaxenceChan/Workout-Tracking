@@ -1661,6 +1661,7 @@ function Analytics({ sessions, sessionTemplates = [] }) {
   () => buildExerciseTonnageOverTime(sessions, exerciseTonnage),
   [sessions, exerciseTonnage]
   );
+  const muscleSplitAI = useMemo(() => buildMuscleSplitByAI(sessions), [sessions]);
   const tonnageByTypeSeries = useMemo(
   () =>
     buildTonnageBySessionTypeOverTime(
@@ -2136,6 +2137,72 @@ function Analytics({ sessions, sessionTemplates = [] }) {
   </Card>
 </div>
 
+{/* Bloc 4 bis : Répartition charge (IA) */}
+<div className="grid md:grid-cols-2 gap-4">
+  <Card className="md:col-span-2">
+    <CardContent className="p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="font-semibold">Répartition charge</h3>
+          <p className="text-xs text-gray-500">
+            Catégorisation IA des exercices réalisés par groupe musculaire.
+          </p>
+        </div>
+        <div className="text-sm text-gray-500">Muscles</div>
+      </div>
+      {muscleSplitAI.length === 0 ? (
+        <div className="text-sm text-gray-600">
+          Pas encore de données pour générer la répartition.
+        </div>
+      ) : (
+        <div className="h-64 md:h-80 grid place-items-center">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={muscleSplitAI}
+                dataKey="value"
+                nameKey="name"
+                innerRadius={60}
+                outerRadius={90}
+                label
+              >
+                {muscleSplitAI.map((_, i) => (
+                  <Cell key={i} fill={colors[i % colors.length]} />
+                ))}
+              </Pie>
+              <Legend />
+              <Tooltip
+                content={({ active, payload }) => {
+                  if (!active || !payload || !payload.length) return null;
+                  const { name, value } = payload[0];
+                  return (
+                    <div
+                      style={{
+                        backgroundColor: "#ffffff",
+                        border: "1px solid #e5e7eb",
+                        borderRadius: "8px",
+                        padding: "8px 10px",
+                        color: "#000000",
+                      }}
+                    >
+                      <div style={{ fontWeight: 700, marginBottom: 4 }}>
+                        {name}
+                      </div>
+                      <div style={{ fontSize: 14 }}>
+                        Exercices : <strong>{value}</strong>
+                      </div>
+                    </div>
+                  );
+                }}
+              />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+    </CardContent>
+  </Card>
+</div>
+
       {/* Bloc 5 : Progression tonnage (séances + exercices) */}
       <div className="grid gap-4">
         <Card>
@@ -2413,6 +2480,63 @@ function Analytics({ sessions, sessionTemplates = [] }) {
 // Helpers Analytics
 // ───────────────────────────────────────────────────────────────
 const colors = ["#8884d8", "#82ca9d", "#ffc658", "#ff7f50", "#6a5acd", "#40e0d0"];
+const normalizeExerciseName = (value) =>
+  value
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase();
+const categorizeExerciseWithAI = (exerciseName) => {
+  const name = normalizeExerciseName(exerciseName || "");
+  const matchers = [
+    {
+      group: "Jambes",
+      keywords: ["squat", "leg", "presse", "lunge", "fente", "quad", "ischio", "mollet", "calf", "deadlift"],
+    },
+    {
+      group: "Fessiers",
+      keywords: ["hip thrust", "glute", "fessier", "bridge"],
+    },
+    {
+      group: "Poitrine",
+      keywords: ["bench", "developpe", "chest", "pec", "pompe", "push-up"],
+    },
+    {
+      group: "Dos",
+      keywords: ["row", "tirage", "pull", "lat", "rowing", "traction", "back"],
+    },
+    {
+      group: "Épaules",
+      keywords: ["shoulder", "epaule", "delto", "lateral", "military", "overhead"],
+    },
+    {
+      group: "Bras",
+      keywords: ["biceps", "triceps", "curl", "extension", "arm"],
+    },
+    {
+      group: "Abdos",
+      keywords: ["abdo", "core", "crunch", "plank", "gainage"],
+    },
+    {
+      group: "Cardio",
+      keywords: ["running", "course", "bike", "velo", "rower", "rameur", "cardio", "hiit"],
+    },
+  ];
+
+  const found = matchers.find(({ keywords }) =>
+    keywords.some((keyword) => name.includes(keyword))
+  );
+  return found ? found.group : "Autres";
+};
+function buildMuscleSplitByAI(sessions) {
+  const map = new Map();
+  sessions.forEach((session) => {
+    session.exercises.forEach((exercise) => {
+      const group = categorizeExerciseWithAI(exercise.name);
+      map.set(group, (map.get(group) || 0) + 1);
+    });
+  });
+  return Array.from(map.entries()).map(([name, value]) => ({ name, value }));
+}
 function computeExerciseShare(sessions) {
   const map = {};
   sessions.forEach((s) => {
