@@ -439,8 +439,14 @@ function App() {
 </header>
 
 <div className="mx-auto flex max-w-[1600px] px-6 py-4 pb-24 md:pb-4">
-  {isMenuOpen && (
-    <aside className="hidden md:flex w-64 shrink-0 flex-col gap-2 rounded-2xl border border-[#00634A] bg-white p-3 dark:bg-[#007B5E] mr-4 -ml-6 pl-6">
+    <aside
+      className={cn(
+        "hidden md:flex shrink-0 flex-col gap-2 rounded-2xl border bg-white dark:bg-[#007B5E] overflow-hidden transition-all duration-300 ease-out",
+        isMenuOpen
+          ? "w-64 p-3 opacity-100 mr-4 -ml-6 pl-6 border-[#00634A]"
+          : "w-0 p-0 opacity-0 mr-0 ml-0 pl-0 border-transparent pointer-events-none"
+      )}
+    >
       {navItems.map((item) => {
         const Icon = item.icon;
         const active = tab === item.value;
@@ -461,7 +467,6 @@ function App() {
         );
       })}
     </aside>
-  )}
   <main className="min-w-0 flex-1">
     <Tabs value={tab} onValueChange={handleTabChange}>
           <TabsContent value="tpl" className="mt-3 sm:mt-4">
