@@ -53,7 +53,15 @@ html.dark p {
 }
 
 @keyframes typewriter-caret {
-  50% { border-color: transparent; }
+  0% { border-color: currentColor; }
+  70% { border-color: currentColor; }
+  100% { border-color: transparent; }
+}
+
+@keyframes title-sway {
+  0% { transform: translateX(0); }
+  50% { transform: translateX(6px); }
+  100% { transform: translateX(0); }
 }
 
 @keyframes tab-fade {
@@ -67,7 +75,10 @@ html.dark p {
   white-space: nowrap;
   border-right: 2px solid currentColor;
   width: 0;
-  animation: typewriter 2.4s steps(15, end) 0.2s forwards, typewriter-caret 0.8s step-end infinite;
+  animation:
+    typewriter 2.4s steps(15, end) 0.2s forwards,
+    typewriter-caret 2.6s step-end 0.2s forwards,
+    title-sway 3s ease-in-out 2.8s infinite;
 }
 
 .tab-fade-in {
