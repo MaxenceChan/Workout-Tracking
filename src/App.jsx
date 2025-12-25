@@ -2,6 +2,7 @@
 import React, { useMemo, useState, useEffect, useContext, createContext, useRef } from "react";
 import html2canvas from "html2canvas";
 import StepsMonthlyBubbleChart from "./components/StepsMonthlyBubbleChart";
+import muscleRag from "./data/muscleRag.json";
 // ───────────────────────────────────────────────
 // Thème clair / sombre (global)
 // ───────────────────────────────────────────────
@@ -197,6 +198,13 @@ function sortByDateAsc(data) {
 }
 const prettyDate = (d) => new Date(d).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "2-digit" });
 const todayISO = () => new Date().toISOString().slice(0, 10);
+const normalizeText = (value) => (value || "")
+  .toString()
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "")
+  .toLowerCase()
+  .trim();
+const formatNumber = (value) => new Intl.NumberFormat("fr-FR").format(value);
 const normalizeDecimalInput = (value) => {
   if (typeof value !== "string") return value;
   const v = value.replace(",", ".");
@@ -212,6 +220,37 @@ const shortFR = (iso) => {
 const volumeOfSets = (sets) => sets.reduce((acc, s) => acc + Number(s.reps || 0) * Number(s.weight || 0), 0);
 const computeSessionTonnage = (session) => session.exercises.reduce((acc, ex) => acc + volumeOfSets(ex.sets), 0);
 const epley1RM = (weight, reps) => (reps > 1 ? weight * (1 + reps / 30) : weight);
+
+const MUSCLE_LABELS = {
+  pectoraux_bas: "pectoraux bas",
+  pectoraux_milieu: "pectoraux",
+  pectoraux_haut: "pectoraux haut",
+  épaules: "épaules",
+  trapèzes: "trapèzes",
+  grand_dorsal: "dos",
+  quadriceps: "quadriceps",
+  fessiers: "fessiers",
+  ischio_jambiers: "ischios",
+  mollets: "mollets",
+  abdos: "abdos",
+};
+const MUSCLE_KEYWORDS = {
+  pectoraux_haut: ["pectoraux haut", "pecs haut", "haut des pecs", "upper chest"],
+  pectoraux_bas: ["pectoraux bas", "pecs bas", "bas des pecs", "lower chest"],
+  pectoraux_milieu: ["pectoraux", "pecs", "pec", "chest"],
+  épaules: ["epaule", "epaules", "delto", "shoulder"],
+  trapèzes: ["trapeze", "trapezes", "trap"],
+  grand_dorsal: ["dorsaux", "grand dorsal", "dos", "lats"],
+  quadriceps: ["quadriceps", "quads", "cuisses", "jambes avant"],
+  fessiers: ["fessier", "fessiers", "glute", "fesses"],
+  ischio_jambiers: ["ischio", "ischios", "hamstrings", "arriere cuisse"],
+  mollets: ["mollet", "mollets", "calf"],
+  abdos: ["abdo", "abdos", "core", "gainage", "sangle"],
+};
+const EXERCISE_MUSCLE_MAP = new Map(
+  muscleRag.map((row) => [normalizeText(row.exercise), row.muscles])
+);
+const formatMuscleLabel = (muscle) => MUSCLE_LABELS[muscle] || muscle.replace(/_/g, " ");
 
 // ───────────────────────────────────────────────────────────────
 // Local storage helpers
@@ -605,6 +644,46 @@ function buildExerciseTotals(sessions) {
     .sort((a, b) => b.volume - a.volume);
 }
 
+function buildMuscleTotals(sessions) {
+  const totals = new Map();
+  sessions.forEach((session) => {
+    session.exercises.forEach((exercise) => {
+      const muscles = EXERCISE_MUSCLE_MAP.get(normalizeText(exercise.name)) || [];
+      if (!muscles.length) return;
+      const volume = volumeOfSets(exercise.sets);
+      const share = volume / muscles.length;
+      muscles.forEach((muscle) => {
+        totals.set(muscle, (totals.get(muscle) || 0) + share);
+      });
+    });
+  });
+  return Array.from(totals.entries())
+    .map(([muscle, volume]) => ({ muscle, volume: Math.round(volume) }))
+    .sort((a, b) => b.volume - a.volume);
+}
+
+function buildSessionHighlights(session) {
+  if (!session) return null;
+  const exerciseTotals = session.exercises
+    .map((exercise) => ({
+      name: exercise.name,
+      volume: Math.round(volumeOfSets(exercise.sets)),
+    }))
+    .sort((a, b) => b.volume - a.volume);
+  return {
+    exerciseCount: session.exercises.length,
+    tonnage: Math.round(computeSessionTonnage(session)),
+    topExercises: exerciseTotals.slice(0, 3),
+  };
+}
+
+function findMuscleFocus(message) {
+  const normalized = normalizeText(message);
+  return Object.entries(MUSCLE_KEYWORDS).find(([, keywords]) =>
+    keywords.some((keyword) => normalized.includes(normalizeText(keyword)))
+  )?.[0];
+}
+
 function buildChatbotReply(message, insights) {
   if (!insights.sessionCount) {
     return [
@@ -613,38 +692,142 @@ function buildChatbotReply(message, insights) {
     ].join("\n");
   }
 
-  const lines = [
-    "Voici ce que j'observe dans tes données :",
-    `• ${insights.sessionCount} séances enregistrées`,
-    `• Dernière séance : ${insights.lastSessionLabel}`,
-    `• Tonnage total cumulé : ${insights.totalTonnage} kg`,
-    `• Tonnage moyen par séance : ${insights.avgTonnage} kg`,
-    `• Fréquence (28 derniers jours) : ${insights.avgSessionsPerWeek} séances / semaine`,
-  ];
+  const normalized = normalizeText(message);
+  const wantsTonnage = /tonnage|volume|charge|poids/.test(normalized);
+  const wantsFrequency = /frequen|regulier|rythme|routine|semaine/.test(normalized);
+  const wantsProgress = /progress|evolu|monter|augmenter/.test(normalized);
+  const wantsExercises = /exercice|exo|mouvement/.test(normalized);
+  const wantsMuscles = /muscle|pec|dos|epaul|abdo|jamb|fess|mollet|ischio/.test(normalized);
+  const wantsGoal = /objectif|but|prise de masse|seche|force|hypertroph/.test(normalized);
+  const wantsSummary = /resume|résume|recap|bilan|analyse|synthese/.test(normalized);
+  const muscleFocus = findMuscleFocus(message);
+
+  const lines = [];
+  lines.push("Merci pour ta question ! Voici ce que je peux déduire de tes séances :");
+
+  if (wantsSummary || (!wantsTonnage && !wantsFrequency && !wantsProgress && !wantsExercises && !wantsMuscles && !wantsGoal)) {
+    lines.push(
+      [
+        "📊 **Récap rapide**",
+        `• ${insights.sessionCount} séances enregistrées`,
+        `• Dernière séance : ${insights.lastSessionLabel}`,
+        `• Tonnage total cumulé : ${formatNumber(insights.totalTonnage)} kg`,
+        `• Tonnage moyen par séance : ${formatNumber(insights.avgTonnage)} kg`,
+        `• Fréquence (28 jours) : ${insights.avgSessionsPerWeek} séances / semaine`,
+      ].join("\n")
+    );
+  }
 
   if (insights.topExercise) {
-    lines.push(`• Exercice le plus travaillé : ${insights.topExercise.name} (${insights.topExercise.volume} kg)`);
+    lines.push(`• Exercice le plus travaillé : ${insights.topExercise.name} (${formatNumber(insights.topExercise.volume)} kg)`);
   }
 
-  if (message.toLowerCase().includes("tonnage")) {
+  if (wantsTonnage) {
+    const trend = insights.tonnageTrend;
+    const trendLine = trend
+      ? `Ta dernière séance est ${trend.delta > 0 ? "au-dessus" : "en-dessous"} de ${formatNumber(Math.abs(trend.delta))} kg par rapport à la précédente (${trend.percent}%).`
+      : "Ajoute une seconde séance pour qu'on compare ta charge d'une séance à l'autre.";
     lines.push(
-      "👉 Pour booster ton tonnage, vise soit +1 série, soit +2 reps par exercice clé sur la prochaine séance."
+      [
+        "🏋️ **Tonnage & charge**",
+        `• Total : ${formatNumber(insights.totalTonnage)} kg`,
+        `• Moyenne : ${formatNumber(insights.avgTonnage)} kg / séance`,
+        `• ${trendLine}`,
+        "👉 Pour booster ton tonnage, ajoute 1 série OU +2 reps sur 1 à 2 exercices clés.",
+      ].join("\n")
     );
   }
 
-  if (message.toLowerCase().includes("fréquence") || message.toLowerCase().includes("regulier")) {
+  if (wantsFrequency) {
     lines.push(
-      "👉 Pour progresser régulièrement, essaie de garder 2 à 4 séances par semaine selon ta récupération."
+      [
+        "📅 **Fréquence & régularité**",
+        `• Moyenne actuelle : ${insights.avgSessionsPerWeek} séances / semaine`,
+        `• Dernière séance : ${insights.lastSessionLabel}`,
+        "👉 Pour progresser régulièrement, vise 2 à 4 séances / semaine selon ta récupération.",
+      ].join("\n")
     );
   }
 
-  if (message.toLowerCase().includes("progression") || message.toLowerCase().includes("progress")) {
+  if (wantsProgress) {
     lines.push(
-      "👉 Ta progression est plus visible quand tu répètes les mêmes exercices sur 3 à 4 séances consécutives."
+      [
+        "📈 **Progression**",
+        "👉 La progression est plus visible quand tu répètes les mêmes exercices sur 3 à 4 séances consécutives.",
+        "👉 Note ton RPE ou garde une marge de 1 à 2 reps pour monter la charge de semaine en semaine.",
+      ].join("\n")
     );
   }
 
-  lines.push("Pose-moi une question plus précise (tonnage, exercices, fréquence, objectifs) pour affiner.");
+  if (wantsExercises) {
+    const topExercises = insights.exerciseTotals.slice(0, 3);
+    lines.push(
+      [
+        "🧠 **Exercices dominants**",
+        topExercises.length
+          ? topExercises.map((ex) => `• ${ex.name} (${formatNumber(ex.volume)} kg)`).join("\n")
+          : "Je n'ai pas encore assez d'exercices pour établir un top.",
+      ].join("\n")
+    );
+  }
+
+  if (wantsMuscles) {
+    if (muscleFocus) {
+      const muscleData = insights.muscleTotals.find((item) => item.muscle === muscleFocus);
+      const muscleLabel = formatMuscleLabel(muscleFocus);
+      const suggestions = muscleRag
+        .filter((row) => row.muscles.includes(muscleFocus))
+        .slice(0, 5)
+        .map((row) => row.exercise);
+      lines.push(
+        [
+          `💪 **Focus ${muscleLabel}**`,
+          muscleData
+            ? `• Volume estimé : ${formatNumber(muscleData.volume)} kg`
+            : "• Pas assez de données pour estimer le volume sur ce groupe.",
+          suggestions.length ? `• Idées d'exos : ${suggestions.join(", ")}` : null,
+        ].filter(Boolean).join("\n")
+      );
+    } else {
+      const topMuscles = insights.muscleTotals.slice(0, 4);
+      lines.push(
+        [
+          "💪 **Groupes les plus sollicités**",
+          topMuscles.length
+            ? topMuscles.map((item) => `• ${formatMuscleLabel(item.muscle)} (${formatNumber(item.volume)} kg)`).join("\n")
+            : "Je n'ai pas encore assez d'exercices pour analyser les groupes musculaires.",
+        ].join("\n")
+      );
+    }
+  }
+
+  if (wantsGoal) {
+    lines.push(
+      [
+        "🎯 **Objectifs & recommandations**",
+        "• Hypertrophie : 6-12 reps, 3-5 séries, RPE 7-9.",
+        "• Force : 3-6 reps, 3-6 séries, repos long (2-3 min).",
+        "• Séche : garde le volume, ajoute un léger déficit calorique et du NEAT.",
+        "👉 Dis-moi ton objectif exact pour un plan plus précis.",
+      ].join("\n")
+    );
+  }
+
+  if (insights.lastSessionHighlights) {
+    const highlights = insights.lastSessionHighlights;
+    lines.push(
+      [
+        "🧾 **Dernière séance en bref**",
+        `• ${highlights.exerciseCount} exercices`,
+        `• ${formatNumber(highlights.tonnage)} kg au total`,
+        highlights.topExercises.length
+          ? `• Top exercices : ${highlights.topExercises.map((ex) => ex.name).join(", ")}`
+          : null,
+      ].filter(Boolean).join("\n")
+    );
+  }
+
+  lines.push("Dis-moi ce que tu veux optimiser (force, volume, fréquence, un muscle précis) et j'adapte !");
   return lines.join("\n");
 }
 
@@ -653,7 +836,7 @@ function ChatbotSection({ sessions, user }) {
     {
       id: uuidv4(),
       role: "assistant",
-      content: `Salut ${user?.email || "coaché"} ! Je peux analyser tes séances et te proposer des axes de progression.`,
+      content: `Salut ${user?.email || "coaché"} ! Pose-moi n'importe quelle question muscu : je m'appuie sur tes séances pour te répondre.`,
     },
   ]);
   const [input, setInput] = useState("");
@@ -668,10 +851,14 @@ function ChatbotSection({ sessions, user }) {
     const avgTonnage = sessionCount ? Math.round(totalTonnage / sessionCount) : 0;
     const sortedSessions = sessionCount ? sortByDateAsc(sessions) : [];
     const lastSession = sortedSessions[sortedSessions.length - 1];
+    const previousSession = sortedSessions[sortedSessions.length - 2];
     const lastSessionLabel = lastSession
       ? new Date(lastSession.date).toLocaleDateString("fr-FR")
       : "—";
-    const topExercise = buildExerciseTotals(sessions)[0];
+    const exerciseTotals = buildExerciseTotals(sessions);
+    const topExercise = exerciseTotals[0];
+    const muscleTotals = buildMuscleTotals(sessions);
+    const lastSessionHighlights = buildSessionHighlights(lastSession);
     const endDate = todayISO();
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - 27);
@@ -682,6 +869,16 @@ function ChatbotSection({ sessions, user }) {
         endDate
       ).toFixed(1)
     );
+    const tonnageTrend =
+      lastSession && previousSession
+        ? (() => {
+          const current = Math.round(computeSessionTonnage(lastSession));
+          const previous = Math.round(computeSessionTonnage(previousSession));
+          const delta = current - previous;
+          const percent = previous ? Math.round((delta / previous) * 100) : 0;
+          return { delta, percent };
+        })()
+        : null;
 
     return {
       sessionCount,
@@ -690,6 +887,10 @@ function ChatbotSection({ sessions, user }) {
       lastSessionLabel,
       topExercise,
       avgSessionsPerWeek,
+      exerciseTotals,
+      muscleTotals,
+      lastSessionHighlights,
+      tonnageTrend,
     };
   }, [sessions]);
 
@@ -710,6 +911,7 @@ function ChatbotSection({ sessions, user }) {
     "Analyse mon tonnage cette semaine",
     "Comment améliorer ma fréquence ?",
     "Quels exercices dominent mes séances ?",
+    "J'aimerais travailler les épaules",
   ];
 
   return (
@@ -779,8 +981,8 @@ function ChatbotSection({ sessions, user }) {
           <div className="text-sm text-gray-600 space-y-1">
             <div>• Séances : {insights.sessionCount}</div>
             <div>• Dernière séance : {insights.lastSessionLabel}</div>
-            <div>• Tonnage total : {insights.totalTonnage} kg</div>
-            <div>• Tonnage moyen : {insights.avgTonnage} kg</div>
+            <div>• Tonnage total : {formatNumber(insights.totalTonnage)} kg</div>
+            <div>• Tonnage moyen : {formatNumber(insights.avgTonnage)} kg</div>
             <div>• Fréquence 28 j : {insights.avgSessionsPerWeek} / semaine</div>
           </div>
           <div className="rounded-lg border p-3 text-xs sm:text-sm bg-gray-50 dark:bg-[#1c1c1c]">
