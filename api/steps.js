@@ -74,7 +74,12 @@ export default async function handler(req, res) {
       if (invalidGrant) {
         await userRef.set(
           {
-            googleFit: admin.firestore.FieldValue.delete(),
+            "googleFit.needs_reauth": true,
+            "googleFit.last_error": {
+              code: apiError || status || "invalid_grant",
+              message: error?.message || "invalid_grant",
+            },
+            "googleFit.updated_at": admin.firestore.FieldValue.serverTimestamp(),
           },
           { merge: true }
         );
