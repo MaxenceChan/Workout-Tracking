@@ -345,6 +345,12 @@ function App() {
   };
 
   useEffect(() => {
+    if (isMenuOpen) {
+      setIsMenuOpen(false);
+    }
+  }, [tab, isMenuOpen]);
+
+  useEffect(() => {
     let unsubscribeSessions = null;
     let unsubscribeTemplates = null;
     const unsubAuth = onAuth(async (u) => {
