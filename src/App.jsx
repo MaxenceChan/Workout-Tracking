@@ -420,7 +420,8 @@ function App() {
         return;
       }
       const uid = u.uid;
-      setUser({ id: uid, email: u.email || "Utilisateur" });
+      const resolvedEmail = u.email || u.providerData?.find((p) => p?.email)?.email;
+      setUser({ id: uid, email: resolvedEmail || "Utilisateur" });
 
       const legacy = migrateLegacyLocal();
       if (legacy && (legacy.sessions?.length || 0) > 0 && !localStorage.getItem(keyFor(uid))) {
