@@ -1,7 +1,7 @@
 import admin from "./lib/firebaseAdmin.js";
 
 const PARIS_TIMEZONE = "Europe/Paris";
-const DEFAULT_AUTH_EMAIL = "traction@workout-tracker.fr";
+const DEFAULT_AUTH_EMAIL = "maxouchanou2005@gmail.com";
 const ACTIVE_WINDOW_DAYS = 30;
 
 const normalizeEmail = (email) => (email || "").trim().toLowerCase();
