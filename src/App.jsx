@@ -55,7 +55,7 @@ import {
 } from "recharts";
 
 // Firebase
-import { db, onAuth, signInEmail, signUpEmail, signInGoogle, signOutUser, resetPassword } from "./firebase";
+import { auth, db, onAuth, signInEmail, signUpEmail, signInGoogle, signOutUser, resetPassword } from "./firebase";
 import {
   collection,
   query,
@@ -252,6 +252,11 @@ const EXERCISE_MUSCLE_MAP = new Map(
 );
 const formatMuscleLabel = (muscle) => MUSCLE_LABELS[muscle] || muscle.replace(/_/g, " ");
 
+const TRACTION_ALLOWED_EMAIL = "traction@workout-tracker.fr";
+const normalizeEmail = (email) => (email || "").trim().toLowerCase();
+const isTractionAuthorized = (email) =>
+  normalizeEmail(email) === normalizeEmail(TRACTION_ALLOWED_EMAIL);
+
 // ───────────────────────────────────────────────────────────────
 // Local storage helpers
 // ───────────────────────────────────────────────────────────────
@@ -362,6 +367,7 @@ function App() {
   const [tab, setTab] = useState("log");
   const [user, setUser] = useState(undefined);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const tractionAuthorized = isTractionAuthorized(user?.email);
   const navItems = useMemo(
     () => [
       { value: "tpl", label: "Séances pré-créées", shortLabel: "Séances", icon: ClipboardList },
@@ -372,11 +378,14 @@ function App() {
       { value: "weight", label: "Suivi du poids", shortLabel: "Poids", icon: Scale },
       { value: "steps", label: "Suivi des pas", shortLabel: "Pas", icon: Footprints },
       { value: "ranking", label: "Classement", shortLabel: "Classement", icon: Trophy },
+      ...(tractionAuthorized
+        ? [{ value: "traction", label: "Traction", shortLabel: "Traction", icon: Sparkles }]
+        : []),
     ],
-    []
+    [tractionAuthorized]
   );
   const mobileNavItems = useMemo(() => {
-    const order = ["tpl", "log", "sessions", "last", "analytics", "weight", "steps", "ranking"];
+    const order = ["tpl", "log", "sessions", "last", "analytics", "weight", "steps", "ranking", "traction"];
     const byValue = new Map(navItems.map((item) => [item.value, item]));
     return order
       .map((value) => byValue.get(value))
@@ -388,6 +397,12 @@ function App() {
   const handleTabChange = (value) => {
     setTab(value);
   };
+
+  useEffect(() => {
+    if (tab === "traction" && !tractionAuthorized) {
+      setTab("log");
+    }
+  }, [tab, tractionAuthorized]);
 
   useEffect(() => {
     let unsubscribeSessions = null;
@@ -437,6 +452,25 @@ function App() {
     if (!user?.id) return;
     saveDataFor(user.id, data);
   }, [user?.id, data]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const trackLogin = async () => {
+      try {
+        const token = await auth.currentUser?.getIdToken();
+        if (!token) return;
+        await fetch("/api/track-login", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+      } catch (error) {
+        console.warn("Login tracking failed:", error);
+      }
+    };
+    trackLogin();
+  }, [user?.id]);
 
   if (user === undefined) return <div className="min-h-screen grid place-items-center text-gray-600">Chargement…</div>;
   if (user === null) return <AuthScreen />;
@@ -598,6 +632,9 @@ function App() {
 </TabsContent>
 <TabsContent value="ranking" className="mt-3 sm:mt-4">
   <RankingSection />
+</TabsContent>
+<TabsContent value="traction" className="mt-3 sm:mt-4">
+  <TractionSection user={user} />
 </TabsContent>
            </Tabs>
       </main>
@@ -4266,6 +4303,175 @@ function RankingSection() {
           )}
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+// ───────────────────────────────────────────────
+// Traction (metrics business)
+// ───────────────────────────────────────────────
+function TractionSection({ user }) {
+  const { theme } = useTheme();
+  const axisColor = theme === "dark" ? "#ffffff" : "#111827";
+  const gridColor = theme === "dark" ? "#374151" : "#e5e7eb";
+
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [days] = useState(30);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    if (!isTractionAuthorized(user?.email)) {
+      setLoading(false);
+      setError("FORBIDDEN");
+      return;
+    }
+
+    let mounted = true;
+    const loadTraction = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const token = await auth.currentUser?.getIdToken();
+        if (!token) throw new Error("AUTH_MISSING");
+
+        const res = await fetch(`/api/traction?days=${days}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!res.ok) {
+          const payload = await res.json().catch(() => ({}));
+          const message = payload?.error || "API_ERROR";
+          throw new Error(res.status === 403 ? "FORBIDDEN" : message);
+        }
+
+        const payload = await res.json();
+        if (mounted) setData(payload);
+      } catch (err) {
+        if (mounted) setError(err?.message || "API_ERROR");
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    loadTraction();
+    return () => {
+      mounted = false;
+    };
+  }, [days, user?.id, user?.email]);
+
+  if (error === "FORBIDDEN") {
+    return (
+      <Card>
+        <CardContent>
+          <h3 className="text-lg font-semibold">Accès restreint</h3>
+          <p className="text-sm text-gray-500 mt-2">
+            Ce tableau de traction est réservé à un compte autorisé.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardContent>
+          <h3 className="text-lg font-semibold">📈 Traction</h3>
+          <p className="text-sm text-gray-500 mt-1">
+            Indicateurs produit et business basés sur l&apos;activité globale.
+          </p>
+        </CardContent>
+      </Card>
+
+      {loading && (
+        <Card>
+          <CardContent>
+            <p className="text-sm text-gray-500">Chargement des métriques…</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {!loading && error && (
+        <Card>
+          <CardContent>
+            <p className="text-sm text-red-500">
+              Impossible de charger la traction. Réessaie plus tard.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {!loading && !error && data && (
+        <>
+          <div className="grid gap-4 md:grid-cols-3">
+            <Card>
+              <CardContent>
+                <p className="text-xs uppercase tracking-wide text-gray-500">
+                  Utilisateurs actifs (30 jours)
+                </p>
+                <div className="text-3xl font-semibold">
+                  {formatNumber(data.activeUsers || 0)}
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Personnes ayant saisi au moins une séance sur les 30 derniers jours.
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent>
+                <p className="text-xs uppercase tracking-wide text-gray-500">
+                  Séances totales
+                </p>
+                <div className="text-3xl font-semibold">
+                  {formatNumber(data.totalSessions || 0)}
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Somme de toutes les séances enregistrées dans l&apos;application.
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent>
+                <p className="text-xs uppercase tracking-wide text-gray-500">
+                  Connexions (30 jours)
+                </p>
+                <div className="text-3xl font-semibold">
+                  {formatNumber(data.totalLogins || 0)}
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Nombre de connexions uniques sur les 30 derniers jours.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card>
+            <CardContent className="space-y-4">
+              <div>
+                <h4 className="font-semibold">📊 Connexions par jour</h4>
+                <p className="text-sm text-gray-500">
+                  Courbe d&apos;évolution des connexions quotidiennes.
+                </p>
+              </div>
+              <div className="h-[280px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={data.loginsDaily || []}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+                    <XAxis dataKey="date" tick={{ fill: axisColor }} />
+                    <YAxis tick={{ fill: axisColor }} allowDecimals={false} />
+                    <Tooltip content={<BlackTooltip />} />
+                    <Line type="monotone" dataKey="count" stroke="#22c55e" strokeWidth={3} dot />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        </>
+      )}
     </div>
   );
 }
