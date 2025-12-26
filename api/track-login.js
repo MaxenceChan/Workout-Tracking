@@ -23,20 +23,16 @@ export default async function handler(req, res) {
 
     const date = formatDate(new Date());
     const db = admin.firestore();
-    const ref = db.collection("logins").doc(`${uid}_${date}`);
+    const ref = db.collection("logins").doc();
     const payload = {
       user_id: uid,
       user_email: email,
       date,
+      created_at: admin.firestore.FieldValue.serverTimestamp(),
       updated_at: admin.firestore.FieldValue.serverTimestamp(),
     };
 
-    const snap = await ref.get();
-    if (!snap.exists) {
-      payload.created_at = admin.firestore.FieldValue.serverTimestamp();
-    }
-
-    await ref.set(payload, { merge: true });
+    await ref.set(payload);
 
     return res.status(200).json({ ok: true });
   } catch (error) {

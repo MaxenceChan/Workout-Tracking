@@ -4444,7 +4444,7 @@ function TractionSection({ user }) {
                   {formatNumber(data.totalLogins || 0)}
                 </div>
                 <p className="text-xs text-gray-500 mt-1">
-                  Nombre de consultations uniques sur les 30 derniers jours.
+                  Nombre de consultations totales sur les 30 derniers jours.
                 </p>
               </CardContent>
             </Card>
@@ -4455,7 +4455,7 @@ function TractionSection({ user }) {
               <div>
                 <h4 className="font-semibold">📊 Consultations par jour</h4>
                 <p className="text-sm text-gray-500">
-                  Courbe d&apos;évolution des consultations quotidiennes.
+                  Courbe d&apos;évolution des consultations totales par jour.
                 </p>
               </div>
               <div className="h-[280px]">
