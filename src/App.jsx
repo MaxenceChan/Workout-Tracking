@@ -2634,14 +2634,14 @@ function Analytics({ sessions, sessionTemplates = [] }) {
             </div>
 
             <div className="overflow-x-auto">
-              <table className="min-w-full text-sm">
+              <table className="w-full table-fixed text-xs sm:text-sm">
                 <thead>
                   <tr className="text-left border-b">
-                    <th className="py-2 pr-4">
+                    <th className="py-2 pr-4 whitespace-normal align-top">
                       <button
                         type="button"
                         onClick={() => toggleProgressSort(setTypeProgressSort, "label")}
-                        className="inline-flex items-center gap-1 font-semibold"
+                        className="inline-flex items-center gap-1 font-semibold whitespace-normal text-left"
                       >
                         Type de séance
                         <span aria-hidden="true">
@@ -2649,13 +2649,13 @@ function Analytics({ sessions, sessionTemplates = [] }) {
                         </span>
                       </button>
                     </th>
-                    <th className="py-2 pr-4">
+                    <th className="py-2 pr-4 whitespace-normal align-top">
                       <button
                         type="button"
                         onClick={() =>
                           toggleProgressSort(setTypeProgressSort, "sessionCount")
                         }
-                        className="inline-flex items-center gap-1 font-semibold"
+                        className="inline-flex items-center gap-1 font-semibold whitespace-normal text-left"
                       >
                         Nombre de séances
                         <span aria-hidden="true">
@@ -2663,11 +2663,11 @@ function Analytics({ sessions, sessionTemplates = [] }) {
                         </span>
                       </button>
                     </th>
-                    <th className="py-2 pr-4">
+                    <th className="py-2 pr-4 whitespace-normal align-top">
                       <button
                         type="button"
                         onClick={() => toggleProgressSort(setTypeProgressSort, "session1")}
-                        className="inline-flex items-center gap-1 font-semibold"
+                        className="inline-flex items-center gap-1 font-semibold whitespace-normal text-left"
                       >
                         Poids total séance 1
                         <span aria-hidden="true">
@@ -2675,11 +2675,11 @@ function Analytics({ sessions, sessionTemplates = [] }) {
                         </span>
                       </button>
                     </th>
-                    <th className="py-2 pr-4">
+                    <th className="py-2 pr-4 whitespace-normal align-top">
                       <button
                         type="button"
                         onClick={() => toggleProgressSort(setTypeProgressSort, "session2")}
-                        className="inline-flex items-center gap-1 font-semibold"
+                        className="inline-flex items-center gap-1 font-semibold whitespace-normal text-left"
                       >
                         Poids total séance 2
                         <span aria-hidden="true">
@@ -2687,13 +2687,13 @@ function Analytics({ sessions, sessionTemplates = [] }) {
                         </span>
                       </button>
                     </th>
-                    <th className="py-2 pr-4">
+                    <th className="py-2 pr-4 whitespace-normal align-top">
                       <button
                         type="button"
                         onClick={() =>
                           toggleProgressSort(setTypeProgressSort, "progressPercent")
                         }
-                        className="inline-flex items-center gap-1 font-semibold"
+                        className="inline-flex items-center gap-1 font-semibold whitespace-normal text-left"
                       >
                         Progression %
                         <span aria-hidden="true">
@@ -2713,21 +2713,25 @@ function Analytics({ sessions, sessionTemplates = [] }) {
                   ) : (
                     typeProgressRows.map((row) => (
                       <tr key={row.label} className="border-b last:border-b-0">
-                        <td className="py-2 pr-4 font-medium">{row.label}</td>
-                        <td className="py-2 pr-4">{row.sessionCount}</td>
-                        <td className="py-2 pr-4">
+                        <td className="py-2 pr-4 font-medium break-words align-top">
+                          {row.label}
+                        </td>
+                        <td className="py-2 pr-4 break-words align-top">
+                          {row.sessionCount}
+                        </td>
+                        <td className="py-2 pr-4 break-words align-top">
                           {row.session1 !== null ? `${row.session1} kg` : "—"}
                           {row.session1Date && (
                             <div className="text-xs text-gray-500">{shortFR(row.session1Date)}</div>
                           )}
                         </td>
-                        <td className="py-2 pr-4">
+                        <td className="py-2 pr-4 break-words align-top">
                           {row.session2 !== null ? `${row.session2} kg` : "—"}
                           {row.session2Date && (
                             <div className="text-xs text-gray-500">{shortFR(row.session2Date)}</div>
                           )}
                         </td>
-                        <td className="py-2 pr-4">
+                        <td className="py-2 pr-4 break-words align-top">
                           {row.progressPercent !== null ? `${row.progressPercent.toFixed(1)}%` : "—"}
                         </td>
                       </tr>
@@ -2786,16 +2790,16 @@ function Analytics({ sessions, sessionTemplates = [] }) {
             </div>
 
             <div className="overflow-x-auto">
-              <table className="min-w-full text-sm">
+              <table className="w-full table-fixed text-xs sm:text-sm">
                 <thead>
                   <tr className="text-left border-b">
-                    <th className="py-2 pr-4">
+                    <th className="py-2 pr-4 whitespace-normal align-top">
                       <button
                         type="button"
                         onClick={() =>
                           toggleProgressSort(setExerciseProgressSort, "label")
                         }
-                        className="inline-flex items-center gap-1 font-semibold"
+                        className="inline-flex items-center gap-1 font-semibold whitespace-normal text-left"
                       >
                         Exercice
                         <span aria-hidden="true">
@@ -2803,13 +2807,13 @@ function Analytics({ sessions, sessionTemplates = [] }) {
                         </span>
                       </button>
                     </th>
-                    <th className="py-2 pr-4">
+                    <th className="py-2 pr-4 whitespace-normal align-top">
                       <button
                         type="button"
                         onClick={() =>
                           toggleProgressSort(setExerciseProgressSort, "sessionCount")
                         }
-                        className="inline-flex items-center gap-1 font-semibold"
+                        className="inline-flex items-center gap-1 font-semibold whitespace-normal text-left"
                       >
                         Nombre de séances
                         <span aria-hidden="true">
@@ -2817,13 +2821,13 @@ function Analytics({ sessions, sessionTemplates = [] }) {
                         </span>
                       </button>
                     </th>
-                    <th className="py-2 pr-4">
+                    <th className="py-2 pr-4 whitespace-normal align-top">
                       <button
                         type="button"
                         onClick={() =>
                           toggleProgressSort(setExerciseProgressSort, "session1")
                         }
-                        className="inline-flex items-center gap-1 font-semibold"
+                        className="inline-flex items-center gap-1 font-semibold whitespace-normal text-left"
                       >
                         Poids total séance 1
                         <span aria-hidden="true">
@@ -2831,13 +2835,13 @@ function Analytics({ sessions, sessionTemplates = [] }) {
                         </span>
                       </button>
                     </th>
-                    <th className="py-2 pr-4">
+                    <th className="py-2 pr-4 whitespace-normal align-top">
                       <button
                         type="button"
                         onClick={() =>
                           toggleProgressSort(setExerciseProgressSort, "session2")
                         }
-                        className="inline-flex items-center gap-1 font-semibold"
+                        className="inline-flex items-center gap-1 font-semibold whitespace-normal text-left"
                       >
                         Poids total séance 2
                         <span aria-hidden="true">
@@ -2845,7 +2849,7 @@ function Analytics({ sessions, sessionTemplates = [] }) {
                         </span>
                       </button>
                     </th>
-                    <th className="py-2 pr-4">
+                    <th className="py-2 pr-4 whitespace-normal align-top">
                       <button
                         type="button"
                         onClick={() =>
@@ -2854,7 +2858,7 @@ function Analytics({ sessions, sessionTemplates = [] }) {
                             "progressPercent"
                           )
                         }
-                        className="inline-flex items-center gap-1 font-semibold"
+                        className="inline-flex items-center gap-1 font-semibold whitespace-normal text-left"
                       >
                         Progression %
                         <span aria-hidden="true">
@@ -2874,21 +2878,25 @@ function Analytics({ sessions, sessionTemplates = [] }) {
                   ) : (
                     exerciseProgressRows.map((row) => (
                       <tr key={row.label} className="border-b last:border-b-0">
-                        <td className="py-2 pr-4 font-medium">{row.label}</td>
-                        <td className="py-2 pr-4">{row.sessionCount}</td>
-                        <td className="py-2 pr-4">
+                        <td className="py-2 pr-4 font-medium break-words align-top">
+                          {row.label}
+                        </td>
+                        <td className="py-2 pr-4 break-words align-top">
+                          {row.sessionCount}
+                        </td>
+                        <td className="py-2 pr-4 break-words align-top">
                           {row.session1 !== null ? `${row.session1} kg` : "—"}
                           {row.session1Date && (
                             <div className="text-xs text-gray-500">{shortFR(row.session1Date)}</div>
                           )}
                         </td>
-                        <td className="py-2 pr-4">
+                        <td className="py-2 pr-4 break-words align-top">
                           {row.session2 !== null ? `${row.session2} kg` : "—"}
                           {row.session2Date && (
                             <div className="text-xs text-gray-500">{shortFR(row.session2Date)}</div>
                           )}
                         </td>
-                        <td className="py-2 pr-4">
+                        <td className="py-2 pr-4 break-words align-top">
                           {row.progressPercent !== null ? `${row.progressPercent.toFixed(1)}%` : "—"}
                         </td>
                       </tr>
