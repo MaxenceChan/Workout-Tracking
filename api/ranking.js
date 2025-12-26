@@ -32,7 +32,7 @@ export default async function handler(req, res) {
     const tally = new Map();
     snapshot.forEach((docSnap) => {
       const data = docSnap.data() || {};
-      const identifier = data.user_email || data.user_id || "Utilisateur inconnu";
+      const identifier = data.user_email || "Email indisponible";
       tally.set(identifier, (tally.get(identifier) || 0) + 1);
     });
 
