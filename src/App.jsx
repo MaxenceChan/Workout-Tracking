@@ -641,7 +641,7 @@ function App() {
       </main>
     </div>
       <nav className="fixed bottom-0 left-0 right-0 z-20 border-t border-[#00634A] bg-white/95 backdrop-blur dark:bg-[#111111]/95 md:hidden">
-        <div className="mx-auto grid max-w-[1600px] grid-cols-4 gap-y-1 px-3 py-2">
+        <div className="mx-auto grid max-w-[1600px] grid-cols-5 gap-y-1 px-3 py-2">
           {mobileNavItems.map((item) => {
             const Icon = item.icon;
             const active = tab === item.value;
