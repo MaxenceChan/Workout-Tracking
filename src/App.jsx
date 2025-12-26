@@ -252,7 +252,7 @@ const EXERCISE_MUSCLE_MAP = new Map(
 );
 const formatMuscleLabel = (muscle) => MUSCLE_LABELS[muscle] || muscle.replace(/_/g, " ");
 
-const TRACTION_ALLOWED_EMAIL = "traction@workout-tracker.fr";
+const TRACTION_ALLOWED_EMAIL = "maxouchanou2005@gmail.com";
 const normalizeEmail = (email) => (email || "").trim().toLowerCase();
 const isTractionAuthorized = (email) =>
   normalizeEmail(email) === normalizeEmail(TRACTION_ALLOWED_EMAIL);
