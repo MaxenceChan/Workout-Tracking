@@ -1652,7 +1652,7 @@ const exportSessionAsImage = async () => {
 
     // 🟢 ANDROID → partage natif
     if (
-      !isIOS &&
+      isAndroid &&
       navigator.canShare &&
       navigator.canShare({ files: [new File([blob], fileName)] })
     ) {
