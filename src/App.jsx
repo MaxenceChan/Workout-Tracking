@@ -523,7 +523,7 @@ function App() {
   </div>
 </header>
 
-<div className="mx-auto flex max-w-[1600px] px-6 py-4 pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-4">
+<div className="mx-auto flex max-w-[1600px] px-6 py-4 pb-[calc(7.5rem+env(safe-area-inset-bottom))] md:pb-4">
     <aside
       className={cn(
         "hidden md:flex shrink-0 flex-col gap-2 rounded-2xl border bg-white dark:bg-[#007B5E] overflow-hidden transition-all duration-300 ease-out",
