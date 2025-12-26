@@ -2713,7 +2713,7 @@ function Analytics({ sessions, sessionTemplates = [] }) {
                   ) : (
                     typeProgressRows.map((row) => (
                       <tr key={row.label} className="border-b last:border-b-0">
-                        <td className="py-2 pr-4 font-medium break-words align-top">
+                        <td className="py-2 pr-4 font-medium whitespace-normal break-normal align-top">
                           {row.label}
                         </td>
                         <td className="py-2 pr-4 break-words align-top">
@@ -2878,7 +2878,7 @@ function Analytics({ sessions, sessionTemplates = [] }) {
                   ) : (
                     exerciseProgressRows.map((row) => (
                       <tr key={row.label} className="border-b last:border-b-0">
-                        <td className="py-2 pr-4 font-medium break-words align-top">
+                        <td className="py-2 pr-4 font-medium whitespace-normal break-normal align-top">
                           {row.label}
                         </td>
                         <td className="py-2 pr-4 break-words align-top">
