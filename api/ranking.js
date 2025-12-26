@@ -40,6 +40,7 @@ export default async function handler(req, res) {
     });
 
     const loginEmailByUserId = new Map();
+    const authEmailByUserId = new Map();
     const missingIds = Array.from(missingUserIds);
     const chunkSize = 10;
     for (let i = 0; i < missingIds.length; i += chunkSize) {
@@ -58,11 +59,26 @@ export default async function handler(req, res) {
       });
     }
 
+    const missingAuthIds = missingIds.filter((id) => !loginEmailByUserId.has(id));
+    const authChunkSize = 100;
+    for (let i = 0; i < missingAuthIds.length; i += authChunkSize) {
+      const chunk = missingAuthIds.slice(i, i + authChunkSize);
+      const authUsers = await admin
+        .auth()
+        .getUsers(chunk.map((uid) => ({ uid })));
+      authUsers.users.forEach((userRecord) => {
+        if (userRecord.uid && userRecord.email) {
+          authEmailByUserId.set(userRecord.uid, userRecord.email);
+        }
+      });
+    }
+
     const tally = new Map();
     rows.forEach((data) => {
       const identifier =
         data.user_email ||
         loginEmailByUserId.get(data.user_id)?.email ||
+        authEmailByUserId.get(data.user_id) ||
         "Email indisponible";
       tally.set(identifier, (tally.get(identifier) || 0) + 1);
     });
