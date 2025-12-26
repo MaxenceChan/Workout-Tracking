@@ -523,7 +523,7 @@ function App() {
   </div>
 </header>
 
-<div className="mx-auto flex max-w-[1600px] px-6 py-4 pb-24 md:pb-4">
+<div className="mx-auto flex max-w-[1600px] px-6 py-4 pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-4">
     <aside
       className={cn(
         "hidden md:flex shrink-0 flex-col gap-2 rounded-2xl border bg-white dark:bg-[#007B5E] overflow-hidden transition-all duration-300 ease-out",
@@ -640,7 +640,7 @@ function App() {
            </Tabs>
       </main>
     </div>
-      <nav className="fixed bottom-0 left-0 right-0 z-20 border-t border-[#00634A] bg-white/95 backdrop-blur dark:bg-[#111111]/95 md:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-20 border-t border-[#00634A] bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur dark:bg-[#111111]/95 md:hidden">
         <div className="mx-auto grid max-w-[1600px] grid-cols-5 gap-y-1 px-3 py-2">
           {mobileNavItems.map((item) => {
             const Icon = item.icon;
