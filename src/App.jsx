@@ -47,6 +47,7 @@ import {
   Footprints,
   Send,
   Sparkles,
+  Trophy,
 } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer,
@@ -307,13 +308,15 @@ async function upsertSessionTemplate(uid, tpl) {
   await batch.commit();
 }
 
-async function upsertSessions(uid, sessions) {
+async function upsertSessions(uid, sessions, userEmail) {
   const batch = writeBatch(db);
   sessions.forEach((s) => {
     const ref = doc(db, "sessions", s.id);
+    const resolvedEmail = s.user_email || userEmail;
     batch.set(ref, {
       ...s,
       user_id: uid,
+      ...(resolvedEmail ? { user_email: resolvedEmail } : {}),
       updated_at: new Date().toISOString(),
       created_at: s.created_at || new Date().toISOString(),
     }, { merge: true });
@@ -368,11 +371,12 @@ function App() {
       { value: "analytics", label: "Statistiques", shortLabel: "Stats", icon: BarChart3 },
       { value: "weight", label: "Suivi du poids", shortLabel: "Poids", icon: Scale },
       { value: "steps", label: "Suivi des pas", shortLabel: "Pas", icon: Footprints },
+      { value: "ranking", label: "Classement", shortLabel: "Classement", icon: Trophy },
     ],
     []
   );
   const mobileNavItems = useMemo(() => {
-    const order = ["tpl", "log", "sessions", "last", "analytics", "weight", "steps"];
+    const order = ["tpl", "log", "sessions", "last", "analytics", "weight", "steps", "ranking"];
     const byValue = new Map(navItems.map((item) => [item.value, item]));
     return order
       .map((value) => byValue.get(value))
@@ -549,7 +553,7 @@ function App() {
 </TabsContent>
 
 <TabsContent value="sessions" className="mt-3 sm:mt-4">
-<SessionList
+  <SessionList
   user={user}
   sessions={data.sessions}
   onDelete={async (id) => {
@@ -565,7 +569,7 @@ function App() {
     }
   }}
   onEdit={async (s) => {
-    await upsertSessions(user.id, [s]);
+    await upsertSessions(user.id, [s], user.email);
   }}
   setTab={setTab}   // 👈 ajouté ici
 
@@ -591,6 +595,9 @@ function App() {
 </TabsContent>
 <TabsContent value="steps" className="mt-3 sm:mt-4">
   <StepsTracker user={user} />
+</TabsContent>
+<TabsContent value="ranking" className="mt-3 sm:mt-4">
+  <RankingSection />
 </TabsContent>
            </Tabs>
       </main>
@@ -1259,10 +1266,11 @@ useEffect(() => {
       createdAt: new Date().toISOString(),
       totalDuration,
       exerciseDurations,
+      user_email: user.email,
     };
 
     try {
-      await upsertSessions(user.id, [session]);
+      await upsertSessions(user.id, [session], user.email);
     } catch (e) {
       console.error(e);
       alert("Impossible d’enregistrer sur le cloud : " + (e?.message || e));
@@ -4132,6 +4140,148 @@ const BlackTooltip = ({ active, payload, label }) => {
     </div>
   );
 };
+
+// ───────────────────────────────────────────────
+// Classement des séances
+// ───────────────────────────────────────────────
+function RankingSection() {
+  const [sessions, setSessions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const q = query(collection(db, "sessions"));
+    const unsubscribe = onSnapshot(
+      q,
+      (snap) => {
+        setSessions(snap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })));
+        setLoading(false);
+      },
+      (err) => {
+        console.error("Erreur classement:", err);
+        setError(err);
+        setLoading(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, []);
+
+  const todayMonth = todayISO().slice(0, 7);
+
+  const firstMonth = useMemo(() => {
+    if (!sessions.length) return todayMonth;
+    const months = sessions
+      .map((session) => (session.date || session.created_at || "").slice(0, 7))
+      .filter(Boolean)
+      .sort();
+    return months[0] || todayMonth;
+  }, [sessions, todayMonth]);
+
+  const [monthStart, setMonthStart] = useState(firstMonth);
+  const [monthEnd, setMonthEnd] = useState(todayMonth);
+
+  useEffect(() => {
+    setMonthStart(firstMonth);
+    setMonthEnd(todayMonth);
+  }, [firstMonth, todayMonth]);
+
+  const filteredSessions = useMemo(() => {
+    return sessions.filter((session) => {
+      const dateValue = session.date || session.created_at || "";
+      if (!dateValue) return false;
+      const month = dateValue.slice(0, 7);
+      return month >= monthStart && month <= monthEnd;
+    });
+  }, [sessions, monthStart, monthEnd]);
+
+  const rankingRows = useMemo(() => {
+    const tally = new Map();
+    filteredSessions.forEach((session) => {
+      const email = session.user_email || session.user_id || "Utilisateur inconnu";
+      tally.set(email, (tally.get(email) || 0) + 1);
+    });
+    return Array.from(tally.entries())
+      .map(([email, count]) => ({ email, count }))
+      .sort((a, b) => b.count - a.count || a.email.localeCompare(b.email));
+  }, [filteredSessions]);
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardContent>
+          <h3 className="font-semibold text-lg">🏆 Classement des séances</h3>
+          <p className="text-sm text-gray-500 mt-1">
+            Classement des personnes ayant enregistré le plus de séances.
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <Label>Mois de début</Label>
+            <Input
+              type="month"
+              value={monthStart}
+              min={firstMonth}
+              max={monthEnd}
+              onChange={(e) => setMonthStart(e.target.value)}
+            />
+          </div>
+          <div>
+            <Label>Mois de fin</Label>
+            <Input
+              type="month"
+              value={monthEnd}
+              min={monthStart}
+              max={todayMonth}
+              onChange={(e) => setMonthEnd(e.target.value)}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent>
+          {loading && <p className="text-sm text-gray-500">Chargement du classement…</p>}
+          {!loading && error && (
+            <p className="text-sm text-red-500">
+              Impossible de charger le classement. Réessaie plus tard.
+            </p>
+          )}
+          {!loading && !error && rankingRows.length === 0 && (
+            <p className="text-sm text-gray-500">
+              Aucune séance sur la période sélectionnée.
+            </p>
+          )}
+          {!loading && !error && rankingRows.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr className="text-left text-gray-500 border-b">
+                    <th className="py-2 pr-4 font-medium">#</th>
+                    <th className="py-2 pr-4 font-medium">Email</th>
+                    <th className="py-2 font-medium">Séances</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rankingRows.map((row, index) => (
+                    <tr key={row.email} className="border-b last:border-b-0">
+                      <td className="py-2 pr-4 font-semibold">{index + 1}</td>
+                      <td className="py-2 pr-4">{row.email}</td>
+                      <td className="py-2 font-semibold">{formatNumber(row.count)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
 
 // ───────────────────────────────────────────────
 // Suivi des pas (Google Fit)
