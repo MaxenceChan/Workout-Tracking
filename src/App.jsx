@@ -359,20 +359,43 @@ function App() {
   const [tab, setTab] = useState("log");
   const [user, setUser] = useState(undefined);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const tractionEmail = "maxouchanou2005@gmail.com";
+  const isTractionUser =
+    user?.email?.toLowerCase() === tractionEmail.toLowerCase();
   const navItems = useMemo(
-    () => [
-      { value: "tpl", label: "Séances pré-créées", shortLabel: "Séances", icon: ClipboardList },
-      { value: "log", label: "Saisir une séance", shortLabel: "Saisie", icon: Plus },
-      { value: "sessions", label: "Historique", shortLabel: "Historique", icon: History },
-      { value: "last", label: "Dernière séance", shortLabel: "Dernière", icon: Clock },
-      { value: "analytics", label: "Statistiques", shortLabel: "Stats", icon: BarChart3 },
-      { value: "weight", label: "Suivi du poids", shortLabel: "Poids", icon: Scale },
-      { value: "steps", label: "Suivi des pas", shortLabel: "Pas", icon: Footprints },
-    ],
-    []
+    () => {
+      const base = [
+        { value: "tpl", label: "Séances pré-créées", shortLabel: "Séances", icon: ClipboardList },
+        { value: "log", label: "Saisir une séance", shortLabel: "Saisie", icon: Plus },
+        { value: "sessions", label: "Historique", shortLabel: "Historique", icon: History },
+        { value: "last", label: "Dernière séance", shortLabel: "Dernière", icon: Clock },
+        { value: "analytics", label: "Statistiques", shortLabel: "Stats", icon: BarChart3 },
+        { value: "weight", label: "Suivi du poids", shortLabel: "Poids", icon: Scale },
+        { value: "steps", label: "Suivi des pas", shortLabel: "Pas", icon: Footprints },
+      ];
+      if (isTractionUser) {
+        base.splice(5, 0, {
+          value: "traction",
+          label: "Traction",
+          shortLabel: "Traction",
+          icon: BarChart3,
+        });
+      }
+      return base;
+    },
+    [isTractionUser]
   );
   const mobileNavItems = useMemo(() => {
-    const order = ["tpl", "log", "sessions", "last", "analytics", "weight", "steps"];
+    const order = [
+      "tpl",
+      "log",
+      "sessions",
+      "last",
+      "analytics",
+      isTractionUser ? "traction" : null,
+      "weight",
+      "steps",
+    ].filter(Boolean);
     const byValue = new Map(navItems.map((item) => [item.value, item]));
     return order
       .map((value) => byValue.get(value))
@@ -384,6 +407,12 @@ function App() {
   const handleTabChange = (value) => {
     setTab(value);
   };
+
+  useEffect(() => {
+    if (!isTractionUser && tab === "traction") {
+      setTab("log");
+    }
+  }, [isTractionUser, tab]);
 
   useEffect(() => {
     let unsubscribeSessions = null;
@@ -577,6 +606,18 @@ function App() {
 <TabsContent value="analytics" className="mt-3 sm:mt-4">
   <Analytics sessions={data.sessions} sessionTemplates={data.sessionTemplates} />
 </TabsContent>
+
+{isTractionUser && (
+  <TabsContent value="traction" className="mt-3 sm:mt-4">
+    <div className="rounded-2xl border bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#0f0f0f]">
+      <h2 className="text-lg font-semibold">Traction</h2>
+      <p className="mt-2 text-sm text-gray-600 dark:text-white/70">
+        Espace réservé aux métriques de traction. Ajoutez ici vos indicateurs
+        clés (MAU, rétention, revenus, etc.).
+      </p>
+    </div>
+  </TabsContent>
+)}
 
 <TabsContent value="last" className="mt-3 sm:mt-4">
   <LastSession sessions={data.sessions} />
