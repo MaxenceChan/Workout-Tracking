@@ -4438,13 +4438,13 @@ function TractionSection({ user }) {
             <Card>
               <CardContent>
                 <p className="text-xs uppercase tracking-wide text-gray-500">
-                  Connexions (30 jours)
+                  Consultations (30 jours)
                 </p>
                 <div className="text-3xl font-semibold">
                   {formatNumber(data.totalLogins || 0)}
                 </div>
                 <p className="text-xs text-gray-500 mt-1">
-                  Nombre de connexions uniques sur les 30 derniers jours.
+                  Nombre de consultations uniques sur les 30 derniers jours.
                 </p>
               </CardContent>
             </Card>
@@ -4453,9 +4453,9 @@ function TractionSection({ user }) {
           <Card>
             <CardContent className="space-y-4">
               <div>
-                <h4 className="font-semibold">📊 Connexions par jour</h4>
+                <h4 className="font-semibold">📊 Consultations par jour</h4>
                 <p className="text-sm text-gray-500">
-                  Courbe d&apos;évolution des connexions quotidiennes.
+                  Courbe d&apos;évolution des consultations quotidiennes.
                 </p>
               </div>
               <div className="h-[280px]">
