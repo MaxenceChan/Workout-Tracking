@@ -4,5 +4,19 @@
       "path": "/api/steps",
       "schedule": "15 1 * * *"
     }
+  ],
+  "rewrites": [
+    {
+      "source": "/privacy",
+      "destination": "/"
+    },
+    {
+      "source": "/login",
+      "destination": "/"
+    },
+    {
+      "source": "/((?!api(?:/|$)).*)",
+      "destination": "/"
+    }
   ]
 }

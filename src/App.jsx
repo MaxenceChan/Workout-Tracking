@@ -367,6 +367,7 @@ function App() {
   const [tab, setTab] = useState("log");
   const [user, setUser] = useState(undefined);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [route, setRoute] = useState(() => window.location.pathname);
   const tractionAuthorized = isTractionAuthorized(user?.email);
   const navItems = useMemo(
     () => [
@@ -397,6 +398,18 @@ function App() {
   const handleTabChange = (value) => {
     setTab(value);
   };
+
+  const navigate = (path) => {
+    if (window.location.pathname === path) return;
+    window.history.pushState({}, "", path);
+    setRoute(path);
+  };
+
+  useEffect(() => {
+    const handlePopState = () => setRoute(window.location.pathname);
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
 
   useEffect(() => {
     if (tab === "traction" && !tractionAuthorized) {
@@ -473,8 +486,20 @@ function App() {
     trackLogin();
   }, [user?.id]);
 
-  if (user === undefined) return <div className="min-h-screen grid place-items-center text-gray-600">Chargement…</div>;
-  if (user === null) return <AuthScreen />;
+  if (route === "/privacy") {
+    return <PrivacyPolicy onBack={() => navigate("/")} />;
+  }
+
+  if (user === undefined) {
+    return <div className="min-h-screen grid place-items-center text-gray-600">Chargement…</div>;
+  }
+
+  if (user === null) {
+    if (route === "/login") {
+      return <AuthScreen onBack={() => navigate("/")} />;
+    }
+    return <PublicHome onLogin={() => navigate("/login")} />;
+  }
 
   return (
 <div className="min-h-screen w-full bg-gray-50 dark:bg-[#1c1c1c] text-gray-900 dark:bg-[#0d0d0d] dark:text-white transition-colors duration-300">
@@ -1141,9 +1166,182 @@ function ChatbotSection({ sessions, user }) {
 }
 
 // ───────────────────────────────────────────────────────────────
+// Public landing
+// ───────────────────────────────────────────────────────────────
+function PublicHome({ onLogin }) {
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-[#0d0d0d] text-gray-900 dark:text-white">
+      <div className="mx-auto flex min-h-screen max-w-5xl flex-col gap-8 px-6 py-10">
+        <header className="flex flex-col gap-3">
+          <div className="flex items-center gap-3">
+            <img
+              src={headerGif}
+              alt="Workout Tracker"
+              className="h-12 w-12 object-contain"
+            />
+            <div>
+              <p className="text-xs uppercase tracking-[0.3em] text-gray-500">
+                Workout Tracker
+              </p>
+              <h1 className="text-3xl font-bold sm:text-4xl">
+                Suivi des entraînements et de la progression.
+              </h1>
+            </div>
+          </div>
+          <p className="max-w-2xl text-sm text-gray-600 dark:text-gray-300">
+            Consultez votre historique, suivez votre poids, vos pas et découvrez
+            les statistiques clés de vos séances. Cette page reste accessible
+            sans compte afin de présenter l&apos;application.
+          </p>
+        </header>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Card>
+            <CardContent className="space-y-2">
+              <h2 className="text-lg font-semibold">📒 Historique clair</h2>
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                Enregistrez vos séances, vos séries et conservez votre évolution
+                sur le long terme.
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="space-y-2">
+              <h2 className="text-lg font-semibold">📊 Analyses utiles</h2>
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                Des graphiques pour visualiser votre volume d&apos;entraînement,
+                votre fréquence et vos tendances.
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="space-y-2">
+              <h2 className="text-lg font-semibold">🚶 Suivi quotidien</h2>
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                Synchronisez vos pas, suivez votre poids et centralisez vos
+                habitudes sportives.
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="space-y-2">
+              <h2 className="text-lg font-semibold">🔒 Données protégées</h2>
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                Consultez la politique de confidentialité pour comprendre la
+                collecte et l&apos;utilisation des données.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="flex flex-col gap-4 rounded-2xl border bg-white p-6 shadow-sm dark:bg-[#1c1c1c]">
+          <div>
+            <h3 className="text-lg font-semibold">Accéder à votre compte</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              Connectez-vous pour saisir vos séances et accéder à toutes les
+              fonctionnalités.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button onClick={onLogin}>Se connecter</Button>
+            <a
+              href="/privacy"
+              className="text-sm font-medium text-blue-600 hover:underline"
+            >
+              Lire la politique de confidentialité
+            </a>
+          </div>
+        </div>
+
+        <footer className="mt-auto text-xs text-gray-500">
+          <a href="/privacy" className="hover:underline">
+            Politique de confidentialité
+          </a>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
+// ───────────────────────────────────────────────
+// Privacy policy
+// ───────────────────────────────────────────────
+function PrivacyPolicy({ onBack }) {
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-[#0d0d0d] text-gray-900 dark:text-white">
+      <div className="mx-auto flex min-h-screen max-w-4xl flex-col gap-6 px-6 py-10">
+        <header className="space-y-2">
+          <p className="text-xs uppercase tracking-[0.3em] text-gray-500">
+            Workout Tracker
+          </p>
+          <h1 className="text-3xl font-bold">Politique de confidentialité</h1>
+          <p className="text-sm text-gray-600 dark:text-gray-300">
+            Dernière mise à jour : 25 septembre 2024
+          </p>
+        </header>
+
+        <Card>
+          <CardContent className="space-y-4 text-sm text-gray-700 dark:text-gray-200">
+            <section className="space-y-2">
+              <h2 className="text-base font-semibold">Données collectées</h2>
+              <ul className="list-disc space-y-1 pl-5">
+                <li>Email et informations de compte pour l&apos;authentification.</li>
+                <li>Données de séances : exercices, séries, poids, répétitions.</li>
+                <li>Données de suivi (poids, pas) si vous connectez Google Fit.</li>
+              </ul>
+            </section>
+
+            <section className="space-y-2">
+              <h2 className="text-base font-semibold">Utilisation des données</h2>
+              <ul className="list-disc space-y-1 pl-5">
+                <li>Fournir le suivi des entraînements et des statistiques.</li>
+                <li>Améliorer l&apos;expérience et sécuriser l&apos;accès.</li>
+                <li>Mesurer l&apos;activité globale (ex. consultations).</li>
+              </ul>
+            </section>
+
+            <section className="space-y-2">
+              <h2 className="text-base font-semibold">Partage des données</h2>
+              <p>
+                Vos données ne sont pas vendues. Elles peuvent être traitées par
+                des services tiers nécessaires au fonctionnement (Firebase,
+                Google Fit) et respectant leurs propres politiques.
+              </p>
+            </section>
+
+            <section className="space-y-2">
+              <h2 className="text-base font-semibold">Vos choix</h2>
+              <p>
+                Vous pouvez modifier ou supprimer vos données depuis
+                l&apos;application. Pour toute demande, contactez&nbsp;:
+                <a
+                  className="ml-1 text-blue-600 hover:underline"
+                  href="mailto:contact@workout-tracker.app"
+                >
+                  contact@workout-tracker.app
+                </a>
+              </p>
+            </section>
+          </CardContent>
+        </Card>
+
+        <div className="flex items-center gap-3">
+          <Button variant="secondary" onClick={onBack}>
+            Retour à l&apos;accueil
+          </Button>
+          <a href="/login" className="text-sm font-medium text-blue-600 hover:underline">
+            Se connecter
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ───────────────────────────────────────────────────────────────
 // Auth screen (responsive login / register)
 // ───────────────────────────────────────────────────────────────
-function AuthScreen() {
+function AuthScreen({ onBack }) {
   const [mode, setMode] = useState("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -1216,23 +1414,23 @@ function AuthScreen() {
             </Button>
           </form>
           <Button
-  variant="ghost"
-  className="w-full text-xs sm:text-sm text-blue-600 hover:underline"
-  onClick={async () => {
-    if (!email) {
-      alert("Entre ton email pour réinitialiser le mot de passe.");
-      return;
-    }
-    try {
-      await resetPassword(email);
-      alert("Un email de réinitialisation a été envoyé à " + email);
-    } catch (err) {
-      alert("Erreur : " + (err.message || err));
-    }
-  }}
->
-  Mot de passe oublié ?
-</Button>
+            variant="ghost"
+            className="w-full text-xs sm:text-sm text-blue-600 hover:underline"
+            onClick={async () => {
+              if (!email) {
+                alert("Entre ton email pour réinitialiser le mot de passe.");
+                return;
+              }
+              try {
+                await resetPassword(email);
+                alert("Un email de réinitialisation a été envoyé à " + email);
+              } catch (err) {
+                alert("Erreur : " + (err.message || err));
+              }
+            }}
+          >
+            Mot de passe oublié ?
+          </Button>
 
           <div className="relative">
             <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
@@ -1248,6 +1446,15 @@ function AuthScreen() {
           >
             Continuer avec Google
           </Button>
+
+          <div className="flex items-center justify-between text-xs text-gray-500">
+            <a href="/privacy" className="hover:underline">Politique de confidentialité</a>
+            {onBack && (
+              <button type="button" onClick={onBack} className="hover:underline">
+                Retour
+              </button>
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>
