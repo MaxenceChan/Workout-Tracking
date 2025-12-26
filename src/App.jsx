@@ -2108,6 +2108,12 @@ function Analytics({ sessions, sessionTemplates = [] }) {
     key: "label",
     direction: "asc",
   });
+  const exerciseProgressSessions = useMemo(() => {
+    if (exerciseTemplateFilter === "LIBRE") {
+      return sessions.filter((s) => (s.type || "Libre") === "Libre");
+    }
+    return sessions;
+  }, [exerciseTemplateFilter, sessions]);
   const toggleProgressSort = (setSort, key) => {
     setSort((prev) => ({
       key,
@@ -2118,11 +2124,19 @@ function Analytics({ sessions, sessionTemplates = [] }) {
     sortState.key === key ? (sortState.direction === "asc" ? "▲" : "▼") : "↕";
 
   const typeProgressRows = useMemo(() => {
+    const sessionsInRange = filterSessionsByMonthRange(
+      sessions,
+      typeMonthStart,
+      typeMonthEnd
+    );
     const rows = allTypes
       .filter((type) => type && type.toLowerCase() !== "libre")
       .map((type) => {
         const first = getFirstSessionByType(sessions, type, typeMonthStart);
         const last = getLastSessionByType(sessions, type, typeMonthEnd);
+        const sessionCount = sessionsInRange.filter(
+          (session) => (session.type || "Libre") === type
+        ).length;
       const session1 = first ? Math.round(computeSessionTonnage(first)) : null;
       const session2 = last ? Math.round(computeSessionTonnage(last)) : null;
       const progressPercent =
@@ -2131,6 +2145,7 @@ function Analytics({ sessions, sessionTemplates = [] }) {
           : null;
       return {
         label: type,
+        sessionCount,
         session1,
         session1Date: first?.date || null,
         session2,
@@ -2164,6 +2179,12 @@ function Analytics({ sessions, sessionTemplates = [] }) {
 
   const exerciseProgressExercises = useMemo(() => {
     if (exerciseTemplateFilter === "ALL") return allExercises;
+    if (exerciseTemplateFilter === "LIBRE") {
+      const libreExercises = sessions
+        .filter((session) => (session.type || "Libre") === "Libre")
+        .flatMap((session) => session.exercises.map((ex) => ex.name));
+      return Array.from(new Set(libreExercises));
+    }
     if (exerciseTemplateFilter === "OTHERS") {
       return allExercises.filter((exercise) => !templateExerciseSet.has(exercise));
     }
@@ -2174,16 +2195,33 @@ function Analytics({ sessions, sessionTemplates = [] }) {
   }, [
     allExercises,
     exerciseTemplateFilter,
+    sessions,
     sessionTemplates,
     templateExerciseSet,
   ]);
 
   const exerciseProgressRows = useMemo(() => {
     const getSessionKey = (session) => session?.id || session?.date || "";
+    const sessionsInRange = filterSessionsByMonthRange(
+      exerciseProgressSessions,
+      exerciseMonthStart,
+      exerciseMonthEnd
+    );
     const rows = exerciseProgressExercises
       .map((exercise) => {
-        const first = getFirstSessionByExercise(sessions, exercise, exerciseMonthStart);
-        const last = getLastSessionByExercise(sessions, exercise, exerciseMonthEnd);
+        const first = getFirstSessionByExercise(
+          exerciseProgressSessions,
+          exercise,
+          exerciseMonthStart
+        );
+        const last = getLastSessionByExercise(
+          exerciseProgressSessions,
+          exercise,
+          exerciseMonthEnd
+        );
+      const sessionCount = sessionsInRange.filter((session) =>
+        session.exercises.some((ex) => ex.name === exercise)
+      ).length;
       const session1 = first ? Math.round(computeExerciseTonnageInSession(first, exercise)) : null;
       const session2 = last ? Math.round(computeExerciseTonnageInSession(last, exercise)) : null;
       const progressPercent =
@@ -2192,6 +2230,7 @@ function Analytics({ sessions, sessionTemplates = [] }) {
           : null;
       return {
         label: exercise,
+        sessionCount,
         session1,
         session1Date: first?.date || null,
         session1Key: getSessionKey(first),
@@ -2226,7 +2265,7 @@ function Analytics({ sessions, sessionTemplates = [] }) {
     return rows.sort(compare);
   }, [
     exerciseProgressExercises,
-    sessions,
+    exerciseProgressSessions,
     exerciseMonthStart,
     exerciseMonthEnd,
     exerciseProgressSort,
@@ -2613,6 +2652,20 @@ function Analytics({ sessions, sessionTemplates = [] }) {
                     <th className="py-2 pr-4">
                       <button
                         type="button"
+                        onClick={() =>
+                          toggleProgressSort(setTypeProgressSort, "sessionCount")
+                        }
+                        className="inline-flex items-center gap-1 font-semibold"
+                      >
+                        Nombre de séances
+                        <span aria-hidden="true">
+                          {sortIndicator(typeProgressSort, "sessionCount")}
+                        </span>
+                      </button>
+                    </th>
+                    <th className="py-2 pr-4">
+                      <button
+                        type="button"
                         onClick={() => toggleProgressSort(setTypeProgressSort, "session1")}
                         className="inline-flex items-center gap-1 font-semibold"
                       >
@@ -2653,7 +2706,7 @@ function Analytics({ sessions, sessionTemplates = [] }) {
                 <tbody>
                   {typeProgressRows.length === 0 ? (
                     <tr>
-                      <td className="py-3 text-gray-500" colSpan={4}>
+                      <td className="py-3 text-gray-500" colSpan={5}>
                         Aucun type de séance disponible.
                       </td>
                     </tr>
@@ -2661,6 +2714,7 @@ function Analytics({ sessions, sessionTemplates = [] }) {
                     typeProgressRows.map((row) => (
                       <tr key={row.label} className="border-b last:border-b-0">
                         <td className="py-2 pr-4 font-medium">{row.label}</td>
+                        <td className="py-2 pr-4">{row.sessionCount}</td>
                         <td className="py-2 pr-4">
                           {row.session1 !== null ? `${row.session1} kg` : "—"}
                           {row.session1Date && (
@@ -2724,6 +2778,7 @@ function Analytics({ sessions, sessionTemplates = [] }) {
                         {template.name}
                       </option>
                     ))}
+                    <option value="LIBRE">Séances libres</option>
                     <option value="OTHERS">Autres exercices</option>
                   </select>
                 </div>
@@ -2745,6 +2800,20 @@ function Analytics({ sessions, sessionTemplates = [] }) {
                         Exercice
                         <span aria-hidden="true">
                           {sortIndicator(exerciseProgressSort, "label")}
+                        </span>
+                      </button>
+                    </th>
+                    <th className="py-2 pr-4">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          toggleProgressSort(setExerciseProgressSort, "sessionCount")
+                        }
+                        className="inline-flex items-center gap-1 font-semibold"
+                      >
+                        Nombre de séances
+                        <span aria-hidden="true">
+                          {sortIndicator(exerciseProgressSort, "sessionCount")}
                         </span>
                       </button>
                     </th>
@@ -2798,7 +2867,7 @@ function Analytics({ sessions, sessionTemplates = [] }) {
                 <tbody>
                   {exerciseProgressRows.length === 0 ? (
                     <tr>
-                      <td className="py-3 text-gray-500" colSpan={4}>
+                      <td className="py-3 text-gray-500" colSpan={5}>
                         Aucun exercice disponible.
                       </td>
                     </tr>
@@ -2806,6 +2875,7 @@ function Analytics({ sessions, sessionTemplates = [] }) {
                     exerciseProgressRows.map((row) => (
                       <tr key={row.label} className="border-b last:border-b-0">
                         <td className="py-2 pr-4 font-medium">{row.label}</td>
+                        <td className="py-2 pr-4">{row.sessionCount}</td>
                         <td className="py-2 pr-4">
                           {row.session1 !== null ? `${row.session1} kg` : "—"}
                           {row.session1Date && (
@@ -3250,6 +3320,19 @@ function getMonthKey(dateStr) {
 function filterSessionsByMonth(sessions, month) {
   if (!month) return sessions;
   return sessions.filter((s) => getMonthKey(s.date) === month);
+}
+
+function filterSessionsByMonthRange(sessions, monthStart = "", monthEnd = "") {
+  if (!monthStart && !monthEnd) return sessions;
+  const start = monthStart || monthEnd;
+  const end = monthEnd || monthStart;
+  const min = start <= end ? start : end;
+  const max = start <= end ? end : start;
+  return sessions.filter((s) => {
+    const key = getMonthKey(s.date);
+    if (!key) return false;
+    return key >= min && key <= max;
+  });
 }
 
 function getFirstSessionByType(sessions, type, month = "") {
