@@ -603,7 +603,7 @@ function App() {
       </main>
     </div>
       <nav className="fixed bottom-0 left-0 right-0 z-20 border-t border-[#00634A] bg-white/95 backdrop-blur dark:bg-[#111111]/95 md:hidden">
-        <div className="mx-auto flex max-w-[1600px] items-center justify-between px-3 py-2">
+        <div className="mx-auto grid max-w-[1600px] grid-cols-4 gap-y-1 px-3 py-2">
           {mobileNavItems.map((item) => {
             const Icon = item.icon;
             const active = tab === item.value;
@@ -612,7 +612,7 @@ function App() {
                 key={item.value}
                 onClick={() => handleTabChange(item.value)}
                 className={cn(
-                  "flex flex-1 flex-col items-center gap-1 rounded-lg px-2 py-2 text-[11px] font-medium transition",
+                  "flex w-full flex-col items-center gap-1 rounded-lg px-2 py-2 text-[11px] font-medium transition",
                   active
                     ? "text-gray-900 dark:text-white"
                     : "text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
@@ -4145,66 +4145,53 @@ const BlackTooltip = ({ active, payload, label }) => {
 // Classement des séances
 // ───────────────────────────────────────────────
 function RankingSection() {
-  const [sessions, setSessions] = useState([]);
+  const [rankingRows, setRankingRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [firstMonth, setFirstMonth] = useState("");
+  const [lastMonth, setLastMonth] = useState("");
+
+  const todayMonth = todayISO().slice(0, 7);
+
+  const [monthStart, setMonthStart] = useState("");
+  const [monthEnd, setMonthEnd] = useState("");
 
   useEffect(() => {
-    const q = query(collection(db, "sessions"));
-    const unsubscribe = onSnapshot(
-      q,
-      (snap) => {
-        setSessions(snap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })));
+    let active = true;
+    const loadRanking = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const params = new URLSearchParams();
+        if (monthStart) params.set("monthStart", monthStart);
+        if (monthEnd) params.set("monthEnd", monthEnd);
+        const res = await fetch(`/api/ranking${params.toString() ? `?${params}` : ""}`);
+        if (!res.ok) {
+          throw new Error(`Erreur serveur (${res.status})`);
+        }
+        const payload = await res.json();
+        if (!active) return;
+        setRankingRows(payload.rows || []);
+        const resolvedFirst = payload.minMonth || todayMonth;
+        const resolvedLast = payload.maxMonth || todayMonth;
+        setFirstMonth(resolvedFirst);
+        setLastMonth(resolvedLast);
+        if (!monthStart) setMonthStart(resolvedFirst);
+        if (!monthEnd) setMonthEnd(resolvedLast);
         setLoading(false);
-      },
-      (err) => {
+      } catch (err) {
+        if (!active) return;
         console.error("Erreur classement:", err);
         setError(err);
         setLoading(false);
       }
-    );
+    };
 
-    return () => unsubscribe();
-  }, []);
-
-  const todayMonth = todayISO().slice(0, 7);
-
-  const firstMonth = useMemo(() => {
-    if (!sessions.length) return todayMonth;
-    const months = sessions
-      .map((session) => (session.date || session.created_at || "").slice(0, 7))
-      .filter(Boolean)
-      .sort();
-    return months[0] || todayMonth;
-  }, [sessions, todayMonth]);
-
-  const [monthStart, setMonthStart] = useState(firstMonth);
-  const [monthEnd, setMonthEnd] = useState(todayMonth);
-
-  useEffect(() => {
-    setMonthStart(firstMonth);
-    setMonthEnd(todayMonth);
-  }, [firstMonth, todayMonth]);
-
-  const filteredSessions = useMemo(() => {
-    return sessions.filter((session) => {
-      const dateValue = session.date || session.created_at || "";
-      if (!dateValue) return false;
-      const month = dateValue.slice(0, 7);
-      return month >= monthStart && month <= monthEnd;
-    });
-  }, [sessions, monthStart, monthEnd]);
-
-  const rankingRows = useMemo(() => {
-    const tally = new Map();
-    filteredSessions.forEach((session) => {
-      const email = session.user_email || session.user_id || "Utilisateur inconnu";
-      tally.set(email, (tally.get(email) || 0) + 1);
-    });
-    return Array.from(tally.entries())
-      .map(([email, count]) => ({ email, count }))
-      .sort((a, b) => b.count - a.count || a.email.localeCompare(b.email));
-  }, [filteredSessions]);
+    loadRanking();
+    return () => {
+      active = false;
+    };
+  }, [monthStart, monthEnd, todayMonth]);
 
   return (
     <div className="space-y-4">
@@ -4224,8 +4211,8 @@ function RankingSection() {
             <Input
               type="month"
               value={monthStart}
-              min={firstMonth}
-              max={monthEnd}
+              min={firstMonth || todayMonth}
+              max={monthEnd || lastMonth || todayMonth}
               onChange={(e) => setMonthStart(e.target.value)}
             />
           </div>
@@ -4234,8 +4221,8 @@ function RankingSection() {
             <Input
               type="month"
               value={monthEnd}
-              min={monthStart}
-              max={todayMonth}
+              min={monthStart || firstMonth || todayMonth}
+              max={lastMonth || todayMonth}
               onChange={(e) => setMonthEnd(e.target.value)}
             />
           </div>
