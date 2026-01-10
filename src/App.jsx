@@ -367,6 +367,7 @@ function App() {
   const [tab, setTab] = useState("log");
   const [user, setUser] = useState(undefined);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [activePolicyModal, setActivePolicyModal] = useState(null);
   const [route, setRoute] = useState(() => window.location.pathname);
   const tractionAuthorized = isTractionAuthorized(user?.email);
   const navItems = useMemo(
@@ -410,6 +411,17 @@ function App() {
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
   }, []);
+
+  useEffect(() => {
+    if (!activePolicyModal) return undefined;
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        setActivePolicyModal(null);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [activePolicyModal]);
 
   useEffect(() => {
     if (tab === "traction" && !tractionAuthorized) {
@@ -666,105 +678,138 @@ function App() {
       </main>
     </div>
 
+      {activePolicyModal && (
+        <div className="fixed inset-0 z-30 flex items-center justify-center px-4 py-8">
+          <button
+            type="button"
+            aria-label="Fermer la fenêtre"
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setActivePolicyModal(null)}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="relative z-10 w-full max-w-2xl rounded-2xl bg-white p-6 text-sm text-gray-700 shadow-2xl dark:bg-[#0d0d0d] dark:text-gray-200"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs uppercase tracking-widest text-gray-400">Informations légales</p>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  {activePolicyModal === "conditions"
+                    ? "Conditions d’utilisation"
+                    : "Politique de confidentialité"}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActivePolicyModal(null)}
+                className="rounded-full border border-gray-200 px-3 py-1 text-xs font-semibold text-gray-600 transition hover:border-gray-300 hover:text-gray-900 dark:border-gray-700 dark:text-gray-300 dark:hover:text-white"
+              >
+                Fermer
+              </button>
+            </div>
+
+            {activePolicyModal === "conditions" ? (
+              <div className="mt-4 space-y-3">
+                <p>
+                  En utilisant Workout Tracker, vous acceptez ces conditions. L&apos;application est destinée au suivi
+                  personnel de l&apos;activité physique et ne remplace pas un avis médical. Vous êtes responsable de
+                  l&apos;exactitude des informations saisies et de l&apos;utilisation que vous en faites.
+                </p>
+                <ul className="list-disc space-y-2 pl-5">
+                  <li>
+                    <strong>Compte :</strong> vous devez maintenir la confidentialité de vos identifiants et notifier
+                    toute utilisation non autorisée.
+                  </li>
+                  <li>
+                    <strong>Usage autorisé :</strong> vous vous engagez à ne pas détourner le service, introduire de
+                    contenu illicite ou tenter d&apos;accéder aux données d&apos;autrui.
+                  </li>
+                  <li>
+                    <strong>Contenus :</strong> vous conservez la propriété de vos données. Vous accordez une licence
+                    technique pour leur hébergement et l&apos;affichage dans l&apos;application.
+                  </li>
+                  <li>
+                    <strong>Disponibilité :</strong> nous faisons de notre mieux pour garantir la continuité du service,
+                    mais des interruptions peuvent survenir (maintenance, mises à jour).
+                  </li>
+                  <li>
+                    <strong>Limitation de responsabilité :</strong> Workout Tracker n&apos;est pas responsable des
+                    dommages indirects liés à l&apos;usage de l&apos;application.
+                  </li>
+                  <li>
+                    <strong>Évolutions :</strong> ces conditions peuvent être mises à jour. La date de dernière mise à
+                    jour s&apos;affiche ci-dessous.
+                  </li>
+                </ul>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Dernière mise à jour : {new Date().toLocaleDateString("fr-FR")}
+                </p>
+              </div>
+            ) : (
+              <div className="mt-4 space-y-3">
+                <p>
+                  Nous respectons votre vie privée. Cette politique explique quelles données sont collectées, pourquoi,
+                  et comment vous pouvez exercer vos droits.
+                </p>
+                <ul className="list-disc space-y-2 pl-5">
+                  <li>
+                    <strong>Données collectées :</strong> email, identifiant utilisateur, séances enregistrées, modèles
+                    de séance, données de poids/pas, et données techniques minimales (journal de connexion, type
+                    d&apos;appareil).
+                  </li>
+                  <li>
+                    <strong>Finalités :</strong> fournir le service, sauvegarder vos progrès, sécuriser l&apos;accès et
+                    améliorer l&apos;expérience utilisateur.
+                  </li>
+                  <li>
+                    <strong>Base légale :</strong> exécution du contrat (service demandé) et intérêt légitime pour la
+                    sécurité.
+                  </li>
+                  <li>
+                    <strong>Partage :</strong> vos données sont hébergées via nos prestataires techniques (ex. Firebase),
+                    sans vente à des tiers.
+                  </li>
+                  <li>
+                    <strong>Conservation :</strong> vos données sont conservées tant que votre compte est actif. Vous
+                    pouvez demander la suppression de vos données via l&apos;application.
+                  </li>
+                  <li>
+                    <strong>Sécurité :</strong> nous appliquons des mesures techniques et organisationnelles
+                    raisonnables pour protéger vos informations.
+                  </li>
+                  <li>
+                    <strong>Vos droits :</strong> accès, rectification, suppression, opposition et portabilité selon la
+                    réglementation applicable.
+                  </li>
+                </ul>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Contact : support@workout-tracker.app
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <footer className="border-t border-gray-200 bg-white/80 py-8 text-sm text-gray-600 backdrop-blur dark:border-[#1f1f1f] dark:bg-[#0d0d0d] dark:text-gray-300">
         <div className="mx-auto flex max-w-[1600px] flex-col gap-6 px-6">
           <div className="flex flex-wrap items-center gap-4 text-sm font-medium">
-            <a
-              href="#conditions-utilisation"
+            <button
+              type="button"
+              onClick={() => setActivePolicyModal("conditions")}
               className="underline-offset-4 hover:underline"
             >
               Conditions d&apos;utilisation
-            </a>
-            <a
-              href="#politique-confidentialite"
+            </button>
+            <button
+              type="button"
+              onClick={() => setActivePolicyModal("politique")}
               className="underline-offset-4 hover:underline"
             >
               Politique de confidentialité
-            </a>
+            </button>
           </div>
-
-          <section id="conditions-utilisation" className="space-y-3">
-            <h2 className="text-base font-semibold text-gray-900 dark:text-white">
-              Conditions d&apos;utilisation
-            </h2>
-            <p>
-              En utilisant Workout Tracker, vous acceptez ces conditions. L&apos;application est destinée au suivi
-              personnel de l&apos;activité physique et ne remplace pas un avis médical. Vous êtes responsable de
-              l&apos;exactitude des informations saisies et de l&apos;utilisation que vous en faites.
-            </p>
-            <ul className="list-disc space-y-2 pl-5">
-              <li>
-                <strong>Compte :</strong> vous devez maintenir la confidentialité de vos identifiants et notifier toute
-                utilisation non autorisée.
-              </li>
-              <li>
-                <strong>Usage autorisé :</strong> vous vous engagez à ne pas détourner le service, introduire de contenu
-                illicite ou tenter d&apos;accéder aux données d&apos;autrui.
-              </li>
-              <li>
-                <strong>Contenus :</strong> vous conservez la propriété de vos données. Vous accordez une licence
-                technique pour leur hébergement et l&apos;affichage dans l&apos;application.
-              </li>
-              <li>
-                <strong>Disponibilité :</strong> nous faisons de notre mieux pour garantir la continuité du service,
-                mais des interruptions peuvent survenir (maintenance, mises à jour).
-              </li>
-              <li>
-                <strong>Limitation de responsabilité :</strong> Workout Tracker n&apos;est pas responsable des dommages
-                indirects liés à l&apos;usage de l&apos;application.
-              </li>
-              <li>
-                <strong>Évolutions :</strong> ces conditions peuvent être mises à jour. La date de dernière mise à jour
-                s&apos;affiche ci-dessous.
-              </li>
-            </ul>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              Dernière mise à jour : {new Date().toLocaleDateString("fr-FR")}
-            </p>
-          </section>
-
-          <section id="politique-confidentialite" className="space-y-3">
-            <h2 className="text-base font-semibold text-gray-900 dark:text-white">
-              Politique de confidentialité
-            </h2>
-            <p>
-              Nous respectons votre vie privée. Cette politique explique quelles données sont collectées, pourquoi, et
-              comment vous pouvez exercer vos droits.
-            </p>
-            <ul className="list-disc space-y-2 pl-5">
-              <li>
-                <strong>Données collectées :</strong> email, identifiant utilisateur, séances enregistrées, modèles de
-                séance, données de poids/pas, et données techniques minimales (journal de connexion, type d&apos;appareil).
-              </li>
-              <li>
-                <strong>Finalités :</strong> fournir le service, sauvegarder vos progrès, sécuriser l&apos;accès et
-                améliorer l&apos;expérience utilisateur.
-              </li>
-              <li>
-                <strong>Base légale :</strong> exécution du contrat (service demandé) et intérêt légitime pour la
-                sécurité.
-              </li>
-              <li>
-                <strong>Partage :</strong> vos données sont hébergées via nos prestataires techniques (ex. Firebase),
-                sans vente à des tiers.
-              </li>
-              <li>
-                <strong>Conservation :</strong> vos données sont conservées tant que votre compte est actif. Vous pouvez
-                demander la suppression de vos données via l&apos;application.
-              </li>
-              <li>
-                <strong>Sécurité :</strong> nous appliquons des mesures techniques et organisationnelles raisonnables
-                pour protéger vos informations.
-              </li>
-              <li>
-                <strong>Vos droits :</strong> accès, rectification, suppression, opposition et portabilité selon la
-                réglementation applicable.
-              </li>
-            </ul>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              Contact : support@workout-tracker.app
-            </p>
-          </section>
         </div>
       </footer>
 
