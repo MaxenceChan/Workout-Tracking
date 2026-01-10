@@ -792,7 +792,7 @@ function App() {
         </div>
       )}
 
-      <footer className="border-t border-gray-200 bg-white/80 py-8 text-sm text-gray-600 backdrop-blur dark:border-[#1f1f1f] dark:bg-[#0d0d0d] dark:text-gray-300">
+      <footer className="hidden md:block border-t border-gray-200 bg-white/80 py-8 text-sm text-gray-600 backdrop-blur dark:border-[#1f1f1f] dark:bg-[#0d0d0d] dark:text-gray-300">
         <div className="mx-auto flex max-w-[1600px] flex-col gap-6 px-6">
           <div className="flex flex-wrap items-center gap-4 text-sm font-medium">
             <button
@@ -812,6 +812,25 @@ function App() {
           </div>
         </div>
       </footer>
+
+      <div className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] left-0 right-0 z-20 border-t border-gray-200 bg-white/95 px-6 py-3 text-xs text-gray-600 backdrop-blur dark:border-[#1f1f1f] dark:bg-[#0d0d0d]/95 dark:text-gray-300 md:hidden">
+        <div className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-center gap-4 text-sm font-medium">
+          <button
+            type="button"
+            onClick={() => setActivePolicyModal("conditions")}
+            className="underline-offset-4 hover:underline"
+          >
+            Conditions d&apos;utilisation
+          </button>
+          <button
+            type="button"
+            onClick={() => setActivePolicyModal("politique")}
+            className="underline-offset-4 hover:underline"
+          >
+            Politique de confidentialité
+          </button>
+        </div>
+      </div>
 
       <nav className="fixed bottom-0 left-0 right-0 z-20 border-t border-[#00634A] bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur dark:bg-[#111111]/95 md:hidden">
         <div className="mx-auto grid max-w-[1600px] grid-cols-5 gap-y-1 px-3 py-2">
