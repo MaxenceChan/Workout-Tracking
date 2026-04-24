@@ -81,7 +81,8 @@ const Card = React.forwardRef(({ className, children }, ref) => (
   <div
     ref={ref}
     className={cn(
-      "rounded-xl sm:rounded-2xl border bg-white dark:bg-[#1c1c1c] shadow-sm transition-colors duration-300",
+      "rounded-2xl sm:rounded-[20px] border border-[var(--border-subtle)] bg-white dark:bg-[#141516] shadow-soft card-lift",
+      "dark:border-white/5",
       className
     )}
   >
@@ -91,29 +92,30 @@ const Card = React.forwardRef(({ className, children }, ref) => (
 Card.displayName = "Card";
 
 const CardContent = ({ className, children }) => (
-  <div className={cn("p-3 sm:p-4 dark:text-white", className)}>{children}</div>
+  <div className={cn("p-4 sm:p-5 dark:text-white", className)}>{children}</div>
 );
 
 
 function Button({ children, className, variant = "default", ...props }) {
   const base =
-    "inline-flex items-center justify-center gap-2 rounded-lg sm:rounded-xl transition-colors duration-300 text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2 font-medium";
+    "inline-flex items-center justify-center gap-2 rounded-xl btn-press text-xs sm:text-sm px-3 sm:px-4 py-2 sm:py-2.5 font-medium select-none disabled:opacity-50 disabled:cursor-not-allowed";
 
   const variants = {
-    // ✅ Boutons principaux : noir en mode sombre, gris foncé au survol
+    // Primary — brand green gradient with subtle glow
     default:
-      "bg-gray-900 text-white hover:bg-gray-800 dark:bg-[#000000] dark:text-white dark:hover:bg-[#222222]",
+      "bg-gradient-to-b from-brand-600 to-brand-700 text-white shadow-soft hover:from-brand-500 hover:to-brand-600 hover:shadow-glow dark:from-brand-500 dark:to-brand-700 dark:hover:from-brand-400 dark:hover:to-brand-600",
 
-    // ✅ Boutons secondaires : gris clair en clair, gris foncé en sombre
+    // Secondary — neutral surface
     secondary:
-      "bg-gray-100 text-gray-900 hover:bg-gray-200 dark:bg-[#1e1e1e] dark:text-white dark:hover:bg-[#2a2a2a]",
+      "bg-white text-gray-900 border border-[var(--border-subtle)] hover:bg-gray-50 hover:border-[var(--border-strong)] dark:bg-[#1f2023] dark:text-white dark:border-white/10 dark:hover:bg-[#26282b]",
 
-    // ⚠️ Boutons destructifs : rouge inchangé
-    destructive: "bg-red-600 text-white hover:bg-red-700",
+    // Destructive
+    destructive:
+      "bg-gradient-to-b from-red-500 to-red-600 text-white shadow-soft hover:from-red-400 hover:to-red-500",
 
-    // 👻 Boutons fantômes : fond transparent
+    // Ghost — minimal
     ghost:
-      "bg-transparent hover:bg-gray-100 dark:text-white dark:hover:bg-[#2a2a2a]",
+      "bg-transparent text-gray-700 hover:bg-gray-100 dark:text-white dark:hover:bg-white/10",
   };
 
   return (
@@ -130,8 +132,11 @@ function Button({ children, className, variant = "default", ...props }) {
 const Input = ({ className, ...props }) => (
   <input
     className={cn(
-      "w-full rounded-lg sm:rounded-xl border px-2 sm:px-3 py-1.5 sm:py-2 text-sm outline-none focus:ring-2 focus:ring-gray-300",
-      "bg-white text-gray-900 dark:bg-[#2a2a2a] dark:text-white dark:border-gray-700 dark:focus:ring-gray-600 transition-colors duration-300",
+      "w-full rounded-xl border border-[var(--border-subtle)] px-3 sm:px-3.5 py-2 sm:py-2.5 text-sm outline-none",
+      "bg-white text-gray-900 placeholder:text-gray-400",
+      "transition-all duration-200 ease-smooth",
+      "focus:border-brand-500 focus:ring-4 focus:ring-brand-500/15",
+      "dark:bg-[#1f2023] dark:text-white dark:border-white/10 dark:placeholder:text-gray-500 dark:focus:border-brand-400 dark:focus:ring-brand-400/20",
       className
     )}
     {...props}
@@ -141,7 +146,7 @@ const Input = ({ className, ...props }) => (
 const Label = ({ className, children }) => (
   <label
     className={cn(
-      "text-xs sm:text-sm font-medium text-gray-800 dark:text-white transition-colors duration-300",
+      "text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-200 tracking-tight",
       className
     )}
   >
@@ -156,8 +161,8 @@ const Tabs = ({ value, onValueChange, children }) =>
 const TabsList = ({ className, children }) => (
   <div
     className={cn(
-      "rounded-lg sm:rounded-xl p-1 flex flex-wrap sm:flex-nowrap gap-1 transition-colors duration-300",
-      "bg-gray-100 dark:bg-[#111111]",
+      "rounded-2xl p-1 flex flex-wrap sm:flex-nowrap gap-1 transition-colors duration-300",
+      "bg-gray-100/80 border border-[var(--border-subtle)] dark:bg-white/5 dark:border-white/5 backdrop-blur",
       className
     )}
   >
@@ -172,10 +177,10 @@ function TabsTrigger({ value, children }) {
     <button
       onClick={() => ctx?.onValueChange?.(value)}
       className={cn(
-        "px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm rounded-md sm:rounded-lg font-medium transition-colors duration-300",
+        "px-3 sm:px-4 py-2 text-xs sm:text-sm rounded-xl font-medium transition-all duration-300 ease-smooth",
         active
-          ? "bg-white text-gray-900 dark:bg-black dark:text-white shadow"
-          : "text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-[#222]"
+          ? "bg-white text-gray-900 dark:bg-[#1f2023] dark:text-white shadow-soft scale-[1.02]"
+          : "text-gray-600 dark:text-gray-300 hover:bg-white/60 hover:text-gray-900 dark:hover:bg-white/5 dark:hover:text-white"
       )}
     >
       {children}
@@ -503,7 +508,22 @@ function App() {
   }
 
   if (user === undefined) {
-    return <div className="min-h-screen grid place-items-center text-gray-600">Chargement…</div>;
+    return (
+      <div className="min-h-screen grid place-items-center text-gray-600 dark:text-gray-300">
+        <div className="flex flex-col items-center gap-5 animate-fade-up">
+          <div className="relative">
+            <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 shadow-glow grid place-items-center">
+              <Dumbbell className="h-7 w-7 text-white animate-float" />
+            </div>
+            <div className="absolute inset-0 rounded-2xl border-2 border-brand-500/30 animate-ping" />
+          </div>
+          <div className="flex flex-col items-center gap-1">
+            <span className="font-display text-lg font-bold text-gradient-brand">Workout Tracker</span>
+            <span className="text-xs text-gray-500 dark:text-gray-400">Chargement de vos données…</span>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (user === null) {
@@ -514,61 +534,75 @@ function App() {
   }
 
   return (
-<div className="min-h-screen w-full bg-gray-50 dark:bg-[#1c1c1c] text-gray-900 dark:bg-[#0d0d0d] dark:text-white transition-colors duration-300">
+<div className="min-h-screen w-full text-gray-900 dark:text-white">
 <header
-  className="sticky top-0 z-10 
-  bg-white dark:bg-[#007B5E]
-  text-black dark:text-white 
-  shadow-md border-b border-[#00634A] 
+  className="sticky top-0 z-20
+  bg-white/80 dark:bg-[#111214]/75
+  text-gray-900 dark:text-white
+  border-b border-[var(--border-subtle)] dark:border-white/5
+  backdrop-blur-xl
   transition-colors duration-300"
 >
-<div className="max-w-[1600px] mx-auto px-6 py-3 sm:py-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-    <div className="flex items-center gap-2 logo-sway">
+<div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+    <div className="flex items-center gap-2 sm:gap-3">
       <Button
         variant="ghost"
         onClick={() => setIsMenuOpen((prev) => !prev)}
         title="Ouvrir le menu"
-        className="hidden md:inline-flex text-black dark:text-white hover:bg-black/5 dark:hover:bg-white/20"
+        className="hidden md:inline-flex !rounded-full !p-2.5 text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-white/10"
       >
-        <Menu className="h-4 w-4" /> Menu
+        <Menu className="h-4 w-4" />
       </Button>
-      <Dumbbell className="h-5 w-5 text-current" />
-      <h1 className="text-lg sm:text-xl md:text-2xl font-bold tracking-tight flex items-center gap-2">
-        <img
-          src={headerGif}
-          alt="Workout Tracker"
-          className="h-7 w-7 sm:h-8 sm:w-8 object-contain"
-        />
-        <span>Workout Tracker</span>
-      </h1>
+      <div className="flex items-center gap-2.5">
+        <div className="relative grid place-items-center h-10 w-10 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 shadow-glow">
+          <img
+            src={headerGif}
+            alt="Workout Tracker"
+            className="h-7 w-7 object-contain drop-shadow"
+          />
+        </div>
+        <h1 className="font-display text-lg sm:text-xl md:text-[22px] font-bold tracking-tight flex flex-col leading-none">
+          <span className="text-gradient-brand">Workout Tracker</span>
+          <span className="text-[10px] sm:text-xs font-medium uppercase tracking-[0.25em] text-gray-400 dark:text-gray-500 mt-1 hidden sm:block">
+            Suivi & progression
+          </span>
+        </h1>
+      </div>
     </div>
 
-    <div className="flex items-center gap-3">
-      <div className="text-xs sm:text-sm text-black dark:text-white truncate">
-        {user.email}
+    <div className="flex items-center gap-2 sm:gap-3">
+      <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-100/70 dark:bg-white/5 border border-[var(--border-subtle)] dark:border-white/5">
+        <div className="h-2 w-2 rounded-full bg-brand-500 shadow-[0_0_8px_rgba(10,161,101,0.6)]" />
+        <span className="text-xs font-medium text-gray-700 dark:text-gray-200 truncate max-w-[200px]">
+          {user.email}
+        </span>
       </div>
       <ThemeToggleButton />
       <Button
         variant="ghost"
         onClick={() => signOutUser()}
         title="Se déconnecter"
-        className="text-black dark:text-white hover:bg-black/5 dark:hover:bg-white/20"
+        className="!rounded-full !p-2.5 sm:!px-3 text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-white/10"
       >
-        <LogOut className="h-4 w-4" /> Déconnexion
+        <LogOut className="h-4 w-4" />
+        <span className="hidden sm:inline">Déconnexion</span>
       </Button>
     </div>
   </div>
 </header>
 
-<div className="mx-auto flex max-w-[1600px] px-6 py-4 pb-[calc(7.5rem+env(safe-area-inset-bottom))] md:pb-4">
+<div className="mx-auto flex max-w-[1600px] px-4 sm:px-6 py-4 sm:py-6 pb-[calc(8rem+env(safe-area-inset-bottom))] md:pb-8 gap-6">
     <aside
       className={cn(
-        "hidden md:flex shrink-0 flex-col gap-2 rounded-2xl border bg-white dark:bg-[#007B5E] overflow-hidden transition-all duration-300 ease-out",
+        "hidden md:flex shrink-0 flex-col gap-1 rounded-2xl border border-[var(--border-subtle)] dark:border-white/5 bg-white/80 dark:bg-[#141516]/80 backdrop-blur shadow-soft overflow-hidden transition-all duration-500 ease-smooth sticky top-[88px] self-start",
         isMenuOpen
-          ? "w-64 p-3 opacity-100 mr-4 -ml-6 pl-6 border-[#00634A]"
-          : "w-0 p-0 opacity-0 mr-0 ml-0 pl-0 border-transparent pointer-events-none"
+          ? "w-64 p-3 opacity-100 max-h-[calc(100vh-120px)]"
+          : "w-0 p-0 opacity-0 border-transparent pointer-events-none"
       )}
     >
+      <div className="px-3 pt-2 pb-3 text-[10px] uppercase tracking-[0.22em] font-semibold text-gray-400 dark:text-gray-500">
+        Navigation
+      </div>
       {navItems.map((item) => {
         const Icon = item.icon;
         const active = tab === item.value;
@@ -577,14 +611,17 @@ function App() {
             key={item.value}
             onClick={() => handleTabChange(item.value)}
             className={cn(
-              "flex w-full items-center gap-2 rounded-xl px-4 py-2 text-left text-sm font-medium transition",
+              "group relative flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-left text-sm font-medium transition-all duration-300 ease-smooth",
               active
-                ? "bg-black/10 text-gray-900 dark:bg-white/15 dark:text-white"
-                : "text-gray-700 hover:bg-black/5 dark:text-white/80 dark:hover:bg-white/10"
+                ? "bg-gradient-to-r from-brand-500/15 to-brand-600/5 text-brand-700 dark:text-brand-300 dark:from-brand-400/20 dark:to-brand-600/5"
+                : "text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-white/5 dark:hover:text-white"
             )}
           >
-            <Icon className="h-4 w-4" />
-            <span>{item.label}</span>
+            {active && (
+              <span className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 rounded-r-full bg-brand-500 dark:bg-brand-400 shadow-[0_0_10px_rgba(10,161,101,0.6)]" />
+            )}
+            <Icon className={cn("h-[18px] w-[18px] shrink-0 transition-transform duration-300 ease-spring", active && "scale-110")} />
+            <span className="truncate">{item.label}</span>
           </button>
         );
       })}
@@ -832,8 +869,8 @@ function App() {
         </div>
       </div>
 
-      <nav className="fixed bottom-0 left-0 right-0 z-20 border-t border-[#00634A] bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur dark:bg-[#111111]/95 md:hidden">
-        <div className="mx-auto grid max-w-[1600px] grid-cols-5 gap-y-1 px-3 py-2">
+      <nav className="fixed bottom-0 left-0 right-0 z-30 border-t border-[var(--border-subtle)] dark:border-white/5 bg-white/85 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl dark:bg-[#111214]/85 md:hidden shadow-[0_-8px_24px_-12px_rgba(0,0,0,0.12)]">
+        <div className="mx-auto grid max-w-[1600px] grid-cols-5 gap-y-1 px-2 py-2">
           {mobileNavItems.map((item) => {
             const Icon = item.icon;
             const active = tab === item.value;
@@ -842,14 +879,22 @@ function App() {
                 key={item.value}
                 onClick={() => handleTabChange(item.value)}
                 className={cn(
-                  "flex w-full flex-col items-center gap-1 rounded-lg px-2 py-2 text-[11px] font-medium transition",
+                  "relative flex w-full flex-col items-center gap-1 rounded-xl px-1 py-2 text-[10.5px] font-semibold transition-all duration-300 ease-smooth active:scale-95",
                   active
-                    ? "text-gray-900 dark:text-white"
+                    ? "text-brand-600 dark:text-brand-300"
                     : "text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
                 )}
               >
-                <Icon className={cn("h-4 w-4", active && "scale-105")} />
-                <span className="text-center leading-tight">{item.shortLabel}</span>
+                {active && (
+                  <span className="absolute top-0.5 h-1 w-8 rounded-full bg-brand-500 dark:bg-brand-400 shadow-[0_0_8px_rgba(10,161,101,0.6)]" />
+                )}
+                <span className={cn(
+                  "grid place-items-center h-8 w-8 rounded-xl transition-all duration-300 ease-spring",
+                  active && "bg-brand-500/10 dark:bg-brand-400/15 scale-105"
+                )}>
+                  <Icon className={cn("h-[18px] w-[18px] transition-transform duration-300 ease-spring", active && "scale-110")} />
+                </span>
+                <span className="text-center leading-tight tracking-tight">{item.shortLabel}</span>
               </button>
             );
           })}
@@ -1233,92 +1278,98 @@ function ChatbotSection({ sessions, user }) {
 // Public landing
 // ───────────────────────────────────────────────────────────────
 function PublicHome({ onLogin }) {
+  const features = [
+    { emoji: "📒", title: "Historique clair", desc: "Enregistrez vos séances, vos séries et conservez votre évolution sur le long terme." },
+    { emoji: "📊", title: "Analyses utiles", desc: "Des graphiques pour visualiser votre volume d'entraînement, votre fréquence et vos tendances." },
+    { emoji: "🚶", title: "Suivi quotidien", desc: "Synchronisez vos pas, suivez votre poids et centralisez vos habitudes sportives." },
+    { emoji: "🔒", title: "Données protégées", desc: "Consultez la politique de confidentialité pour comprendre la collecte et l'utilisation des données." },
+  ];
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-[#0d0d0d] text-gray-900 dark:text-white">
-      <div className="mx-auto flex min-h-screen max-w-5xl flex-col gap-8 px-6 py-10">
-        <header className="flex flex-col gap-3">
-          <div className="flex items-center gap-3">
-            <img
-              src={headerGif}
-              alt="Workout Tracker"
-              className="h-12 w-12 object-contain"
-            />
+    <div className="relative min-h-screen text-gray-900 dark:text-white overflow-hidden">
+      <div className="pointer-events-none absolute inset-0 -z-10">
+        <div className="absolute -top-40 -left-20 h-[420px] w-[420px] rounded-full bg-brand-400/20 blur-3xl" />
+        <div className="absolute top-40 -right-20 h-[520px] w-[520px] rounded-full bg-brand-600/15 blur-3xl" />
+      </div>
+
+      <div className="mx-auto flex min-h-screen max-w-6xl flex-col gap-12 px-5 sm:px-6 py-10 sm:py-14">
+        <header className="flex flex-col gap-6 animate-fade-up">
+          <div className="flex items-center gap-4">
+            <div className="grid place-items-center h-14 w-14 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 shadow-glow">
+              <img
+                src={headerGif}
+                alt="Workout Tracker"
+                className="h-9 w-9 object-contain"
+              />
+            </div>
             <div>
-              <p className="text-xs uppercase tracking-[0.3em] text-gray-500">
+              <p className="text-[11px] uppercase tracking-[0.3em] font-semibold text-brand-600 dark:text-brand-400">
                 Workout Tracker
               </p>
-              <h1 className="text-3xl font-bold sm:text-4xl">
-                Suivi des entraînements et de la progression.
-              </h1>
+              <p className="text-xs text-gray-500 dark:text-gray-400">v1.0 · Suivi de progression</p>
             </div>
           </div>
-          <p className="max-w-2xl text-sm text-gray-600 dark:text-gray-300">
-            Consultez votre historique, suivez votre poids, vos pas et découvrez
-            les statistiques clés de vos séances. Cette page reste accessible
-            sans compte afin de présenter l&apos;application.
-          </p>
-        </header>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Card>
-            <CardContent className="space-y-2">
-              <h2 className="text-lg font-semibold">📒 Historique clair</h2>
-              <p className="text-sm text-gray-600 dark:text-gray-300">
-                Enregistrez vos séances, vos séries et conservez votre évolution
-                sur le long terme.
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="space-y-2">
-              <h2 className="text-lg font-semibold">📊 Analyses utiles</h2>
-              <p className="text-sm text-gray-600 dark:text-gray-300">
-                Des graphiques pour visualiser votre volume d&apos;entraînement,
-                votre fréquence et vos tendances.
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="space-y-2">
-              <h2 className="text-lg font-semibold">🚶 Suivi quotidien</h2>
-              <p className="text-sm text-gray-600 dark:text-gray-300">
-                Synchronisez vos pas, suivez votre poids et centralisez vos
-                habitudes sportives.
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="space-y-2">
-              <h2 className="text-lg font-semibold">🔒 Données protégées</h2>
-              <p className="text-sm text-gray-600 dark:text-gray-300">
-                Consultez la politique de confidentialité pour comprendre la
-                collecte et l&apos;utilisation des données.
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="flex flex-col gap-4 rounded-2xl border bg-white p-6 shadow-sm dark:bg-[#1c1c1c]">
-          <div>
-            <h3 className="text-lg font-semibold">Accéder à votre compte</h3>
-            <p className="text-sm text-gray-600 dark:text-gray-300">
-              Connectez-vous pour saisir vos séances et accéder à toutes les
-              fonctionnalités.
+          <div className="max-w-3xl space-y-4">
+            <h1 className="font-display text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight leading-[1.05]">
+              Suivi des entraînements
+              <br />
+              <span className="text-gradient-brand">et de la progression.</span>
+            </h1>
+            <p className="max-w-2xl text-base sm:text-lg text-gray-600 dark:text-gray-300 leading-relaxed">
+              Consultez votre historique, suivez votre poids, vos pas et découvrez
+              les statistiques clés de vos séances. Cette page reste accessible
+              sans compte afin de présenter l&apos;application.
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <Button onClick={onLogin}>Se connecter</Button>
+
+          <div className="flex flex-wrap items-center gap-3 pt-2">
+            <Button onClick={onLogin} className="!px-6 !py-3 text-sm sm:text-base">
+              Se connecter
+              <span className="ml-1">→</span>
+            </Button>
             <a
               href="/privacy"
-              className="text-sm font-medium text-blue-600 hover:underline"
+              className="inline-flex items-center gap-1.5 px-4 py-3 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 transition"
             >
-              Lire la politique de confidentialité
+              Politique de confidentialité
             </a>
+          </div>
+        </header>
+
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {features.map((f, i) => (
+            <Card key={f.title} className="group animate-fade-up" style={{ animationDelay: `${i * 80}ms` }}>
+              <CardContent className="space-y-3">
+                <div className="h-11 w-11 grid place-items-center rounded-xl bg-gradient-to-br from-brand-500/15 to-brand-700/5 text-2xl group-hover:scale-110 transition-transform duration-300 ease-spring">
+                  {f.emoji}
+                </div>
+                <h2 className="text-base font-display font-bold">{f.title}</h2>
+                <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+                  {f.desc}
+                </p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        <div className="relative overflow-hidden rounded-3xl border border-[var(--border-subtle)] dark:border-white/5 bg-gradient-to-br from-white to-gray-50 dark:from-[#141516] dark:to-[#0f1012] p-6 sm:p-10 shadow-card">
+          <div className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-brand-500/20 blur-3xl pointer-events-none" />
+          <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-5">
+            <div className="max-w-xl">
+              <h3 className="font-display text-xl sm:text-2xl font-bold">Accéder à votre compte</h3>
+              <p className="mt-1 text-sm sm:text-base text-gray-600 dark:text-gray-300">
+                Connectez-vous pour saisir vos séances et accéder à toutes les fonctionnalités.
+              </p>
+            </div>
+            <Button onClick={onLogin} className="!px-6 !py-3 w-full sm:w-auto">
+              Se connecter
+            </Button>
           </div>
         </div>
 
-        <footer className="mt-auto text-xs text-gray-500">
-          <a href="/privacy" className="hover:underline">
+        <footer className="mt-auto pt-8 border-t border-[var(--border-subtle)] dark:border-white/5 text-xs text-gray-500 dark:text-gray-400 flex flex-wrap items-center justify-between gap-3">
+          <span>© 2025 Workout Tracker · Tous droits réservés</span>
+          <a href="/privacy" className="hover:text-gray-900 dark:hover:text-white transition">
             Politique de confidentialité
           </a>
         </footer>
@@ -1424,62 +1475,81 @@ function AuthScreen({ onBack }) {
   };
 
   return (
-    <div className="min-h-screen grid place-items-center p-3 sm:p-4">
-      <Card className="w-full max-w-sm sm:max-w-md">
-        <CardContent className="space-y-4 sm:space-y-5">
-          <div className="text-center space-y-1">
-            <Dumbbell className="mx-auto h-7 w-7 sm:h-8 sm:w-8 motion-safe:animate-bounce" />
-            <h2 className="text-lg sm:text-xl font-semibold inline-flex items-center justify-center gap-2">
+    <div className="relative min-h-screen grid place-items-center p-4 sm:p-6 overflow-hidden">
+      <div className="pointer-events-none absolute inset-0 -z-10">
+        <div className="absolute top-10 left-1/2 -translate-x-1/2 h-[380px] w-[380px] rounded-full bg-brand-500/15 blur-3xl" />
+        <div className="absolute bottom-0 right-1/4 h-[300px] w-[300px] rounded-full bg-brand-700/10 blur-3xl" />
+      </div>
+
+      <Card className="w-full max-w-md animate-scale-in shadow-lift">
+        <CardContent className="space-y-5 sm:space-y-6 p-6 sm:p-7">
+          <div className="text-center space-y-3">
+            <div className="mx-auto grid place-items-center h-14 w-14 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 shadow-glow">
               <img
                 src={headerGif}
                 alt="Workout Tracker"
-                className="h-6 w-6 sm:h-7 sm:w-7 object-contain"
+                className="h-9 w-9 object-contain"
               />
-              Workout Tracker
-            </h2>
-            <p className="text-xs sm:text-sm text-gray-600">
-              {mode === "login"
-                ? "Connecte-toi pour retrouver tes données"
-                : "Crée un compte pour commencer"}
-            </p>
+            </div>
+            <div className="space-y-1">
+              <h2 className="font-display text-2xl font-bold text-gradient-brand">
+                Workout Tracker
+              </h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                {mode === "login"
+                  ? "Connecte-toi pour retrouver tes données"
+                  : "Crée un compte pour commencer"}
+              </p>
+            </div>
           </div>
 
-          <div className="grid grid-cols-2 bg-gray-100 rounded-lg sm:rounded-xl p-1">
+          <div className="grid grid-cols-2 bg-gray-100/80 dark:bg-white/5 rounded-xl p-1 border border-[var(--border-subtle)] dark:border-white/5">
             <button
               onClick={() => setMode("login")}
-              className={cn("py-2 rounded-md sm:rounded-lg text-xs sm:text-sm",
-                mode === "login" ? "bg-white shadow font-semibold" : "text-gray-600")}
+              className={cn(
+                "py-2.5 rounded-lg text-sm font-medium transition-all duration-300 ease-smooth",
+                mode === "login"
+                  ? "bg-white dark:bg-[#1f2023] shadow-soft text-gray-900 dark:text-white"
+                  : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+              )}
             >
               Connexion
             </button>
             <button
               onClick={() => setMode("register")}
-              className={cn("py-2 rounded-md sm:rounded-lg text-xs sm:text-sm",
-                mode === "register" ? "bg-white shadow font-semibold" : "text-gray-600")}
+              className={cn(
+                "py-2.5 rounded-lg text-sm font-medium transition-all duration-300 ease-smooth",
+                mode === "register"
+                  ? "bg-white dark:bg-[#1f2023] shadow-soft text-gray-900 dark:text-white"
+                  : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+              )}
             >
               Inscription
             </button>
           </div>
 
-          <form onSubmit={submit} className="space-y-3">
-            <div className="grid gap-1.5">
+          <form onSubmit={submit} className="space-y-4">
+            <div className="grid gap-2">
               <Label>Email</Label>
               <Input type="email" required value={email} onChange={(e)=>setEmail(e.target.value)} placeholder="toi@email.com" />
             </div>
- 
-
-            <div className="grid gap-1.5">
+            <div className="grid gap-2">
               <Label>Mot de passe</Label>
               <Input type="password" required value={password} onChange={(e)=>setPassword(e.target.value)} placeholder="••••••••" />
             </div>
-            {error && <div className="text-xs sm:text-sm text-red-600">{error}</div>}
-            <Button disabled={loading} className="w-full text-sm sm:text-base">
-              {mode==="login" ? "Se connecter" : "Créer le compte"}
+            {error && (
+              <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs sm:text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
+                {error}
+              </div>
+            )}
+            <Button disabled={loading} className="w-full !py-3 text-sm sm:text-base">
+              {loading ? "Patientez…" : (mode === "login" ? "Se connecter" : "Créer le compte")}
             </Button>
           </form>
-          <Button
-            variant="ghost"
-            className="w-full text-xs sm:text-sm text-blue-600 hover:underline"
+
+          <button
+            type="button"
+            className="w-full text-xs sm:text-sm text-brand-600 dark:text-brand-400 hover:underline text-center"
             onClick={async () => {
               if (!email) {
                 alert("Entre ton email pour réinitialiser le mot de passe.");
@@ -1494,28 +1564,34 @@ function AuthScreen({ onBack }) {
             }}
           >
             Mot de passe oublié ?
-          </Button>
+          </button>
 
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
-            <div className="relative flex justify-center text-[10px] sm:text-xs uppercase">
-              <span className="bg-white px-2 text-gray-500">ou</span>
+          <div className="relative my-2">
+            <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-[var(--border-subtle)] dark:border-white/10" /></div>
+            <div className="relative flex justify-center text-[10px] sm:text-xs uppercase tracking-widest">
+              <span className="bg-white dark:bg-[#141516] px-3 text-gray-400">ou</span>
             </div>
           </div>
 
           <Button
             onClick={async()=>{ try{ await signInGoogle(); }catch(e){ setError(e.message);} }}
             variant="secondary"
-            className="w-full text-sm sm:text-base"
+            className="w-full !py-3 text-sm sm:text-base"
           >
+            <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z"/>
+              <path fill="#FBBC05" d="M5.84 14.1a6.62 6.62 0 0 1 0-4.2V7.06H2.18a11 11 0 0 0 0 9.88l3.66-2.84z"/>
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.2 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1A11 11 0 0 0 2.18 7.06l3.66 2.84C6.71 7.31 9.14 5.38 12 5.38z"/>
+            </svg>
             Continuer avec Google
           </Button>
 
-          <div className="flex items-center justify-between text-xs text-gray-500">
-            <a href="/privacy" className="hover:underline">Politique de confidentialité</a>
+          <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 pt-1">
+            <a href="/privacy" className="hover:text-gray-900 dark:hover:text-white transition">Politique de confidentialité</a>
             {onBack && (
-              <button type="button" onClick={onBack} className="hover:underline">
-                Retour
+              <button type="button" onClick={onBack} className="hover:text-gray-900 dark:hover:text-white transition">
+                ← Retour
               </button>
             )}
           </div>
@@ -4258,14 +4334,23 @@ const toggle = () => {
 
 function ThemeToggleButton() {
   const { theme, toggleTheme } = useTheme();
+  const isDark = theme === "dark";
   return (
-    <Button
-      variant="ghost"
+    <button
       onClick={toggleTheme}
-      title={theme === "light" ? "Passer en mode sombre" : "Passer en mode clair"}
+      title={isDark ? "Passer en mode clair" : "Passer en mode sombre"}
+      aria-label="Changer le thème"
+      className="relative grid place-items-center h-10 w-10 rounded-full border border-[var(--border-subtle)] dark:border-white/10 bg-white dark:bg-white/5 text-base transition-all duration-300 ease-spring hover:scale-110 hover:shadow-soft active:scale-95"
     >
-      {theme === "light" ? "🌙" : "☀️"}
-    </Button>
+      <span className={cn(
+        "absolute transition-all duration-500 ease-spring",
+        isDark ? "opacity-0 rotate-90 scale-50" : "opacity-100 rotate-0 scale-100"
+      )}>🌙</span>
+      <span className={cn(
+        "absolute transition-all duration-500 ease-spring",
+        isDark ? "opacity-100 rotate-0 scale-100" : "opacity-0 -rotate-90 scale-50"
+      )}>☀️</span>
+    </button>
   );
 }
 
