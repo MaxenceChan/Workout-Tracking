@@ -228,6 +228,476 @@ function MobileSGTabBar({ tab, onTab }) {
   );
 }
 
+// ─── Glass primitive ──────────────────────────────────────────────────────────
+function Glass({ children, style = {}, radius = 24, tint = 'rgba(255,255,255,0.50)', onClick }) {
+  return (
+    <div onClick={onClick} style={{ position: 'relative', borderRadius: radius, cursor: onClick ? 'pointer' : 'default', ...style }}>
+      <div style={{ position: 'absolute', inset: 0, borderRadius: radius, backdropFilter: 'blur(22px) saturate(180%)', WebkitBackdropFilter: 'blur(22px) saturate(180%)', background: tint, overflow: 'hidden' }} />
+      <div style={{ position: 'absolute', inset: 0, borderRadius: radius, boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.78), inset 0 -1px 0 rgba(0,0,0,0.03)', border: '0.5px solid rgba(255,255,255,0.58)', pointerEvents: 'none' }} />
+      <div style={{ position: 'relative', zIndex: 1 }}>{children}</div>
+    </div>
+  );
+}
+
+// ─── SG utility functions ─────────────────────────────────────────────────────
+const sgFmt = (iso) => {
+  if (!iso) return '';
+  const d = new Date(iso + 'T00:00:00');
+  return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+};
+const sgTonnage = (session) => {
+  try { return session.exercises?.reduce((acc, ex) => acc + (ex.sets||[]).reduce((s, st) => s + Number(st.reps||0)*Number(st.weight||0), 0), 0) || 0; } catch { return 0; }
+};
+const sgStreak = (sessions) => {
+  if (!sessions.length) return 0;
+  const getWeekKey = (d) => { const date = new Date(d + 'T00:00:00'); const day = date.getDay(); const diff = day === 0 ? 6 : day - 1; date.setDate(date.getDate() - diff); return date.toISOString().slice(0,10); };
+  const byWeek = {};
+  sessions.forEach(s => { const k = getWeekKey(s.date); byWeek[k] = (byWeek[k]||0)+1; });
+  let streak = 0;
+  const today = new Date();
+  const day = today.getDay();
+  const check = new Date(today);
+  check.setDate(today.getDate() - (day===0?6:day-1));
+  for (let i = 0; i < 52; i++) {
+    const k = check.toISOString().slice(0,10);
+    if ((byWeek[k]||0) >= 3) { streak++; check.setDate(check.getDate()-7); }
+    else if (i === 0) { check.setDate(check.getDate()-7); }
+    else break;
+  }
+  return streak;
+};
+const sgWeekDone = (sessions) => {
+  const today = new Date(); const day = today.getDay();
+  const monday = new Date(today); monday.setDate(today.getDate() - (day===0?6:day-1)); monday.setHours(0,0,0,0);
+  return sessions.filter(s => new Date(s.date+'T00:00:00') >= monday).length;
+};
+const sgWeekDays = (sessions) => {
+  const labels = ['L','M','M','J','V','S','D'];
+  const today = new Date(); const todayDay = today.getDay(); const todayOffset = todayDay===0?6:todayDay-1;
+  return labels.map((label, i) => {
+    const d = new Date(today); d.setDate(today.getDate() + (i - todayOffset)); d.setHours(0,0,0,0);
+    const iso = d.toISOString().slice(0,10);
+    return { label, done: sessions.some(s => s.date === iso), today: i === todayOffset };
+  });
+};
+
+// ─── SGMobileHome ─────────────────────────────────────────────────────────────
+function SGMobileHome({ data, user, onOpenForm }) {
+  const sessions = data.sessions || [];
+  const templates = data.sessionTemplates || [];
+  const lastSession = sessions[0];
+  const streak = sgStreak(sessions);
+  const weekDone = sgWeekDone(sessions);
+  const weekDays = sgWeekDays(sessions);
+  const suggestion = templates[0] || null;
+  const todayFR = new Date().toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }).toUpperCase();
+  const firstName = (user?.email || 'Toi').split('@')[0];
+  const firstLetter = firstName[0]?.toUpperCase() || 'M';
+  const weekTonnage = sessions.filter(s => {
+    const today = new Date(); const day = today.getDay();
+    const monday = new Date(today); monday.setDate(today.getDate() - (day===0?6:day-1)); monday.setHours(0,0,0,0);
+    return new Date(s.date+'T00:00:00') >= monday;
+  }).reduce((acc, s) => acc + sgTonnage(s), 0);
+
+  return (
+    <div style={{ position: 'relative', minHeight: '100vh', paddingBottom: 100 }}>
+      <div style={{ position: 'relative', padding: '54px 18px 0', maxWidth: 600, margin: '0 auto' }}>
+        <div style={{ marginBottom: 18, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <div style={{ fontSize: 11, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase' }}>{todayFR}</div>
+            <h1 style={{ fontFamily: SG.serif, fontSize: 34, fontWeight: 400, lineHeight: 1.05, margin: '4px 0 0', fontStyle: 'italic', color: SG.ink }}>
+              Bonjour,<br/><span style={{ fontStyle: 'normal', fontWeight: 500 }}>{firstName}.</span>
+            </h1>
+          </div>
+          <div style={{ width: 48, height: 48, borderRadius: 24, background: `linear-gradient(135deg, ${SG.accent} 0%, ${SG.accent2} 100%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontFamily: SG.serif, fontSize: 20, fontWeight: 500, boxShadow: `0 6px 16px ${SG.accent}44` }}>{firstLetter}</div>
+        </div>
+
+        <Glass radius={28} style={{ marginBottom: 12 }} tint="rgba(255,255,255,0.52)">
+          <div style={{ padding: '20px 22px 22px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ fontSize: 11, color: SG.inkSoft, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase' }}>Streak</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: SG.accent }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill={SG.accent}><path d="M12 2c1 4 5 5 5 10a5 5 0 0 1-10 0c0-2 1-3 2-4-1 4 1 5 3 5s3-2 1-5c-1-2-1-4-1-6z"/></svg>
+                <span style={{ fontSize: 11, fontWeight: 700 }}>EN FEU</span>
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14, marginTop: 4 }}>
+              <div style={{ fontFamily: SG.serif, fontSize: 88, lineHeight: 0.9, fontWeight: 400, letterSpacing: -2, color: SG.ink }}>{streak || sessions.length}</div>
+              <div style={{ paddingBottom: 14 }}>
+                <div style={{ fontFamily: SG.serif, fontStyle: 'italic', fontSize: 18, color: SG.ink }}>{streak > 0 ? 'semaines' : 'séances'}</div>
+                {streak > 0 && <div style={{ fontSize: 11, color: SG.inkSoft }}>≥ 3 séances / sem.</div>}
+              </div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 14 }}>
+              {weekDays.map((wd, i) => (
+                <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                  <div style={{ fontSize: 10, color: SG.inkFaint, fontWeight: 700 }}>{wd.label}</div>
+                  <div style={{ width: 28, height: 28, borderRadius: 14, background: wd.done ? SG.ink : 'rgba(255,255,255,0.55)', border: wd.today ? `1.5px solid ${SG.accent}` : '0.5px solid rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {wd.done && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 13l4 4L19 7"/></svg>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Glass>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+          <Glass radius={20} tint="rgba(255,255,255,0.5)">
+            <div style={{ padding: 14 }}>
+              <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase' }}>Cette sem.</div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 6 }}>
+                <div style={{ fontFamily: SG.serif, fontSize: 32, fontWeight: 500, lineHeight: 1, color: SG.ink }}>{weekDone}</div>
+                <div style={{ fontSize: 11, color: SG.inkSoft }}>séances</div>
+              </div>
+            </div>
+          </Glass>
+          <Glass radius={20} tint="rgba(255,255,255,0.5)">
+            <div style={{ padding: 14 }}>
+              <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase' }}>Total séances</div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 6 }}>
+                <div style={{ fontFamily: SG.serif, fontSize: 32, fontWeight: 500, lineHeight: 1, color: SG.ink }}>{sessions.length}</div>
+              </div>
+            </div>
+          </Glass>
+          <Glass radius={20} tint="rgba(255,255,255,0.5)">
+            <div style={{ padding: 14 }}>
+              <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase' }}>Tonnage sem.</div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 6 }}>
+                <div style={{ fontFamily: SG.serif, fontSize: 32, fontWeight: 500, lineHeight: 1, color: SG.ink }}>{(weekTonnage/1000).toFixed(1)}</div>
+                <div style={{ fontSize: 11, color: SG.inkSoft }}>t</div>
+              </div>
+            </div>
+          </Glass>
+          <Glass radius={20} tint="rgba(255,255,255,0.5)">
+            <div style={{ padding: 14 }}>
+              <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase' }}>Modèles</div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 6 }}>
+                <div style={{ fontFamily: SG.serif, fontSize: 32, fontWeight: 500, lineHeight: 1, color: SG.ink }}>{templates.length}</div>
+              </div>
+            </div>
+          </Glass>
+        </div>
+
+        {suggestion && (
+          <>
+            <div style={{ fontSize: 11, color: SG.inkSoft, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', margin: '20px 4px 8px' }}>Suggéré aujourd'hui</div>
+            <Glass radius={24} tint="rgba(255,255,255,0.55)" style={{ marginBottom: 12 }}>
+              <div style={{ padding: 18, display: 'flex', alignItems: 'center', gap: 14 }}>
+                <div style={{ width: 52, height: 52, borderRadius: 16, background: `linear-gradient(135deg, ${SG.accent} 0%, ${SG.accent2} 100%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 8px 18px ${SG.accent}44`, fontSize: 24 }}>🏋️</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontFamily: SG.serif, fontSize: 19, fontWeight: 500, fontStyle: 'italic', color: SG.ink }}>{suggestion.name}</div>
+                  <div style={{ fontSize: 12, color: SG.inkSoft, marginTop: 2 }}>{(suggestion.exercises||[]).length} exercices</div>
+                </div>
+                <button onClick={onOpenForm} style={{ padding: '10px 16px', borderRadius: 18, border: 'none', background: SG.ink, color: '#fff', fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', boxShadow: '0 4px 12px rgba(0,0,0,0.18)' }}>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="#fff"><path d="M6 4l14 8-14 8V4z"/></svg> Go
+                </button>
+              </div>
+            </Glass>
+          </>
+        )}
+
+        {lastSession && (
+          <>
+            <div style={{ fontSize: 11, color: SG.inkSoft, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', margin: '20px 4px 8px' }}>Dernière séance</div>
+            <Glass radius={22} tint="rgba(255,255,255,0.5)" style={{ marginBottom: 12 }}>
+              <div style={{ padding: 18 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div>
+                    <div style={{ fontFamily: SG.serif, fontSize: 20, fontWeight: 500, color: SG.ink }}>{lastSession.type || 'Séance'}</div>
+                    <div style={{ fontSize: 12, color: SG.inkSoft, marginTop: 2 }}>{sgFmt(lastSession.date)} · {lastSession.dur || '—'} min · {sgTonnage(lastSession).toLocaleString('fr-FR')} kg</div>
+                  </div>
+                </div>
+              </div>
+            </Glass>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── SGMobileHistory ──────────────────────────────────────────────────────────
+function SGMobileHistory({ data, user, onDeleteSession }) {
+  const sessions = data.sessions || [];
+  const [filter, setFilter] = useState('Tout');
+  const [detail, setDetail] = useState(null);
+  const types = ['Tout', ...Array.from(new Set(sessions.map(s => s.type).filter(Boolean)))];
+  const filtered = filter === 'Tout' ? sessions : sessions.filter(s => s.type === filter);
+  const today = new Date();
+  const month = today.getMonth(), year = today.getFullYear();
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  const firstDay = (new Date(year, month, 1).getDay() + 6) % 7;
+  const sessionDates = new Set(sessions.map(s => s.date));
+  const monthNames = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+
+  if (detail) {
+    const tonnage = sgTonnage(detail);
+    return (
+      <div style={{ position: 'relative', minHeight: '100vh', paddingBottom: 100 }}>
+        <div style={{ position: 'relative', padding: '54px 18px 0', maxWidth: 600, margin: '0 auto' }}>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 18 }}>
+            <Glass radius={22} tint="rgba(255,255,255,0.7)" style={{ width: 44, height: 44 }} onClick={() => setDetail(null)}>
+              <div style={{ width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={SG.ink} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+              </div>
+            </Glass>
+            <div>
+              <div style={{ fontSize: 11, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase' }}>{sgFmt(detail.date).toUpperCase()}</div>
+              <h1 style={{ fontFamily: SG.serif, fontSize: 28, fontWeight: 500, lineHeight: 1, margin: '4px 0 0', color: SG.ink }}>{detail.type || 'Séance'}</h1>
+            </div>
+          </div>
+          <Glass radius={24} tint="rgba(255,255,255,0.55)" style={{ marginBottom: 14 }}>
+            <div style={{ padding: 18, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+              <div>
+                <div style={{ fontSize: 10, color: SG.inkFaint, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase' }}>Tonnage</div>
+                <div style={{ fontFamily: SG.serif, fontSize: 24, fontWeight: 500, lineHeight: 1, marginTop: 2, color: SG.ink }}>{tonnage.toLocaleString('fr-FR')}<span style={{ fontSize: 11, color: SG.inkSoft }}>kg</span></div>
+              </div>
+              <div>
+                <div style={{ fontSize: 10, color: SG.inkFaint, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase' }}>Durée</div>
+                <div style={{ fontFamily: SG.serif, fontSize: 24, fontWeight: 500, lineHeight: 1, marginTop: 2, color: SG.ink }}>{detail.dur || '—'}<span style={{ fontSize: 11, color: SG.inkSoft }}>min</span></div>
+              </div>
+              <div>
+                <div style={{ fontSize: 10, color: SG.inkFaint, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase' }}>Exercices</div>
+                <div style={{ fontFamily: SG.serif, fontSize: 24, fontWeight: 500, lineHeight: 1, marginTop: 2, color: SG.ink }}>{(detail.exercises||[]).length}</div>
+              </div>
+            </div>
+          </Glass>
+          {(detail.exercises||[]).map((ex, i) => (
+            <Glass key={i} radius={18} tint="rgba(255,255,255,0.5)" style={{ marginBottom: 8 }}>
+              <div style={{ padding: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                  <div style={{ fontFamily: SG.serif, fontSize: 17, fontWeight: 500, color: SG.ink }}>{ex.name}</div>
+                  <div style={{ fontSize: 11, color: SG.inkSoft }}>{(ex.sets||[]).length} séries</div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min((ex.sets||[]).length, 4)}, 1fr)`, gap: 6 }}>
+                  {(ex.sets||[]).map((s,j) => (
+                    <div key={j} style={{ padding: '8px 10px', borderRadius: 12, background: 'rgba(255,255,255,0.6)', textAlign: 'center' }}>
+                      <div style={{ fontSize: 9, color: SG.inkFaint, fontWeight: 700 }}>S{j+1}</div>
+                      <div style={{ fontFamily: SG.serif, fontSize: 14, fontWeight: 500, color: SG.ink }}>{s.reps}×{s.weight}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </Glass>
+          ))}
+          <button onClick={async () => { if (window.confirm('Supprimer cette séance ?')) { await onDeleteSession(detail.id); setDetail(null); } }} style={{ width: '100%', padding: 14, borderRadius: 18, border: 'none', background: 'rgba(178,58,58,0.1)', color: '#B23A3A', cursor: 'pointer', fontWeight: 600, fontSize: 14, marginTop: 8 }}>Supprimer la séance</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ position: 'relative', minHeight: '100vh', paddingBottom: 100 }}>
+      <div style={{ position: 'relative', padding: '54px 18px 0', maxWidth: 600, margin: '0 auto' }}>
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ fontSize: 11, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase' }}>{sessions.length} SÉANCES</div>
+          <h1 style={{ fontFamily: SG.serif, fontSize: 34, fontWeight: 500, lineHeight: 1, margin: '4px 0 0', color: SG.ink }}>Historique</h1>
+        </div>
+        <Glass radius={24} tint="rgba(255,255,255,0.5)" style={{ marginBottom: 14 }}>
+          <div style={{ padding: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <div style={{ fontFamily: SG.serif, fontSize: 17, fontWeight: 500, color: SG.ink }}>{monthNames[month]} {year}</div>
+              <div style={{ display: 'flex', gap: 8, fontSize: 11, color: SG.inkSoft }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: 4, background: SG.accent, display: 'inline-block' }}/> séance</span>
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, marginBottom: 4 }}>
+              {['L','M','M','J','V','S','D'].map((d,i) => <div key={i} style={{ textAlign: 'center', fontSize: 10, color: SG.inkFaint, fontWeight: 700 }}>{d}</div>)}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
+              {Array(firstDay).fill(null).map((_,i) => <div key={'e'+i}/>)}
+              {Array.from({ length: daysInMonth }, (_,i) => {
+                const day = i+1;
+                const iso = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+                const hasSess = sessionDates.has(iso);
+                const isToday = day === today.getDate();
+                return <div key={day} style={{ aspectRatio:'1', borderRadius:10, display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:600, background: hasSess ? SG.accent : (isToday ? 'rgba(31,26,20,0.08)' : 'transparent'), color: hasSess ? '#fff' : SG.ink, border: isToday && !hasSess ? `1.5px solid ${SG.ink}` : 'none' }}>{day}</div>;
+              })}
+            </div>
+          </div>
+        </Glass>
+        <div style={{ display: 'flex', gap: 6, marginBottom: 12, overflowX: 'auto', paddingBottom: 4 }}>
+          {types.map(t => <button key={t} onClick={() => setFilter(t)} style={{ padding: '8px 16px', borderRadius: 16, border: 'none', cursor: 'pointer', background: filter === t ? SG.ink : 'rgba(255,255,255,0.55)', color: filter === t ? '#fff' : SG.ink, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0 }}>{t}</button>)}
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {filtered.map(s => (
+            <Glass key={s.id} radius={20} tint="rgba(255,255,255,0.5)" onClick={() => setDetail(s)}>
+              <div style={{ padding: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div>
+                    <div style={{ fontSize: 11, color: SG.inkSoft, fontWeight: 600 }}>{sgFmt(s.date)}</div>
+                    <div style={{ fontFamily: SG.serif, fontSize: 19, fontWeight: 500, marginTop: 2, color: SG.ink }}>{s.type || 'Séance'}</div>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 18, marginTop: 10, paddingTop: 10, borderTop: '0.5px solid rgba(31,26,20,0.08)' }}>
+                  <div>
+                    <div style={{ fontSize: 10, color: SG.inkFaint, fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase' }}>Tonnage</div>
+                    <div style={{ fontFamily: SG.serif, fontSize: 17, fontWeight: 500, color: SG.ink }}>{sgTonnage(s).toLocaleString('fr-FR')} <span style={{ fontSize: 10, color: SG.inkSoft }}>kg</span></div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 10, color: SG.inkFaint, fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase' }}>Durée</div>
+                    <div style={{ fontFamily: SG.serif, fontSize: 17, fontWeight: 500, color: SG.ink }}>{s.dur || '—'} <span style={{ fontSize: 10, color: SG.inkSoft }}>min</span></div>
+                  </div>
+                  <div style={{ flex: 1 }}/>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={SG.inkFaint} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+                </div>
+              </div>
+            </Glass>
+          ))}
+          {filtered.length === 0 && <div style={{ textAlign: 'center', padding: 40, color: SG.inkSoft }}>Aucune séance pour ce filtre.</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── SGMobileStats ────────────────────────────────────────────────────────────
+function SGMobileStats({ data, user }) {
+  const sessions = data.sessions || [];
+  const totalTonnage = sessions.reduce((acc, s) => acc + sgTonnage(s), 0);
+  const byType = {};
+  sessions.forEach(s => { if (s.type) byType[s.type] = (byType[s.type]||0) + sgTonnage(s); });
+  const types = Object.entries(byType).sort((a,b) => b[1]-a[1]);
+  const typeColors = [SG.accent, SG.accent2, '#D9A441', '#7C3AED'];
+  const avgPerWeek = sessions.length > 0 ? (sessions.length / Math.max(1, Math.ceil((new Date() - new Date(sessions[sessions.length-1]?.date+'T00:00:00'))/(7*24*3600*1000)))) : 0;
+
+  return (
+    <div style={{ position: 'relative', minHeight: '100vh', paddingBottom: 100 }}>
+      <div style={{ position: 'relative', padding: '54px 18px 0', maxWidth: 600, margin: '0 auto' }}>
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ fontSize: 11, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase' }}>TOUT LE TEMPS</div>
+          <h1 style={{ fontFamily: SG.serif, fontSize: 34, fontWeight: 500, lineHeight: 1, margin: '4px 0 0', color: SG.ink }}>Progrès</h1>
+        </div>
+        <Glass radius={26} tint="rgba(255,255,255,0.5)" style={{ marginBottom: 12 }}>
+          <div style={{ padding: 22 }}>
+            <div style={{ fontSize: 11, color: SG.inkSoft, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase' }}>Tonnage cumulé</div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 6 }}>
+              <div style={{ fontFamily: SG.serif, fontSize: 56, fontWeight: 500, letterSpacing: -1.5, lineHeight: 1, color: SG.ink }}>{(totalTonnage/1000).toFixed(1)}</div>
+              <div style={{ fontFamily: SG.serif, fontSize: 22, color: SG.inkSoft, fontStyle: 'italic' }}>tonnes</div>
+            </div>
+          </div>
+        </Glass>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+          <Glass radius={20} tint="rgba(255,255,255,0.5)">
+            <div style={{ padding: 14 }}>
+              <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase' }}>Fréquence</div>
+              <div style={{ fontFamily: SG.serif, fontSize: 28, fontWeight: 500, marginTop: 4, color: SG.ink }}>{avgPerWeek.toFixed(1)}<span style={{ fontSize: 12, color: SG.inkSoft }}>/sem</span></div>
+            </div>
+          </Glass>
+          <Glass radius={20} tint="rgba(255,255,255,0.5)">
+            <div style={{ padding: 14 }}>
+              <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase' }}>Séances</div>
+              <div style={{ fontFamily: SG.serif, fontSize: 28, fontWeight: 500, marginTop: 4, color: SG.ink }}>{sessions.length}</div>
+            </div>
+          </Glass>
+        </div>
+        {types.length > 0 && (
+          <Glass radius={24} tint="rgba(255,255,255,0.5)" style={{ marginBottom: 12 }}>
+            <div style={{ padding: 18 }}>
+              <div style={{ fontSize: 11, color: SG.inkSoft, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 12 }}>Répartition</div>
+              <div>
+                {types.map(([t, v], i) => {
+                  const pct = totalTonnage > 0 ? v/totalTonnage : 0;
+                  return (
+                    <div key={t} style={{ marginBottom: 10 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 13, color: SG.ink }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ width: 8, height: 8, borderRadius: 2, background: typeColors[i%typeColors.length], display: 'inline-block' }}/>
+                          {t}
+                        </span>
+                        <span style={{ fontFamily: SG.serif, color: SG.inkSoft }}>{Math.round(pct*100)}%</span>
+                      </div>
+                      <div style={{ height: 6, borderRadius: 3, background: 'rgba(31,26,20,0.08)', overflow: 'hidden' }}>
+                        <div style={{ width: `${pct*100}%`, height: '100%', background: typeColors[i%typeColors.length], borderRadius: 3 }}/>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </Glass>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── SGMobileTpl ──────────────────────────────────────────────────────────────
+function SGMobileTpl({ data, user, onTab, onOpenForm }) {
+  const templates = data.sessionTemplates || [];
+  const firstName = (user?.email || 'Toi').split('@')[0];
+  const firstLetter = firstName[0]?.toUpperCase() || 'M';
+
+  return (
+    <div style={{ position: 'relative', minHeight: '100vh', paddingBottom: 40 }}>
+      <div style={{ position: 'relative', padding: '54px 18px 0', maxWidth: 600, margin: '0 auto' }}>
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ fontSize: 11, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase' }}>MODÈLES</div>
+          <h1 style={{ fontFamily: SG.serif, fontSize: 34, fontWeight: 500, lineHeight: 1, margin: '4px 0 0', color: SG.ink }}>Séances</h1>
+        </div>
+
+        {templates.length === 0 ? (
+          <Glass radius={22} tint="rgba(255,255,255,0.5)" style={{ marginBottom: 12 }}>
+            <div style={{ padding: 28, textAlign: 'center' }}>
+              <div style={{ fontFamily: SG.serif, fontSize: 18, fontWeight: 500, color: SG.ink, marginBottom: 8 }}>Aucun modèle</div>
+              <div style={{ fontSize: 13, color: SG.inkSoft }}>Crée des séances pré-définies depuis le bureau.</div>
+            </div>
+          </Glass>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
+            {templates.map(tpl => (
+              <Glass key={tpl.id} radius={20} tint="rgba(255,255,255,0.5)">
+                <div style={{ padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
+                  <div style={{ width: 48, height: 48, borderRadius: 14, background: `linear-gradient(135deg, ${SG.accent} 0%, ${SG.accent2} 100%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>🏋️</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontFamily: SG.serif, fontSize: 18, fontWeight: 500, color: SG.ink }}>{tpl.name}</div>
+                    <div style={{ fontSize: 12, color: SG.inkSoft, marginTop: 2 }}>{(tpl.exercises||[]).length} exercices</div>
+                  </div>
+                  <button onClick={onOpenForm} style={{ padding: '10px 16px', borderRadius: 16, border: 'none', background: SG.ink, color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>Démarrer</button>
+                </div>
+              </Glass>
+            ))}
+          </div>
+        )}
+
+        <div style={{ marginTop: 24, borderTop: `0.5px solid rgba(31,26,20,0.10)`, paddingTop: 24 }}>
+          <div style={{ textAlign: 'center', marginBottom: 20 }}>
+            <div style={{ width: 64, height: 64, borderRadius: 32, margin: '0 auto 12px', background: `linear-gradient(135deg, ${SG.accent} 0%, ${SG.accent2} 100%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: SG.serif, fontSize: 28, fontWeight: 500, color: '#fff', boxShadow: `0 8px 24px ${SG.accent}44` }}>{firstLetter}</div>
+            <div style={{ fontFamily: SG.serif, fontSize: 22, fontWeight: 500, color: SG.ink }}>{firstName}</div>
+            <div style={{ fontSize: 12, color: SG.inkSoft, marginTop: 2 }}>{user?.email}</div>
+          </div>
+
+          <Glass radius={18} tint="rgba(255,255,255,0.55)" style={{ marginBottom: 12, overflow: 'hidden' }}>
+            <div>
+              <div onClick={() => onTab('analytics')} style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12, borderBottom: '0.5px solid rgba(31,26,20,0.08)', cursor: 'pointer' }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(31,26,20,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={SG.ink} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-6"/><path d="M22 20H2"/></svg>
+                </div>
+                <div style={{ flex: 1, fontSize: 15, fontWeight: 500, color: SG.ink }}>Statistiques complètes</div>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={SG.inkFaint} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+              </div>
+              <div onClick={() => signOutUser()} style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(178,58,58,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#B23A3A" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5M15 12H3"/></svg>
+                </div>
+                <div style={{ flex: 1, fontSize: 15, fontWeight: 500, color: '#B23A3A' }}>Déconnexion</div>
+              </div>
+            </div>
+          </Glass>
+
+          <div style={{ textAlign: 'center', marginTop: 24, paddingBottom: 16, fontSize: 11, color: SG.inkFaint, lineHeight: 2 }}>
+            <div>Workout Tracker · © 2026 Maxence Chan</div>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginTop: 4 }}>
+              <span style={{ textDecoration: 'underline', cursor: 'pointer' }}>Conditions d'utilisation</span>
+              <span style={{ textDecoration: 'underline', cursor: 'pointer' }}>Politique de confidentialité</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const Card = React.forwardRef(({ className, children }, ref) => (
   <div
     ref={ref}
@@ -527,6 +997,7 @@ function App() {
   const [route, setRoute] = useState(() => window.location.pathname);
   const vw = useViewport();
   const isMobile = vw < 1024;
+  const [showMobileForm, setShowMobileForm] = useState(false);
   const tractionAuthorized = isTractionAuthorized(user?.email);
   const navItems = useMemo(
     () => [
@@ -684,6 +1155,42 @@ function App() {
       return <AuthScreen onBack={() => navigate("/")} />;
     }
     return <PublicHome onLogin={() => navigate("/login")} />;
+  }
+
+  if (isMobile) {
+    const mobileView = ['sessions','last'].includes(tab) ? 'sessions'
+      : ['analytics','weight','steps','ranking'].includes(tab) ? 'analytics'
+      : tab === 'tpl' ? 'tpl'
+      : 'home';
+    return (
+      <div style={{ minHeight: '100vh', overflowX: 'hidden', position: 'relative', fontFamily: SG.sans, color: SG.ink }}>
+        <SGMobileBackground />
+        {showMobileForm ? (
+          <div style={{ position: 'relative', zIndex: 1, padding: '54px 18px 120px', maxWidth: 600, margin: '0 auto' }}>
+            <button onClick={() => setShowMobileForm(false)} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', cursor: 'pointer', color: SG.inkSoft, fontSize: 14, fontWeight: 600, marginBottom: 18, padding: 0 }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+              Retour
+            </button>
+            <SessionForm
+              user={user}
+              customExercises={data.customExercises}
+              onAddCustomExercise={(name) => { const upd = { ...data, customExercises: [...data.customExercises, name] }; setData(upd); saveDataFor(user.id, upd); }}
+              onSavedLocally={(s) => { const upd = { ...data, sessions: [s, ...data.sessions] }; setData(upd); saveDataFor(user.id, upd); setShowMobileForm(false); }}
+              sessionTemplates={data.sessionTemplates}
+              onCreateTemplate={async (tpl) => { await upsertSessionTemplate(user.id, tpl); }}
+            />
+          </div>
+        ) : (
+          <>
+            {mobileView === 'home' && <SGMobileHome data={data} user={user} onOpenForm={() => setShowMobileForm(true)} />}
+            {mobileView === 'sessions' && <SGMobileHistory data={data} user={user} onDeleteSession={async (id) => { try { await deleteSession(user.id, id); setData(cur => ({ ...cur, sessions: cur.sessions.filter(s => s.id !== id) })); } catch(e) { alert('Erreur: ' + e.message); } }} />}
+            {mobileView === 'analytics' && <SGMobileStats data={data} user={user} />}
+            {mobileView === 'tpl' && <SGMobileTpl data={data} user={user} onTab={handleTabChange} onOpenForm={() => setShowMobileForm(true)} />}
+          </>
+        )}
+        {!showMobileForm && <MobileSGTabBar tab={mobileView} onTab={handleTabChange} />}
+      </div>
+    );
   }
 
   return (
@@ -1004,24 +1511,6 @@ function App() {
         </div>
       </footer>
 
-      <div className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] left-0 right-0 z-20 border-t border-gray-200 bg-white/95 px-6 py-3 text-xs text-gray-600 backdrop-blur dark:border-[#1f1f1f] dark:bg-[#0d0d0d]/95 dark:text-gray-300 md:hidden">
-        <div className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-center gap-4 text-sm font-medium">
-          <button
-            type="button"
-            onClick={() => setActivePolicyModal("conditions")}
-            className="underline-offset-4 hover:underline"
-          >
-            Conditions d&apos;utilisation
-          </button>
-          <button
-            type="button"
-            onClick={() => setActivePolicyModal("politique")}
-            className="underline-offset-4 hover:underline"
-          >
-            Politique de confidentialité
-          </button>
-        </div>
-      </div>
 
       {isMobile ? (
         <MobileSGTabBar tab={tab} onTab={handleTabChange} />
