@@ -77,6 +77,157 @@ const SESSION_DRAFT_KEY = "workout-tracker-current-session";
 const TEMPLATE_DRAFT_KEY = "workout-tracker-template-draft";
 const headerGif = new URL("./components/gif deadlift.gif", import.meta.url).href;
 const cn = (...c) => c.filter(Boolean).join(" ");
+
+// ─────────────────────────────────────────────────────────────────
+// Soft Glow — Mobile Design System (D1)
+// ─────────────────────────────────────────────────────────────────
+const SG = {
+  bg1: '#F5EFE6', bg2: '#EDE3D4',
+  ink: '#1F1A14', inkSoft: 'rgba(31,26,20,0.62)', inkFaint: 'rgba(31,26,20,0.32)',
+  accent: '#C8643A', accent2: '#8B9A6B',
+  serif: '"Fraunces", Georgia, serif',
+};
+
+function useViewport() {
+  const [w, setW] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+  useEffect(() => {
+    const r = () => setW(window.innerWidth);
+    window.addEventListener('resize', r);
+    return () => window.removeEventListener('resize', r);
+  }, []);
+  return w;
+}
+
+function SGMobileBackground() {
+  const blobs = [
+    { x: -80, y: -60, size: 300, color: '#F4C9A0', opacity: 0.55, blur: 90 },
+    { x: 220, y: 140, size: 260, color: '#D9B89E', opacity: 0.45, blur: 100 },
+    { x: -40, y: 500, size: 280, color: '#C8643A', opacity: 0.18, blur: 120 },
+    { x: 200, y: 680, size: 240, color: '#8B9A6B', opacity: 0.22, blur: 110 },
+  ];
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: -1, overflow: 'hidden', pointerEvents: 'none',
+    }}>
+      {blobs.map((b, i) => (
+        <div key={i} style={{
+          position: 'absolute', left: b.x, top: b.y,
+          width: b.size, height: b.size, borderRadius: '50%',
+          background: b.color, opacity: b.opacity, filter: `blur(${b.blur}px)`,
+        }} />
+      ))}
+    </div>
+  );
+}
+
+function MobileSGTabBar({ tab, onTab }) {
+  const tabs = [
+    {
+      k: 'log', label: "Aujourd'hui",
+      icon: (c, s = 22) => (
+        <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>
+        </svg>
+      ),
+    },
+    {
+      k: 'sessions', label: 'Historique',
+      icon: (c, s = 22) => (
+        <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/>
+        </svg>
+      ),
+    },
+    {
+      k: 'analytics', label: 'Progrès',
+      icon: (c, s = 22) => (
+        <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-6"/><path d="M22 20H2"/>
+        </svg>
+      ),
+    },
+    {
+      k: 'tpl', label: 'Séances',
+      icon: (c, s = 22) => (
+        <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="2" y="9" width="3" height="6" rx="1"/><rect x="19" y="9" width="3" height="6" rx="1"/>
+          <rect x="5" y="7" width="3" height="10" rx="1"/><rect x="16" y="7" width="3" height="10" rx="1"/>
+          <path d="M8 12h8"/>
+        </svg>
+      ),
+    },
+  ];
+
+  const getActive = (t) => {
+    if (['log', 'last', 'traction'].includes(t)) return 'log';
+    if (['sessions'].includes(t)) return 'sessions';
+    if (['analytics', 'weight', 'steps', 'ranking'].includes(t)) return 'analytics';
+    return 'tpl';
+  };
+  const active = getActive(tab);
+
+  const tabBtn = (t) => {
+    const isActive = active === t.k;
+    const color = isActive ? SG.ink : SG.inkSoft;
+    return (
+      <button
+        key={t.k}
+        onClick={() => onTab(t.k)}
+        style={{
+          flex: 1, height: 56, borderRadius: 18, border: 'none', background: 'transparent',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3,
+          cursor: 'pointer', color,
+          fontFamily: SG.serif.split(',')[0].replace(/"/g, ''),
+        }}
+      >
+        {t.icon(color, 22)}
+        <div style={{ fontSize: 10, fontWeight: isActive ? 700 : 600, fontFamily: 'inherit', color }}>{t.label}</div>
+      </button>
+    );
+  };
+
+  return (
+    <div style={{
+      position: 'fixed', left: 12, right: 12, bottom: 12, zIndex: 100,
+      maxWidth: 600, margin: '0 auto',
+    }}>
+      <div style={{
+        height: 68, borderRadius: 36, padding: '0 6px',
+        backdropFilter: 'blur(22px) saturate(180%)',
+        WebkitBackdropFilter: 'blur(22px) saturate(180%)',
+        background: 'rgba(255,255,255,0.65)',
+        boxShadow: '0 12px 40px rgba(15,15,30,0.14), 0 2px 6px rgba(15,15,30,0.06)',
+        border: '0.5px solid rgba(255,255,255,0.70)',
+        display: 'flex', alignItems: 'center',
+      }}>
+        {tabBtn(tabs[0])}
+        {tabBtn(tabs[1])}
+        <div style={{ width: 76 }} />
+        {tabBtn(tabs[2])}
+        {tabBtn(tabs[3])}
+      </div>
+      <button
+        onClick={() => onTab('log')}
+        aria-label="Nouvelle séance"
+        style={{
+          position: 'absolute', left: '50%', bottom: 18,
+          transform: 'translateX(-50%)',
+          width: 68, height: 68, borderRadius: 34,
+          background: SG.ink, color: '#fff',
+          border: '1px solid rgba(255,255,255,0.20)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: `0 16px 36px ${SG.accent}55, 0 6px 14px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.20)`,
+          cursor: 'pointer',
+        }}
+      >
+        <svg width={30} height={30} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round">
+          <path d="M12 5v14"/><path d="M5 12h14"/>
+        </svg>
+      </button>
+    </div>
+  );
+}
+
 const Card = React.forwardRef(({ className, children }, ref) => (
   <div
     ref={ref}
@@ -374,6 +525,8 @@ function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activePolicyModal, setActivePolicyModal] = useState(null);
   const [route, setRoute] = useState(() => window.location.pathname);
+  const vw = useViewport();
+  const isMobile = vw < 1024;
   const tractionAuthorized = isTractionAuthorized(user?.email);
   const navItems = useMemo(
     () => [
@@ -535,6 +688,7 @@ function App() {
 
   return (
 <div className="min-h-screen w-full text-gray-900 dark:text-white">
+{isMobile && <SGMobileBackground />}
 <header
   className="sticky top-0 z-20
   bg-white/80 dark:bg-[#111214]/75
@@ -869,37 +1023,41 @@ function App() {
         </div>
       </div>
 
-      <nav className="fixed bottom-0 left-0 right-0 z-30 border-t border-[var(--border-subtle)] dark:border-white/5 bg-white/85 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl dark:bg-[#111214]/85 md:hidden shadow-[0_-8px_24px_-12px_rgba(0,0,0,0.12)]">
-        <div className="mx-auto grid max-w-[1600px] grid-cols-5 gap-y-1 px-2 py-2">
-          {mobileNavItems.map((item) => {
-            const Icon = item.icon;
-            const active = tab === item.value;
-            return (
-              <button
-                key={item.value}
-                onClick={() => handleTabChange(item.value)}
-                className={cn(
-                  "relative flex w-full flex-col items-center gap-1 rounded-xl px-1 py-2 text-[10.5px] font-semibold transition-all duration-300 ease-smooth active:scale-95",
-                  active
-                    ? "text-brand-600 dark:text-brand-300"
-                    : "text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
-                )}
-              >
-                {active && (
-                  <span className="absolute top-0.5 h-1 w-8 rounded-full bg-brand-500 dark:bg-brand-400 shadow-[0_0_8px_rgba(10,161,101,0.6)]" />
-                )}
-                <span className={cn(
-                  "grid place-items-center h-8 w-8 rounded-xl transition-all duration-300 ease-spring",
-                  active && "bg-brand-500/10 dark:bg-brand-400/15 scale-105"
-                )}>
-                  <Icon className={cn("h-[18px] w-[18px] transition-transform duration-300 ease-spring", active && "scale-110")} />
-                </span>
-                <span className="text-center leading-tight tracking-tight">{item.shortLabel}</span>
-              </button>
-            );
-          })}
-        </div>
-      </nav>
+      {isMobile ? (
+        <MobileSGTabBar tab={tab} onTab={handleTabChange} />
+      ) : (
+        <nav className="fixed bottom-0 left-0 right-0 z-30 border-t border-[var(--border-subtle)] dark:border-white/5 bg-white/85 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl dark:bg-[#111214]/85 md:hidden shadow-[0_-8px_24px_-12px_rgba(0,0,0,0.12)]">
+          <div className="mx-auto grid max-w-[1600px] grid-cols-5 gap-y-1 px-2 py-2">
+            {mobileNavItems.map((item) => {
+              const Icon = item.icon;
+              const active = tab === item.value;
+              return (
+                <button
+                  key={item.value}
+                  onClick={() => handleTabChange(item.value)}
+                  className={cn(
+                    "relative flex w-full flex-col items-center gap-1 rounded-xl px-1 py-2 text-[10.5px] font-semibold transition-all duration-300 ease-smooth active:scale-95",
+                    active
+                      ? "text-brand-600 dark:text-brand-300"
+                      : "text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+                  )}
+                >
+                  {active && (
+                    <span className="absolute top-0.5 h-1 w-8 rounded-full bg-brand-500 dark:bg-brand-400 shadow-[0_0_8px_rgba(10,161,101,0.6)]" />
+                  )}
+                  <span className={cn(
+                    "grid place-items-center h-8 w-8 rounded-xl transition-all duration-300 ease-spring",
+                    active && "bg-brand-500/10 dark:bg-brand-400/15 scale-105"
+                  )}>
+                    <Icon className={cn("h-[18px] w-[18px] transition-transform duration-300 ease-spring", active && "scale-110")} />
+                  </span>
+                  <span className="text-center leading-tight tracking-tight">{item.shortLabel}</span>
+                </button>
+              );
+            })}
+          </div>
+        </nav>
+      )}
     </div>
   );
 }

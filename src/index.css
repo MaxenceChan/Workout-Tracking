@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@600;700;800&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;1,9..144,400;1,9..144,500&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -276,4 +276,101 @@ html { scroll-behavior: smooth; }
 html.dark .recharts-tooltip-wrapper .recharts-default-tooltip {
   background: rgba(26, 27, 29, 0.96) !important;
   border: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+/* ─────────── Soft Glow — Mobile theme (< 1024px) ─────────── */
+@media (max-width: 1023px) {
+  html, html.dark,
+  body, html.dark body {
+    background: linear-gradient(180deg, #F5EFE6 0%, #EDE3D4 100%) !important;
+    color: #1F1A14 !important;
+  }
+
+  /* Warm header */
+  header.sticky {
+    background: rgba(245, 239, 230, 0.82) !important;
+    border-bottom-color: rgba(31, 26, 20, 0.08) !important;
+    color: #1F1A14 !important;
+  }
+
+  header.sticky * { color: #1F1A14 !important; }
+
+  /* Glass cards */
+  .card-lift,
+  [class*="rounded-2xl"][class*="border"] {
+    background: rgba(255, 255, 255, 0.50) !important;
+    backdrop-filter: blur(22px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(22px) saturate(180%) !important;
+    border: 0.5px solid rgba(255, 255, 255, 0.58) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.78), 0 6px 20px rgba(31, 26, 20, 0.06) !important;
+    color: #1F1A14 !important;
+  }
+
+  /* Text resets for dark overrides */
+  [class*="dark:text-white"],
+  [class*="dark:text-gray"],
+  span, p, label, th, td, small { color: #1F1A14 !important; }
+
+  /* Fraunces serif for display headings */
+  .font-display, h1, h2, h3 {
+    font-family: 'Fraunces', Georgia, serif !important;
+  }
+
+  /* Brand accent → Terracotta */
+  .text-gradient-brand {
+    background: linear-gradient(135deg, #C8643A 0%, #8B9A6B 100%) !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    color: transparent !important;
+  }
+
+  .text-brand-600, .text-brand-500, .text-brand-400,
+  .dark\:text-brand-300, .dark\:text-brand-400 { color: #C8643A !important; }
+
+  /* Brand buttons → Terracotta */
+  [class*="from-brand-"][class*="to-brand-"] {
+    background: linear-gradient(180deg, #C8643A 0%, #a84d28 100%) !important;
+    box-shadow: 0 4px 14px rgba(200, 100, 58, 0.30) !important;
+  }
+
+  /* Active nav indicator */
+  .bg-brand-500, .dark\:bg-brand-400 { background: #C8643A !important; }
+  .bg-brand-500\/10, .dark\:bg-brand-400\/15 { background: rgba(200, 100, 58, 0.12) !important; }
+  .shadow-\[0_0_8px_rgba\(10\,161\,101\,0\.6\)\] { box-shadow: 0 0 8px rgba(200, 100, 58, 0.55) !important; }
+
+  /* Focus rings */
+  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+    box-shadow: 0 0 0 3px rgba(200, 100, 58, 0.30) !important;
+  }
+
+  /* Input fields */
+  input, select, textarea {
+    background: rgba(255, 255, 255, 0.70) !important;
+    border-color: rgba(31, 26, 20, 0.12) !important;
+    color: #1F1A14 !important;
+  }
+  input::placeholder, textarea::placeholder { color: rgba(31, 26, 20, 0.40) !important; }
+
+  /* Tabs strip */
+  [class*="bg-gray-100"], [class*="dark:bg-white/5"] {
+    background: rgba(255, 255, 255, 0.45) !important;
+    border-color: rgba(31, 26, 20, 0.08) !important;
+  }
+
+  /* Active tab pill */
+  [class*="bg-white"][class*="shadow-soft"] {
+    background: rgba(255, 255, 255, 0.80) !important;
+  }
+
+  /* Extra bottom padding for floating nav */
+  .pb-\[calc\(8rem\+env\(safe-area-inset-bottom\)\)\] {
+    padding-bottom: calc(6.5rem + env(safe-area-inset-bottom)) !important;
+  }
+
+  /* Recharts on mobile */
+  .recharts-tooltip-wrapper .recharts-default-tooltip {
+    background: rgba(255, 255, 255, 0.92) !important;
+    border-color: rgba(31, 26, 20, 0.10) !important;
+    color: #1F1A14 !important;
+  }
 }
