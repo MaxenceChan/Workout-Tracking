@@ -295,8 +295,242 @@ const sgWeekDays = (sessions) => {
   });
 };
 
+// ─── useTimer + SGActiveSession ───────────────────────────────────────────────
+function useTimer(startedAt) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const elapsed = Math.floor((now - startedAt) / 1000);
+  const mm = String(Math.floor(elapsed / 60)).padStart(2, '0');
+  const ss = String(elapsed % 60).padStart(2, '0');
+  return { display: `${mm}:${ss}`, elapsed, now };
+}
+
+function SGActiveSession({ session, onFinish, onCancel }) {
+  const { display: timerDisplay, now } = useTimer(session.startedAt);
+  const [exercises, setExercises] = useState(session.exercises);
+  const [curExIdx, setCurExIdx] = useState(0);
+  const [curSetIdx, setCurSetIdx] = useState(0);
+  const [reps, setReps] = useState(10);
+  const [kg, setKg] = useState(0);
+  const [restEnd, setRestEnd] = useState(null);
+  const [showAbandon, setShowAbandon] = useState(false);
+
+  const restRemaining = restEnd ? Math.max(0, Math.ceil((restEnd - now) / 1000)) : 0;
+  const isResting = restRemaining > 0;
+
+  const currentEx = exercises[curExIdx];
+  const tonnage = exercises.reduce((acc, ex) =>
+    acc + ex.sets.reduce((s, st) => s + (st.done ? st.reps * st.weight : 0), 0), 0);
+
+  // Sync reps/kg from last done set
+  useEffect(() => {
+    if (!currentEx) return;
+    const lastDone = [...currentEx.sets].reverse().find(s => s.done);
+    if (lastDone) { setReps(lastDone.reps); setKg(lastDone.weight); }
+  }, [curExIdx, curSetIdx]);
+
+  const validateSet = () => {
+    const updatedExercises = exercises.map((ex, ei) => {
+      if (ei !== curExIdx) return ex;
+      return { ...ex, sets: ex.sets.map((s, si) => si === curSetIdx ? { ...s, reps, weight: kg, done: true } : s) };
+    });
+    setExercises(updatedExercises);
+    setRestEnd(Date.now() + 90000); // 90s rest
+
+    const ex = updatedExercises[curExIdx];
+    const nextSetIdx = curSetIdx + 1;
+    if (nextSetIdx < ex.sets.length) {
+      setCurSetIdx(nextSetIdx);
+    } else {
+      const nextExIdx = curExIdx + 1;
+      if (nextExIdx < exercises.length) {
+        setCurExIdx(nextExIdx);
+        setCurSetIdx(0);
+      }
+    }
+  };
+
+  const addSet = () => {
+    setExercises(exs => exs.map((ex, ei) =>
+      ei === curExIdx ? { ...ex, sets: [...ex.sets, { reps: 10, weight: kg, done: false }] } : ex
+    ));
+  };
+
+  const handleFinish = () => {
+    const elapsed = Math.floor((Date.now() - session.startedAt) / 1000);
+    const dur = Math.round(elapsed / 60) || 1;
+    onFinish({ exercises, dur, tonnage });
+  };
+
+  const completedSets = exercises.reduce((acc, ex) => acc + ex.sets.filter(s => s.done).length, 0);
+  const totalSets = exercises.reduce((acc, ex) => acc + ex.sets.length, 0);
+
+  const iconCheck = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 13l4 4L19 7"/></svg>;
+  const iconMinus = (c='currentColor') => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.4" strokeLinecap="round"><path d="M5 12h14"/></svg>;
+  const iconPlus = (c='currentColor') => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.4" strokeLinecap="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>;
+
+  return (
+    <div style={{ position: 'relative', minHeight: '100vh', paddingBottom: 30 }}>
+      <div style={{ position: 'relative', padding: '50px 18px 0', maxWidth: 600, margin: '0 auto' }}>
+
+        {/* Top bar */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+          <Glass radius={22} tint="rgba(255,255,255,0.7)" style={{ width: 44, height: 44 }} onClick={() => setShowAbandon(true)}>
+            <div style={{ width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={SG.ink} strokeWidth="2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+            </div>
+          </Glass>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 10, color: SG.accent, fontWeight: 800, letterSpacing: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+              <div style={{ width: 6, height: 6, borderRadius: 3, background: SG.accent }} /> EN COURS
+            </div>
+            <div style={{ fontFamily: SG.serif, fontSize: 16, fontStyle: 'italic', color: SG.ink }}>{session.name}</div>
+          </div>
+          <div style={{ width: 44, height: 44 }} />
+        </div>
+
+        {/* Timer + Tonnage */}
+        <Glass radius={26} tint="rgba(255,255,255,0.50)" style={{ marginBottom: 12 }}>
+          <div style={{ padding: '18px 22px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+              <div>
+                <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase' }}>Temps</div>
+                <div style={{ fontFamily: SG.serif, fontSize: 40, fontWeight: 500, letterSpacing: -1, lineHeight: 1, marginTop: 2, color: SG.ink }}>{timerDisplay}</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase' }}>Tonnage</div>
+                <div style={{ fontFamily: SG.serif, fontSize: 40, fontWeight: 500, letterSpacing: -1, lineHeight: 1, marginTop: 2, color: SG.ink }}>{(tonnage / 1000).toFixed(1)}<span style={{ fontSize: 16, color: SG.inkSoft, fontStyle: 'italic' }}>t</span></div>
+              </div>
+            </div>
+            {/* Progress bars per exercise */}
+            <div style={{ display: 'flex', gap: 4, marginTop: 14 }}>
+              {exercises.map((ex, i) => {
+                const pct = ex.sets.filter(s => s.done).length / ex.sets.length;
+                const isActive = i === curExIdx;
+                return (
+                  <div key={i} style={{ flex: 1, height: 6, borderRadius: 3, overflow: 'hidden', background: 'rgba(31,26,20,0.08)' }}>
+                    <div style={{ width: `${(isActive ? pct : ex.sets.every(s => s.done) ? 1 : 0) * 100}%`, height: '100%', background: ex.sets.every(s => s.done) ? SG.accent2 : SG.accent, borderRadius: 3, transition: 'width 300ms' }} />
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{ fontSize: 11, color: SG.inkFaint, marginTop: 6 }}>Exercice {curExIdx + 1} / {exercises.length} · {completedSets}/{totalSets} séries</div>
+          </div>
+        </Glass>
+
+        {/* Current exercise card */}
+        {currentEx && (
+          <Glass radius={26} tint="rgba(255,255,255,0.55)" style={{ marginBottom: 12, border: `1.5px solid ${SG.accent}`, boxShadow: `0 8px 24px ${SG.accent}22` }}>
+            <div style={{ padding: 20 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
+                <div>
+                  <div style={{ fontSize: 11, color: SG.accent, fontWeight: 800, letterSpacing: 0.8, textTransform: 'uppercase' }}>EXERCICE {curExIdx + 1} / {exercises.length}</div>
+                  <div style={{ fontFamily: SG.serif, fontSize: 26, fontWeight: 500, marginTop: 3, letterSpacing: -0.4, color: SG.ink }}>{currentEx.name}</div>
+                </div>
+                {isResting && (
+                  <div style={{ padding: '8px 12px', borderRadius: 16, background: SG.ink, color: '#fff', fontFamily: SG.serif, fontSize: 16, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <div style={{ width: 6, height: 6, borderRadius: 3, background: SG.accent }} />
+                    {String(Math.floor(restRemaining / 60)).padStart(2,'0')}:{String(restRemaining % 60).padStart(2,'0')}
+                  </div>
+                )}
+              </div>
+
+              {/* Sets list */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 14 }}>
+                {currentEx.sets.map((s, si) => {
+                  const isCurrent = si === curSetIdx;
+                  return (
+                    <div key={si} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 16, background: isCurrent ? SG.ink : (s.done ? 'rgba(139,154,107,0.12)' : 'rgba(255,255,255,0.4)'), color: isCurrent ? '#fff' : SG.ink, transition: 'all 200ms' }}>
+                      <div style={{ width: 28, height: 28, borderRadius: 14, background: s.done ? SG.accent2 : (isCurrent ? SG.accent : 'transparent'), border: !s.done && !isCurrent ? `1.5px solid rgba(31,26,20,0.20)` : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 12, fontWeight: 800, flexShrink: 0 }}>
+                        {s.done ? iconCheck : (si + 1)}
+                      </div>
+                      <div style={{ flex: 1, fontFamily: SG.serif, fontSize: 17, fontWeight: 500 }}>
+                        {s.done ? `${s.reps} reps · ${s.weight} kg` : (isCurrent ? `${reps} reps · ${kg} kg` : '— reps · — kg')}
+                      </div>
+                      {isCurrent && !s.done && <div style={{ fontSize: 10, fontWeight: 800, color: SG.accent, letterSpacing: 0.5 }}>EN COURS</div>}
+                    </div>
+                  );
+                })}
+                <button onClick={addSet} style={{ marginTop: 4, padding: '8px 14px', borderRadius: 14, border: `1.5px dashed rgba(31,26,20,0.14)`, background: 'transparent', cursor: 'pointer', fontSize: 12, color: SG.inkSoft, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                  {iconPlus(SG.inkSoft)} Ajouter une série
+                </button>
+              </div>
+
+              {/* Steppers */}
+              <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                {[{ label: 'REPS', val: reps, set: setReps, step: 1, min: 1 }, { label: 'KG', val: kg, set: setKg, step: 2.5, min: 0 }].map(({ label, val, set, step, min }) => (
+                  <Glass key={label} radius={18} tint="rgba(255,255,255,0.6)">
+                    <div style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <button onClick={() => set(v => Math.max(min, v - step))} style={{ width: 36, height: 36, borderRadius: 18, border: 'none', cursor: 'pointer', background: SG.ink, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{iconMinus('#fff')}</button>
+                      <div style={{ textAlign: 'center', flex: 1 }}>
+                        <div style={{ fontSize: 9, color: SG.inkSoft, fontWeight: 800, letterSpacing: 1 }}>{label}</div>
+                        <div style={{ fontFamily: SG.serif, fontSize: 26, fontWeight: 500, lineHeight: 1.1, letterSpacing: -0.5, color: SG.ink }}>{Number.isInteger(val) ? val : val.toFixed(1)}</div>
+                      </div>
+                      <button onClick={() => set(v => v + step)} style={{ width: 36, height: 36, borderRadius: 18, border: 'none', cursor: 'pointer', background: SG.accent, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 4px 10px ${SG.accent}44` }}>{iconPlus('#fff')}</button>
+                    </div>
+                  </Glass>
+                ))}
+              </div>
+
+              {/* Validate button */}
+              {curSetIdx < currentEx.sets.length && !currentEx.sets[curSetIdx]?.done && (
+                <button onClick={validateSet} style={{ marginTop: 14, width: '100%', height: 58, borderRadius: 22, border: 'none', cursor: 'pointer', background: SG.accent, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontWeight: 800, fontSize: 17, letterSpacing: 0.3, boxShadow: `0 12px 28px ${SG.accent}44, inset 0 1px 0 rgba(255,255,255,0.3)` }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 13l4 4L19 7"/></svg>
+                  Valider la série {curSetIdx + 1}
+                </button>
+              )}
+            </div>
+          </Glass>
+        )}
+
+        {/* À suivre */}
+        {exercises.slice(curExIdx + 1).length > 0 && (
+          <>
+            <div style={{ fontSize: 11, color: SG.inkSoft, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', margin: '14px 4px 8px' }}>À suivre</div>
+            {exercises.slice(curExIdx + 1).map((ex, i) => (
+              <Glass key={i} radius={18} tint="rgba(255,255,255,0.4)" style={{ marginBottom: 6 }}>
+                <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{ width: 6, height: 32, borderRadius: 3, background: SG.accent2, flexShrink: 0 }} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontFamily: SG.serif, fontSize: 16, fontWeight: 500, color: SG.ink }}>{ex.name}</div>
+                    <div style={{ fontSize: 11, color: SG.inkSoft }}>{ex.sets.length} séries</div>
+                  </div>
+                  <div style={{ fontSize: 11, color: SG.inkFaint }}>{curExIdx + i + 2} / {exercises.length}</div>
+                </div>
+              </Glass>
+            ))}
+          </>
+        )}
+
+        {/* Finish */}
+        <button onClick={handleFinish} style={{ width: '100%', padding: 16, borderRadius: 22, marginTop: 18, border: 'none', background: SG.ink, color: '#fff', cursor: 'pointer', fontSize: 15, fontWeight: 700, boxShadow: '0 8px 20px rgba(0,0,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+          Terminer la séance
+        </button>
+
+        {/* Abandon dialog */}
+        {showAbandon && (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(31,26,20,0.45)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }} onClick={() => setShowAbandon(false)}>
+            <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 600, background: SG.bg1, borderRadius: '28px 28px 0 0', padding: '20px 24px 40px', boxShadow: '0 -20px 50px rgba(0,0,0,0.18)' }}>
+              <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(31,26,20,0.12)', margin: '0 auto 20px' }} />
+              <div style={{ fontFamily: SG.serif, fontSize: 24, fontWeight: 500, color: SG.ink, marginBottom: 8, textAlign: 'center' }}>Quitter sans enregistrer ?</div>
+              <div style={{ fontSize: 13, color: SG.inkSoft, textAlign: 'center', marginBottom: 22 }}>Tu perdras les {completedSets} séries déjà validées.</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <button onClick={onCancel} style={{ padding: 14, borderRadius: 18, border: 'none', cursor: 'pointer', background: '#B23A3A', color: '#fff', fontWeight: 700, fontSize: 15 }}>Abandonner</button>
+                <button onClick={() => setShowAbandon(false)} style={{ padding: 14, borderRadius: 18, border: 'none', cursor: 'pointer', background: 'rgba(31,26,20,0.06)', color: SG.ink, fontWeight: 700, fontSize: 15 }}>Continuer ma séance</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── SGMobileHome ─────────────────────────────────────────────────────────────
-function SGMobileHome({ data, user, onOpenForm }) {
+function SGMobileHome({ data, user, onOpenForm, onLaunchTpl }) {
   const sessions = data.sessions || [];
   const templates = data.sessionTemplates || [];
   const lastSession = sessions[0];
@@ -402,7 +636,7 @@ function SGMobileHome({ data, user, onOpenForm }) {
                   <div style={{ fontFamily: SG.serif, fontSize: 19, fontWeight: 500, fontStyle: 'italic', color: SG.ink }}>{suggestion.name}</div>
                   <div style={{ fontSize: 12, color: SG.inkSoft, marginTop: 2 }}>{(suggestion.exercises||[]).length} exercices</div>
                 </div>
-                <button onClick={onOpenForm} style={{ padding: '10px 16px', borderRadius: 18, border: 'none', background: SG.ink, color: '#fff', fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', boxShadow: '0 4px 12px rgba(0,0,0,0.18)' }}>
+                <button onClick={() => onLaunchTpl ? onLaunchTpl(suggestion) : onOpenForm()} style={{ padding: '10px 16px', borderRadius: 18, border: 'none', background: SG.ink, color: '#fff', fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', boxShadow: '0 4px 12px rgba(0,0,0,0.18)' }}>
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="#fff"><path d="M6 4l14 8-14 8V4z"/></svg> Go
                 </button>
               </div>
@@ -755,11 +989,77 @@ function SGMobileStats({ data, user }) {
   );
 }
 
+// ─── SGMobileTemplateEdit ─────────────────────────────────────────────────────
+function SGMobileTemplateEdit({ tpl, onSave, onCancel }) {
+  const [name, setName] = useState(tpl.name || '');
+  const [exercises, setExercises] = useState([...(tpl.exercises || [])]);
+  const [saving, setSaving] = useState(false);
+
+  const addEx = () => setExercises(e => [...e, '']);
+  const updEx = (i, v) => setExercises(e => e.map((x, idx) => idx === i ? v : x));
+  const delEx = (i) => setExercises(e => e.filter((_, idx) => idx !== i));
+
+  const handleSave = async () => {
+    setSaving(true);
+    await onSave({ ...tpl, name, exercises: exercises.filter(e => e.trim()) });
+    setSaving(false);
+  };
+
+  return (
+    <div style={{ position: 'relative', minHeight: '100vh', paddingBottom: 120 }}>
+      <div style={{ position: 'relative', padding: '54px 18px 0', maxWidth: 600, margin: '0 auto' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 22 }}>
+          <h1 style={{ fontFamily: SG.serif, fontSize: 28, fontWeight: 500, color: SG.ink, margin: 0 }}>Modifier le modèle</h1>
+          <button onClick={onCancel} style={{ background: 'rgba(31,26,20,0.07)', border: 'none', borderRadius: 14, padding: '8px 14px', fontSize: 13, fontWeight: 600, color: SG.ink, cursor: 'pointer' }}>Annuler</button>
+        </div>
+
+        <Glass radius={20} tint="rgba(255,255,255,0.6)" style={{ marginBottom: 16 }}>
+          <div style={{ padding: 16 }}>
+            <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 8 }}>Nom du modèle</div>
+            <input value={name} onChange={e => setName(e.target.value)}
+              style={{ width: '100%', fontFamily: SG.serif, fontSize: 20, fontWeight: 500, color: SG.ink, background: 'transparent', border: 'none', outline: 'none' }}
+              placeholder="Ex: Pec & Épaules" />
+          </div>
+        </Glass>
+
+        <div style={{ fontSize: 11, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase', margin: '0 4px 10px' }}>Exercices</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
+          {exercises.map((ex, i) => (
+            <Glass key={i} radius={16} tint="rgba(255,255,255,0.55)">
+              <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 24, height: 24, borderRadius: 12, background: SG.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 11, fontWeight: 800, flexShrink: 0 }}>{i + 1}</div>
+                <input value={ex} onChange={e => updEx(i, e.target.value)} placeholder="Nom de l'exercice"
+                  style={{ flex: 1, fontFamily: SG.serif, fontSize: 16, fontWeight: 500, color: SG.ink, background: 'transparent', border: 'none', outline: 'none' }} />
+                <button onClick={() => delEx(i)} style={{ background: 'none', border: 'none', padding: '4px 8px', cursor: 'pointer', color: SG.inkFaint, fontSize: 20, lineHeight: 1 }}>×</button>
+              </div>
+            </Glass>
+          ))}
+        </div>
+
+        <button onClick={addEx} style={{ width: '100%', padding: 14, borderRadius: 18, border: `1.5px dashed rgba(31,26,20,0.15)`, background: 'transparent', cursor: 'pointer', fontSize: 13, color: SG.inkSoft, fontWeight: 600, marginBottom: 20 }}>+ Ajouter un exercice</button>
+
+        <button onClick={handleSave} disabled={saving || !name.trim()} style={{ width: '100%', padding: 16, borderRadius: 22, border: 'none', background: SG.ink, color: '#fff', fontWeight: 700, fontSize: 16, cursor: 'pointer', opacity: !name.trim() ? 0.5 : 1 }}>
+          {saving ? 'Enregistrement…' : 'Enregistrer le modèle'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── SGMobileTpl ──────────────────────────────────────────────────────────────
 function SGMobileTpl({ data, user, onTab, onOpenForm }) {
   const templates = data.sessionTemplates || [];
   const firstName = (user?.email || 'Toi').split('@')[0];
   const firstLetter = firstName[0]?.toUpperCase() || 'M';
+  const [editingTpl, setEditingTpl] = useState(null);
+
+  if (editingTpl) {
+    return <SGMobileTemplateEdit
+      tpl={editingTpl}
+      onSave={async (updated) => { await upsertSessionTemplate(user.id, updated); setEditingTpl(null); }}
+      onCancel={() => setEditingTpl(null)}
+    />;
+  }
 
   return (
     <div style={{ position: 'relative', minHeight: '100vh', paddingBottom: 40 }}>
@@ -786,7 +1086,8 @@ function SGMobileTpl({ data, user, onTab, onOpenForm }) {
                     <div style={{ fontFamily: SG.serif, fontSize: 18, fontWeight: 500, color: SG.ink }}>{tpl.name}</div>
                     <div style={{ fontSize: 12, color: SG.inkSoft, marginTop: 2 }}>{(tpl.exercises||[]).length} exercices</div>
                   </div>
-                  <button onClick={onOpenForm} style={{ padding: '10px 16px', borderRadius: 16, border: 'none', background: SG.ink, color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>Démarrer</button>
+                  <button onClick={() => setEditingTpl(tpl)} style={{ padding: '10px 14px', borderRadius: 16, border: 'none', background: 'rgba(31,26,20,0.07)', color: SG.ink, fontWeight: 600, fontSize: 13, cursor: 'pointer', marginRight: 6 }}>Éditer</button>
+                  <button onClick={() => onOpenForm(tpl)} style={{ padding: '10px 16px', borderRadius: 16, border: 'none', background: SG.ink, color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>Démarrer</button>
                 </div>
               </Glass>
             ))}
@@ -1130,7 +1431,42 @@ function App() {
   const [route, setRoute] = useState(() => window.location.pathname);
   const vw = useViewport();
   const isMobile = vw < 1024;
-  const [showMobileForm, setShowMobileForm] = useState(false);
+  const [activeSession, setActiveSession] = useState(null);
+
+  const launchSession = (tpl) => {
+    const exercises = (tpl?.exercises || []).map(exName => ({
+      name: typeof exName === 'string' ? exName : exName.name,
+      sets: Array(4).fill(null).map(() => ({ reps: 10, weight: 0, done: false }))
+    }));
+    setActiveSession({
+      name: tpl?.name || 'Séance libre',
+      templateId: tpl?.id || null,
+      exercises,
+      startedAt: Date.now(),
+    });
+  };
+
+  const finishSession = async ({ exercises, dur, tonnage }) => {
+    const s = {
+      id: uuidv4(),
+      type: activeSession.name,
+      date: new Date().toISOString().slice(0, 10),
+      exercises,
+      dur,
+      tonnage,
+      note: '',
+      user_id: user.id,
+      user_email: user.email,
+      created_at: new Date().toISOString(),
+    };
+    try {
+      await upsertSessions(user.id, [s], user.email);
+      setData(cur => ({ ...cur, sessions: [s, ...cur.sessions] }));
+    } catch (e) {
+      console.error('Error saving session:', e);
+    }
+    setActiveSession(null);
+  };
   const tractionAuthorized = isTractionAuthorized(user?.email);
   const navItems = useMemo(
     () => [
@@ -1295,33 +1631,31 @@ function App() {
       : ['analytics','weight','steps','ranking'].includes(tab) ? 'analytics'
       : tab === 'tpl' ? 'tpl'
       : 'home';
+
+    if (activeSession) {
+      return (
+        <div style={{ minHeight: '100vh', overflowX: 'hidden', position: 'relative', fontFamily: SG.sans, color: SG.ink }}>
+          <SGMobileBackground />
+          <SGActiveSession
+            session={activeSession}
+            onFinish={finishSession}
+            onCancel={() => setActiveSession(null)}
+          />
+        </div>
+      );
+    }
+
     return (
       <div style={{ minHeight: '100vh', overflowX: 'hidden', position: 'relative', fontFamily: SG.sans, color: SG.ink }}>
         <SGMobileBackground />
-        {showMobileForm ? (
-          <div style={{ position: 'relative', zIndex: 1, padding: '54px 18px 120px', maxWidth: 600, margin: '0 auto' }}>
-            <button onClick={() => setShowMobileForm(false)} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', cursor: 'pointer', color: SG.inkSoft, fontSize: 14, fontWeight: 600, marginBottom: 18, padding: 0 }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
-              Retour
-            </button>
-            <SessionForm
-              user={user}
-              customExercises={data.customExercises}
-              onAddCustomExercise={(name) => { const upd = { ...data, customExercises: [...data.customExercises, name] }; setData(upd); saveDataFor(user.id, upd); }}
-              onSavedLocally={(s) => { const upd = { ...data, sessions: [s, ...data.sessions] }; setData(upd); saveDataFor(user.id, upd); setShowMobileForm(false); }}
-              sessionTemplates={data.sessionTemplates}
-              onCreateTemplate={async (tpl) => { await upsertSessionTemplate(user.id, tpl); }}
-            />
-          </div>
-        ) : (
-          <>
-            {mobileView === 'home' && <SGMobileHome data={data} user={user} onOpenForm={() => setShowMobileForm(true)} />}
-            {mobileView === 'sessions' && <SGMobileHistory data={data} user={user} onDeleteSession={async (id) => { try { await deleteSession(user.id, id); setData(cur => ({ ...cur, sessions: cur.sessions.filter(s => s.id !== id) })); } catch(e) { alert('Erreur: ' + e.message); } }} upsertFn={async (s) => { await upsertSessions(user.id, [s], user.email); setData(cur => ({ ...cur, sessions: cur.sessions.map(x => x.id === s.id ? s : x) })); }} />}
-            {mobileView === 'analytics' && <SGMobileStats data={data} user={user} />}
-            {mobileView === 'tpl' && <SGMobileTpl data={data} user={user} onTab={handleTabChange} onOpenForm={() => setShowMobileForm(true)} />}
-          </>
-        )}
-        {!showMobileForm && <MobileSGTabBar tab={mobileView} onTab={handleTabChange} />}
+        {mobileView === 'home' && <SGMobileHome data={data} user={user} onOpenForm={() => launchSession(null)} onLaunchTpl={(tpl) => launchSession(tpl)} />}
+        {mobileView === 'sessions' && <SGMobileHistory data={data} user={user}
+          onDeleteSession={async (id) => { try { await deleteSession(user.id, id); setData(cur => ({ ...cur, sessions: cur.sessions.filter(s => s.id !== id) })); } catch(e) { alert('Erreur: ' + e.message); } }}
+          upsertFn={async (s) => { await upsertSessions(user.id, [s], user.email); setData(cur => ({ ...cur, sessions: cur.sessions.map(x => x.id === s.id ? s : x) })); }}
+        />}
+        {mobileView === 'analytics' && <SGMobileStats data={data} user={user} />}
+        {mobileView === 'tpl' && <SGMobileTpl data={data} user={user} onTab={handleTabChange} onOpenForm={(tpl) => launchSession(tpl)} />}
+        <MobileSGTabBar tab={mobileView} onTab={handleTabChange} />
       </div>
     );
   }
