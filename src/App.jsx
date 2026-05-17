@@ -230,9 +230,23 @@ function MobileSGTabBar({ tab, onTab }) {
 
 // ─── Glass primitive ──────────────────────────────────────────────────────────
 function Glass({ children, style = {}, radius = 24, tint = 'rgba(255,255,255,0.50)', onClick }) {
+  const ref = useRef(null);
+  const [ripple, setRipple] = useState(null);
+  const handleTouch = (e) => {
+    if (!ref.current) return;
+    const rect = ref.current.getBoundingClientRect();
+    const t = e.touches[0];
+    setRipple({ x: ((t.clientX - rect.left) / rect.width) * 100, y: ((t.clientY - rect.top) / rect.height) * 100, id: Date.now() });
+    setTimeout(() => setRipple(null), 550);
+  };
   return (
-    <div onClick={onClick} style={{ position: 'relative', borderRadius: radius, cursor: onClick ? 'pointer' : 'default', ...style }}>
-      <div style={{ position: 'absolute', inset: 0, borderRadius: radius, backdropFilter: 'blur(22px) saturate(180%)', WebkitBackdropFilter: 'blur(22px) saturate(180%)', background: tint, overflow: 'hidden' }} />
+    <div ref={ref} onClick={onClick} onTouchStart={handleTouch}
+      style={{ position: 'relative', borderRadius: radius, cursor: onClick ? 'pointer' : 'default', WebkitTapHighlightColor: 'transparent', ...style }}>
+      <div style={{ position: 'absolute', inset: 0, borderRadius: radius, backdropFilter: 'blur(22px) saturate(180%)', WebkitBackdropFilter: 'blur(22px) saturate(180%)', background: tint, overflow: 'hidden' }}>
+        {ripple && (
+          <div key={ripple.id} style={{ position: 'absolute', left: `${ripple.x}%`, top: `${ripple.y}%`, transform: 'translate(-50%,-50%)', width: '200%', paddingBottom: '200%', borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,0.45) 0%, transparent 65%)', animation: 'sg-ripple 550ms ease-out forwards', pointerEvents: 'none' }} />
+        )}
+      </div>
       <div style={{ position: 'absolute', inset: 0, borderRadius: radius, boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.78), inset 0 -1px 0 rgba(0,0,0,0.03)', border: '0.5px solid rgba(255,255,255,0.58)', pointerEvents: 'none' }} />
       <div style={{ position: 'relative', zIndex: 1 }}>{children}</div>
     </div>
@@ -416,11 +430,82 @@ function SGMobileHome({ data, user, onOpenForm }) {
   );
 }
 
+// ─── SGMobileSessionEdit ──────────────────────────────────────────────────────
+function SGMobileSessionEdit({ session, onSave, onCancel, upsertFn }) {
+  const [exercises, setExercises] = useState(
+    (session.exercises || []).map(ex => ({
+      name: ex.name,
+      sets: (ex.sets || []).map(s => ({ reps: String(s.reps ?? ''), weight: String(s.weight ?? '') }))
+    }))
+  );
+  const [saving, setSaving] = useState(false);
+
+  const updEx = (i, fn) => setExercises(exs => exs.map((e, idx) => idx === i ? fn(e) : e));
+  const updSet = (ei, si, field, val) => updEx(ei, ex => ({ ...ex, sets: ex.sets.map((s, idx) => idx === si ? { ...s, [field]: val } : s) }));
+  const addSet = (ei) => updEx(ei, ex => ({ ...ex, sets: [...ex.sets, { reps: '10', weight: '0' }] }));
+  const delSet = (ei, si) => updEx(ei, ex => ({ ...ex, sets: ex.sets.filter((_, idx) => idx !== si) }));
+  const delEx = (i) => setExercises(exs => exs.filter((_, idx) => idx !== i));
+  const addEx = () => setExercises(exs => [...exs, { name: 'Nouvel exercice', sets: [{ reps: '10', weight: '0' }] }]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    const updated = { ...session, exercises: exercises.map(ex => ({ name: ex.name, sets: ex.sets.map(s => ({ reps: Number(s.reps) || 0, weight: Number(s.weight) || 0 })) })) };
+    await upsertFn(updated);
+    onSave(updated);
+    setSaving(false);
+  };
+
+  return (
+    <div style={{ position: 'relative', minHeight: '100vh', paddingBottom: 120 }}>
+      <div style={{ position: 'relative', padding: '54px 18px 0', maxWidth: 600, margin: '0 auto' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <h1 style={{ fontFamily: SG.serif, fontSize: 28, fontWeight: 500, color: SG.ink, margin: 0 }}>Modifier</h1>
+          <button onClick={onCancel} style={{ background: 'rgba(31,26,20,0.07)', border: 'none', borderRadius: 14, padding: '8px 14px', fontSize: 13, fontWeight: 600, color: SG.ink, cursor: 'pointer' }}>Annuler</button>
+        </div>
+
+        {exercises.map((ex, ei) => (
+          <Glass key={ei} radius={20} tint="rgba(255,255,255,0.55)" style={{ marginBottom: 10 }}>
+            <div style={{ padding: 16 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <input value={ex.name} onChange={e => updEx(ei, ex => ({ ...ex, name: e.target.value }))}
+                  style={{ fontFamily: SG.serif, fontSize: 18, fontWeight: 500, color: SG.ink, background: 'transparent', border: 'none', outline: 'none', flex: 1 }} />
+                <button onClick={() => delEx(ei)} style={{ background: 'rgba(178,58,58,0.1)', border: 'none', borderRadius: 10, padding: '6px 10px', cursor: 'pointer', color: '#B23A3A', fontSize: 12, fontWeight: 700 }}>Suppr.</button>
+              </div>
+              {ex.sets.map((s, si) => (
+                <div key={si} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                  <div style={{ fontSize: 11, color: SG.inkFaint, fontWeight: 700, width: 20 }}>S{si+1}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, flex: 1 }}>
+                    <input type="number" value={s.reps} onChange={e => updSet(ei, si, 'reps', e.target.value)}
+                      style={{ width: 52, padding: '8px 10px', borderRadius: 12, border: '1px solid rgba(31,26,20,0.12)', background: 'rgba(255,255,255,0.7)', fontSize: 15, fontFamily: SG.serif, textAlign: 'center', color: SG.ink }} />
+                    <span style={{ fontSize: 11, color: SG.inkSoft }}>reps</span>
+                    <input type="number" value={s.weight} onChange={e => updSet(ei, si, 'weight', e.target.value)}
+                      style={{ width: 60, padding: '8px 10px', borderRadius: 12, border: '1px solid rgba(31,26,20,0.12)', background: 'rgba(255,255,255,0.7)', fontSize: 15, fontFamily: SG.serif, textAlign: 'center', color: SG.ink }} />
+                    <span style={{ fontSize: 11, color: SG.inkSoft }}>kg</span>
+                  </div>
+                  <button onClick={() => delSet(ei, si)} style={{ background: 'none', border: 'none', padding: '4px 6px', cursor: 'pointer', color: SG.inkFaint, fontSize: 18, lineHeight: 1 }}>×</button>
+                </div>
+              ))}
+              <button onClick={() => addSet(ei)} style={{ marginTop: 6, padding: '8px 14px', borderRadius: 14, border: `1.5px dashed rgba(31,26,20,0.15)`, background: 'transparent', cursor: 'pointer', fontSize: 12, color: SG.inkSoft, fontWeight: 600 }}>+ Série</button>
+            </div>
+          </Glass>
+        ))}
+
+        <button onClick={addEx} style={{ width: '100%', padding: 14, borderRadius: 18, border: `1.5px dashed rgba(31,26,20,0.15)`, background: 'transparent', cursor: 'pointer', fontSize: 13, color: SG.inkSoft, fontWeight: 600, marginBottom: 14 }}>+ Exercice</button>
+
+        <button onClick={handleSave} disabled={saving} style={{ width: '100%', padding: 16, borderRadius: 22, border: 'none', background: SG.ink, color: '#fff', fontWeight: 700, fontSize: 16, cursor: 'pointer', boxShadow: '0 8px 20px rgba(0,0,0,0.15)' }}>
+          {saving ? 'Enregistrement…' : 'Enregistrer'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── SGMobileHistory ──────────────────────────────────────────────────────────
-function SGMobileHistory({ data, user, onDeleteSession }) {
+function SGMobileHistory({ data, user, onDeleteSession, upsertFn }) {
   const sessions = data.sessions || [];
   const [filter, setFilter] = useState('Tout');
   const [detail, setDetail] = useState(null);
+  const [editing, setEditing] = useState(false);
   const types = ['Tout', ...Array.from(new Set(sessions.map(s => s.type).filter(Boolean)))];
   const filtered = filter === 'Tout' ? sessions : sessions.filter(s => s.type === filter);
   const today = new Date();
@@ -429,6 +514,15 @@ function SGMobileHistory({ data, user, onDeleteSession }) {
   const firstDay = (new Date(year, month, 1).getDay() + 6) % 7;
   const sessionDates = new Set(sessions.map(s => s.date));
   const monthNames = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+
+  if (detail && editing) {
+    return <SGMobileSessionEdit
+      session={detail}
+      onSave={(updated) => { setDetail(updated); setEditing(false); }}
+      onCancel={() => setEditing(false)}
+      upsertFn={upsertFn}
+    />;
+  }
 
   if (detail) {
     const tonnage = sgTonnage(detail);
@@ -480,7 +574,13 @@ function SGMobileHistory({ data, user, onDeleteSession }) {
               </div>
             </Glass>
           ))}
-          <button onClick={async () => { if (window.confirm('Supprimer cette séance ?')) { await onDeleteSession(detail.id); setDetail(null); } }} style={{ width: '100%', padding: 14, borderRadius: 18, border: 'none', background: 'rgba(178,58,58,0.1)', color: '#B23A3A', cursor: 'pointer', fontWeight: 600, fontSize: 14, marginTop: 8 }}>Supprimer la séance</button>
+          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+            <button onClick={() => setEditing(true)} style={{ flex: 1, padding: 14, borderRadius: 18, border: 'none', background: 'rgba(255,255,255,0.6)', color: SG.ink, cursor: 'pointer', fontWeight: 600, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={SG.ink} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20h4l11-11-4-4L4 16v4z"/></svg>
+              Éditer
+            </button>
+            <button onClick={async () => { if (window.confirm('Supprimer cette séance ?')) { await onDeleteSession(detail.id); setDetail(null); } }} style={{ flex: 1, padding: 14, borderRadius: 18, border: 'none', background: 'rgba(178,58,58,0.1)', color: '#B23A3A', cursor: 'pointer', fontWeight: 600, fontSize: 14 }}>Supprimer la séance</button>
+          </div>
         </div>
       </div>
     );
@@ -553,69 +653,102 @@ function SGMobileHistory({ data, user, onDeleteSession }) {
 
 // ─── SGMobileStats ────────────────────────────────────────────────────────────
 function SGMobileStats({ data, user }) {
+  const [subTab, setSubTab] = useState('stats');
   const sessions = data.sessions || [];
   const totalTonnage = sessions.reduce((acc, s) => acc + sgTonnage(s), 0);
   const byType = {};
   sessions.forEach(s => { if (s.type) byType[s.type] = (byType[s.type]||0) + sgTonnage(s); });
   const types = Object.entries(byType).sort((a,b) => b[1]-a[1]);
   const typeColors = [SG.accent, SG.accent2, '#D9A441', '#7C3AED'];
-  const avgPerWeek = sessions.length > 0 ? (sessions.length / Math.max(1, Math.ceil((new Date() - new Date(sessions[sessions.length-1]?.date+'T00:00:00'))/(7*24*3600*1000)))) : 0;
+  const weeks = Math.max(1, Math.ceil((new Date() - new Date((sessions[sessions.length-1]?.date||new Date().toISOString().slice(0,10))+'T00:00:00'))/(7*24*3600*1000)));
+  const avgPerWeek = sessions.length > 0 ? (sessions.length / weeks).toFixed(1) : '0';
+
+  const subTabs = [
+    { k: 'stats', label: 'Progrès' },
+    { k: 'poids', label: 'Poids' },
+    { k: 'pas', label: 'Pas' },
+  ];
 
   return (
     <div style={{ position: 'relative', minHeight: '100vh', paddingBottom: 100 }}>
       <div style={{ position: 'relative', padding: '54px 18px 0', maxWidth: 600, margin: '0 auto' }}>
         <div style={{ marginBottom: 18 }}>
-          <div style={{ fontSize: 11, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase' }}>TOUT LE TEMPS</div>
+          <div style={{ fontSize: 11, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase' }}>STATISTIQUES</div>
           <h1 style={{ fontFamily: SG.serif, fontSize: 34, fontWeight: 500, lineHeight: 1, margin: '4px 0 0', color: SG.ink }}>Progrès</h1>
         </div>
-        <Glass radius={26} tint="rgba(255,255,255,0.5)" style={{ marginBottom: 12 }}>
-          <div style={{ padding: 22 }}>
-            <div style={{ fontSize: 11, color: SG.inkSoft, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase' }}>Tonnage cumulé</div>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 6 }}>
-              <div style={{ fontFamily: SG.serif, fontSize: 56, fontWeight: 500, letterSpacing: -1.5, lineHeight: 1, color: SG.ink }}>{(totalTonnage/1000).toFixed(1)}</div>
-              <div style={{ fontFamily: SG.serif, fontSize: 22, color: SG.inkSoft, fontStyle: 'italic' }}>tonnes</div>
-            </div>
-          </div>
-        </Glass>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
-          <Glass radius={20} tint="rgba(255,255,255,0.5)">
-            <div style={{ padding: 14 }}>
-              <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase' }}>Fréquence</div>
-              <div style={{ fontFamily: SG.serif, fontSize: 28, fontWeight: 500, marginTop: 4, color: SG.ink }}>{avgPerWeek.toFixed(1)}<span style={{ fontSize: 12, color: SG.inkSoft }}>/sem</span></div>
-            </div>
-          </Glass>
-          <Glass radius={20} tint="rgba(255,255,255,0.5)">
-            <div style={{ padding: 14 }}>
-              <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase' }}>Séances</div>
-              <div style={{ fontFamily: SG.serif, fontSize: 28, fontWeight: 500, marginTop: 4, color: SG.ink }}>{sessions.length}</div>
-            </div>
-          </Glass>
+
+        {/* Sub-tab pills */}
+        <div style={{ display: 'flex', gap: 6, marginBottom: 18 }}>
+          {subTabs.map(t => (
+            <button key={t.k} onClick={() => setSubTab(t.k)} style={{ padding: '9px 18px', borderRadius: 20, border: 'none', cursor: 'pointer', background: subTab === t.k ? SG.ink : 'rgba(255,255,255,0.55)', color: subTab === t.k ? '#fff' : SG.ink, fontSize: 13, fontWeight: 700, flexShrink: 0, transition: 'all 200ms', boxShadow: subTab === t.k ? '0 4px 12px rgba(0,0,0,0.15)' : 'none' }}>{t.label}</button>
+          ))}
         </div>
-        {types.length > 0 && (
-          <Glass radius={24} tint="rgba(255,255,255,0.5)" style={{ marginBottom: 12 }}>
-            <div style={{ padding: 18 }}>
-              <div style={{ fontSize: 11, color: SG.inkSoft, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 12 }}>Répartition</div>
-              <div>
-                {types.map(([t, v], i) => {
-                  const pct = totalTonnage > 0 ? v/totalTonnage : 0;
-                  return (
-                    <div key={t} style={{ marginBottom: 10 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 13, color: SG.ink }}>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <span style={{ width: 8, height: 8, borderRadius: 2, background: typeColors[i%typeColors.length], display: 'inline-block' }}/>
-                          {t}
-                        </span>
-                        <span style={{ fontFamily: SG.serif, color: SG.inkSoft }}>{Math.round(pct*100)}%</span>
-                      </div>
-                      <div style={{ height: 6, borderRadius: 3, background: 'rgba(31,26,20,0.08)', overflow: 'hidden' }}>
-                        <div style={{ width: `${pct*100}%`, height: '100%', background: typeColors[i%typeColors.length], borderRadius: 3 }}/>
-                      </div>
-                    </div>
-                  );
-                })}
+
+        {subTab === 'stats' && (
+          <>
+            <Glass radius={26} tint="rgba(255,255,255,0.5)" style={{ marginBottom: 12 }}>
+              <div style={{ padding: 22 }}>
+                <div style={{ fontSize: 11, color: SG.inkSoft, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase' }}>Tonnage cumulé</div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 6 }}>
+                  <div style={{ fontFamily: SG.serif, fontSize: 56, fontWeight: 500, letterSpacing: -1.5, lineHeight: 1, color: SG.ink }}>{(totalTonnage/1000).toFixed(1)}</div>
+                  <div style={{ fontFamily: SG.serif, fontSize: 22, color: SG.inkSoft, fontStyle: 'italic' }}>tonnes</div>
+                </div>
               </div>
+            </Glass>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+              <Glass radius={20} tint="rgba(255,255,255,0.5)">
+                <div style={{ padding: 14 }}>
+                  <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase' }}>Fréquence</div>
+                  <div style={{ fontFamily: SG.serif, fontSize: 28, fontWeight: 500, marginTop: 4, color: SG.ink }}>{avgPerWeek}<span style={{ fontSize: 12, color: SG.inkSoft }}>/sem</span></div>
+                </div>
+              </Glass>
+              <Glass radius={20} tint="rgba(255,255,255,0.5)">
+                <div style={{ padding: 14 }}>
+                  <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase' }}>Total</div>
+                  <div style={{ fontFamily: SG.serif, fontSize: 28, fontWeight: 500, marginTop: 4, color: SG.ink }}>{sessions.length}<span style={{ fontSize: 12, color: SG.inkSoft }}> séances</span></div>
+                </div>
+              </Glass>
             </div>
-          </Glass>
+
+            {types.length > 0 && (
+              <Glass radius={24} tint="rgba(255,255,255,0.5)" style={{ marginBottom: 12 }}>
+                <div style={{ padding: 18 }}>
+                  <div style={{ fontSize: 11, color: SG.inkSoft, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 14 }}>Répartition par type</div>
+                  {types.map(([t, v], i) => {
+                    const pct = totalTonnage > 0 ? v/totalTonnage : 0;
+                    return (
+                      <div key={t} style={{ marginBottom: 12 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5, fontSize: 13, color: SG.ink }}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                            <span style={{ width: 9, height: 9, borderRadius: 3, background: typeColors[i%typeColors.length], display: 'inline-block' }}/>
+                            {t}
+                          </span>
+                          <span style={{ fontFamily: SG.serif, color: SG.inkSoft }}>{Math.round(pct*100)}%</span>
+                        </div>
+                        <div style={{ height: 7, borderRadius: 4, background: 'rgba(31,26,20,0.08)', overflow: 'hidden' }}>
+                          <div style={{ width: `${pct*100}%`, height: '100%', background: typeColors[i%typeColors.length], borderRadius: 4 }}/>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Glass>
+            )}
+
+            {/* Embed full Analytics component */}
+            <div style={{ marginTop: 8 }}>
+              <Analytics sessions={data.sessions} sessionTemplates={data.sessionTemplates} />
+            </div>
+          </>
+        )}
+
+        {subTab === 'poids' && (
+          <WeightTracker user={user} />
+        )}
+
+        {subTab === 'pas' && (
+          <StepsTracker user={user} />
         )}
       </div>
     </div>
@@ -1183,7 +1316,7 @@ function App() {
         ) : (
           <>
             {mobileView === 'home' && <SGMobileHome data={data} user={user} onOpenForm={() => setShowMobileForm(true)} />}
-            {mobileView === 'sessions' && <SGMobileHistory data={data} user={user} onDeleteSession={async (id) => { try { await deleteSession(user.id, id); setData(cur => ({ ...cur, sessions: cur.sessions.filter(s => s.id !== id) })); } catch(e) { alert('Erreur: ' + e.message); } }} />}
+            {mobileView === 'sessions' && <SGMobileHistory data={data} user={user} onDeleteSession={async (id) => { try { await deleteSession(user.id, id); setData(cur => ({ ...cur, sessions: cur.sessions.filter(s => s.id !== id) })); } catch(e) { alert('Erreur: ' + e.message); } }} upsertFn={async (s) => { await upsertSessions(user.id, [s], user.email); setData(cur => ({ ...cur, sessions: cur.sessions.map(x => x.id === s.id ? s : x) })); }} />}
             {mobileView === 'analytics' && <SGMobileStats data={data} user={user} />}
             {mobileView === 'tpl' && <SGMobileTpl data={data} user={user} onTab={handleTabChange} onOpenForm={() => setShowMobileForm(true)} />}
           </>
