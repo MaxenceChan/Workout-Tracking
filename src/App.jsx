@@ -62,6 +62,7 @@ import {
   query,
   where,
   orderBy,
+  limit,
   onSnapshot,
   writeBatch,
   addDoc,
@@ -1088,6 +1089,13 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession }) {
   const [weekSteps, setWeekSteps] = useState(null);
   const [weekRunKm, setWeekRunKm] = useState(null);
   const [weekRunActivities, setWeekRunActivities] = useState([]);
+  const [lastWeight, setLastWeight] = useState(null);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const q = query(collection(db, "weights"), where("user_id", "==", user.id), orderBy("date", "desc"), limit(1));
+    return onSnapshot(q, snap => setLastWeight(snap.empty ? null : snap.docs[0].data().weight));
+  }, [user?.id]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -1210,10 +1218,12 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession }) {
           </Glass>
           <Glass radius={20} tint="rgba(255,255,255,0.5)">
             <div style={{ padding: 14 }}>
-              <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase' }}>Tonnage sem.</div>
+              <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase' }}>Dernier poids</div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 6 }}>
-                <div style={{ fontFamily: SG.serif, fontSize: 32, fontWeight: 500, lineHeight: 1, color: SG.ink }}>{(weekTonnage/1000).toFixed(1)}</div>
-                <div style={{ fontSize: 11, color: SG.inkSoft }}>t</div>
+                <div style={{ fontFamily: SG.serif, fontSize: 32, fontWeight: 500, lineHeight: 1, color: SG.ink }}>
+                  {lastWeight === null ? '—' : lastWeight}
+                </div>
+                {lastWeight !== null && <div style={{ fontSize: 11, color: SG.inkSoft }}>kg</div>}
               </div>
             </div>
           </Glass>
