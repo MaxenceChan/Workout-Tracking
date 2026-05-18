@@ -51,7 +51,8 @@ import {
 } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer,
-  BarChart, Bar, PieChart, Pie, Cell, Legend, LabelList
+  BarChart, Bar, PieChart, Pie, Cell, Legend, LabelList,
+  ComposedChart, Scatter
 } from "recharts";
 
 // Firebase
@@ -6827,18 +6828,30 @@ function StravaTracker({ user }) {
     return `${m}'${String(s).padStart(2,'0')}"`;
   })();
 
-  // Graphe distance par sortie (période filtrée)
+  // Graphe distance par sortie (nuage de points + tendance)
   const monthsFR = ['jan','fév','mars','avr','mai','juin','juil','août','sep','oct','nov','déc'];
   const fmtDay = (iso) => {
     if (!iso) return '';
     const [y, m, d] = iso.split('-');
     return `${parseInt(d)} ${monthsFR[parseInt(m)-1]} ${y}`;
   };
-  const chartData = [...filtered].sort((a,b) => a.date < b.date ? -1 : 1).map(a => ({
+  const scatterData = [...filtered].sort((a,b) => a.date < b.date ? -1 : 1).map((a, i) => ({
+    x: i,
+    y: parseFloat((a.distance / 1000).toFixed(2)),
     date: fmtDay(a.date),
-    km: parseFloat((a.distance / 1000).toFixed(2)),
-    name: a.name,
+    label: a.name,
   }));
+  const trendLine = (() => {
+    const n = scatterData.length;
+    if (n < 2) return scatterData.map(d => ({ x: d.x, trend: d.y }));
+    const sumX = scatterData.reduce((s, d) => s + d.x, 0);
+    const sumY = scatterData.reduce((s, d) => s + d.y, 0);
+    const sumXY = scatterData.reduce((s, d) => s + d.x * d.y, 0);
+    const sumX2 = scatterData.reduce((s, d) => s + d.x * d.x, 0);
+    const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+    const intercept = (sumY - slope * sumX) / n;
+    return scatterData.map(d => ({ x: d.x, trend: parseFloat(Math.max(0, slope * d.x + intercept).toFixed(2)) }));
+  })();
 
   return (
     <div className="space-y-6">
@@ -6881,20 +6894,30 @@ function StravaTracker({ user }) {
             ))}
           </div>
 
-          {/* Graphe distance */}
+          {/* Graphe distance — nuage de points + tendance */}
           <Card>
             <CardContent>
               <h3 className="font-semibold text-lg mb-4">📈 Distance par sortie (km)</h3>
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={chartData} margin={{ top: 28, right: 12, left: 0, bottom: 40 }}>
+                <ComposedChart margin={{ top: 10, right: 12, left: 0, bottom: 10 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
-                  <XAxis dataKey="date" tick={{ fill: axisColor, fontSize: 11 }} angle={-35} textAnchor="end" interval="preserveStartEnd" />
-                  <YAxis tick={{ fill: axisColor, fontSize: 11 }} width={45} tickFormatter={v => `${v}km`} />
-                  <Tooltip content={<BlackTooltip />} formatter={(v, _, { payload }) => [`${v} km — ${payload?.name}`, 'Distance']} />
-                  <Bar dataKey="km" fill="#fc4c02" radius={[4,4,0,0]}>
-                    <LabelList dataKey="km" position="top" style={{ fill: axisColor, fontSize: 10, fontWeight: 600 }} formatter={v => `${v}km`} />
-                  </Bar>
-                </BarChart>
+                  <XAxis type="number" dataKey="x" domain={[-0.5, scatterData.length - 0.5]} hide />
+                  <YAxis type="number" dataKey="y" tick={{ fill: axisColor, fontSize: 11 }} width={45} tickFormatter={v => `${v}km`} />
+                  <Tooltip content={({ active, payload }) => {
+                    if (!active || !payload?.length) return null;
+                    const d = payload[0]?.payload;
+                    if (!d?.date) return null;
+                    return (
+                      <div style={{ background: '#1F1A14', color: '#fff', padding: '8px 12px', borderRadius: 8, fontSize: 12 }}>
+                        <div style={{ fontWeight: 700 }}>{d.y} km</div>
+                        <div style={{ opacity: 0.75 }}>{d.date}</div>
+                        {d.label && <div style={{ opacity: 0.55, fontSize: 11 }}>{d.label}</div>}
+                      </div>
+                    );
+                  }} />
+                  <Scatter data={scatterData} fill="#fc4c02" opacity={0.85} />
+                  <Line data={trendLine} type="linear" dataKey="trend" stroke="#fc4c02" dot={false} strokeWidth={2} strokeDasharray="6 3" strokeOpacity={0.5} />
+                </ComposedChart>
               </ResponsiveContainer>
             </CardContent>
           </Card>
