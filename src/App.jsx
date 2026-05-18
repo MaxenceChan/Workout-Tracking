@@ -1430,6 +1430,8 @@ function SGMobileStats({ data, user }) {
 
   const subTabs = [
     { k: 'stats', label: 'Progrès' },
+    { k: 'evolution', label: 'Évolution' },
+    { k: 'tableaux', label: 'Tableaux' },
     { k: 'poids', label: 'Poids' },
     { k: 'pas', label: 'Pas' },
   ];
@@ -1442,36 +1444,38 @@ function SGMobileStats({ data, user }) {
           <h1 style={{ fontFamily: SG.serif, fontSize: 34, fontWeight: 500, lineHeight: 1, margin: '4px 0 0', color: SG.ink }}>Progrès</h1>
         </div>
 
+        {/* Date filter — hidden on Poids / Pas tabs */}
+        {subTab !== 'poids' && subTab !== 'pas' && (
+          <Glass radius={20} tint="rgba(255,255,255,0.55)" style={{ marginBottom: 14 }}>
+            <div style={{ padding: '14px 16px' }}>
+              <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 10 }}>Période</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div>
+                  <div style={{ fontSize: 10, color: SG.inkFaint, marginBottom: 4 }}>Début</div>
+                  <input type="date" value={startDate} max={endDate}
+                    onChange={e => setStartDate(e.target.value)}
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: 12, border: '1.5px solid rgba(31,26,20,0.12)', background: 'rgba(255,255,255,0.7)', fontSize: 13, color: SG.ink, boxSizing: 'border-box', outline: 'none' }} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 10, color: SG.inkFaint, marginBottom: 4 }}>Fin</div>
+                  <input type="date" value={endDate} min={startDate} max={todayISO}
+                    onChange={e => setEndDate(e.target.value)}
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: 12, border: '1.5px solid rgba(31,26,20,0.12)', background: 'rgba(255,255,255,0.7)', fontSize: 13, color: SG.ink, boxSizing: 'border-box', outline: 'none' }} />
+                </div>
+              </div>
+            </div>
+          </Glass>
+        )}
+
         {/* Sub-tab pills */}
-        <div style={{ display: 'flex', gap: 6, marginBottom: 18 }}>
+        <div style={{ display: 'flex', gap: 6, marginBottom: 18, overflowX: 'auto', paddingBottom: 2 }}>
           {subTabs.map(t => (
-            <button key={t.k} onClick={() => setSubTab(t.k)} style={{ padding: '9px 18px', borderRadius: 20, border: 'none', cursor: 'pointer', background: subTab === t.k ? SG.ink : 'rgba(255,255,255,0.55)', color: subTab === t.k ? '#fff' : SG.ink, fontSize: 13, fontWeight: 700, flexShrink: 0, transition: 'all 200ms', boxShadow: subTab === t.k ? '0 4px 12px rgba(0,0,0,0.15)' : 'none' }}>{t.label}</button>
+            <button key={t.k} onClick={() => setSubTab(t.k)} style={{ padding: '9px 16px', borderRadius: 20, border: 'none', cursor: 'pointer', background: subTab === t.k ? SG.ink : 'rgba(255,255,255,0.55)', color: subTab === t.k ? '#fff' : SG.ink, fontSize: 13, fontWeight: 700, flexShrink: 0, transition: 'all 200ms', boxShadow: subTab === t.k ? '0 4px 12px rgba(0,0,0,0.15)' : 'none', whiteSpace: 'nowrap' }}>{t.label}</button>
           ))}
         </div>
 
         {subTab === 'stats' && (
           <>
-            {/* Date filter */}
-            <Glass radius={20} tint="rgba(255,255,255,0.55)" style={{ marginBottom: 14 }}>
-              <div style={{ padding: '14px 16px' }}>
-                <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 10 }}>Période</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                  <div>
-                    <div style={{ fontSize: 10, color: SG.inkFaint, marginBottom: 4 }}>Début</div>
-                    <input type="date" value={startDate} max={endDate}
-                      onChange={e => setStartDate(e.target.value)}
-                      style={{ width: '100%', padding: '10px 12px', borderRadius: 12, border: '1.5px solid rgba(31,26,20,0.12)', background: 'rgba(255,255,255,0.7)', fontSize: 13, color: SG.ink, boxSizing: 'border-box', outline: 'none' }} />
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 10, color: SG.inkFaint, marginBottom: 4 }}>Fin</div>
-                    <input type="date" value={endDate} min={startDate} max={todayISO}
-                      onChange={e => setEndDate(e.target.value)}
-                      style={{ width: '100%', padding: '10px 12px', borderRadius: 12, border: '1.5px solid rgba(31,26,20,0.12)', background: 'rgba(255,255,255,0.7)', fontSize: 13, color: SG.ink, boxSizing: 'border-box', outline: 'none' }} />
-                  </div>
-                </div>
-              </div>
-            </Glass>
-
             <Glass radius={26} tint="rgba(255,255,255,0.5)" style={{ marginBottom: 12 }}>
               <div style={{ padding: 22 }}>
                 <div style={{ fontSize: 11, color: SG.inkSoft, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase' }}>Tonnage cumulé</div>
@@ -1492,7 +1496,7 @@ function SGMobileStats({ data, user }) {
               <Glass radius={20} tint="rgba(255,255,255,0.5)">
                 <div style={{ padding: 14 }}>
                   <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase' }}>Total</div>
-                  <div style={{ fontFamily: SG.serif, fontSize: 28, fontWeight: 500, marginTop: 4, color: SG.ink }}>{sessions.length}<span style={{ fontSize: 12, color: SG.inkSoft }}> séances</span></div>
+                  <div style={{ fontFamily: SG.serif, fontSize: 28, fontWeight: 500, marginTop: 4, color: SG.ink }}>{filteredSessions.length}<span style={{ fontSize: 12, color: SG.inkSoft }}> séances</span></div>
                 </div>
               </Glass>
             </div>
@@ -1521,12 +1525,19 @@ function SGMobileStats({ data, user }) {
                 </div>
               </Glass>
             )}
-
-            {/* Embed full Analytics component */}
-            <div style={{ marginTop: 8 }}>
-              <Analytics sessions={filteredSessions} sessionTemplates={data.sessionTemplates} hideCalendar={true} hideFrequency={true} hideRecentSplit={true} showSectionHeaders={true} />
-            </div>
           </>
+        )}
+
+        {subTab === 'evolution' && (
+          <div style={{ marginTop: 4 }}>
+            <Analytics sessions={filteredSessions} sessionTemplates={data.sessionTemplates} hideCalendar={true} hideFrequency={true} hideRecentSplit={true} onlyCurves={true} />
+          </div>
+        )}
+
+        {subTab === 'tableaux' && (
+          <div style={{ marginTop: 4 }}>
+            <Analytics sessions={filteredSessions} sessionTemplates={data.sessionTemplates} hideCalendar={true} hideFrequency={true} hideRecentSplit={true} onlyTables={true} />
+          </div>
         )}
 
         {subTab === 'poids' && (
@@ -4157,7 +4168,7 @@ const cardRef = React.useRef(null);
 // Analytics (graphiques + calendrier)
 // ───────────────────────────────────────────────────────────────
 
-function Analytics({ sessions, sessionTemplates = [], hideCalendar = false, hideFrequency = false, hideRecentSplit = false, showSectionHeaders = false }) {
+function Analytics({ sessions, sessionTemplates = [], hideCalendar = false, hideFrequency = false, hideRecentSplit = false, showSectionHeaders = false, onlyCurves = false, onlyTables = false }) {
   // Exos filtrés : uniquement ceux avec des données
   const allExercises = useMemo(() => {
     if (!sessions || sessions.length === 0) return [];
@@ -4476,7 +4487,7 @@ function Analytics({ sessions, sessionTemplates = [], hideCalendar = false, hide
   return (
     <div className="space-y-6">
       {/* Bloc 1 : Calendrier + Heatmap */}
-      {(!hideCalendar || !hideFrequency) && (
+      {!onlyCurves && !onlyTables && (!hideCalendar || !hideFrequency) && (
       <div className="grid md:grid-cols-2 gap-4">
         {!hideCalendar && <MonthlyCalendar sessions={sessions} />}
         {!hideFrequency && <Card>
@@ -4536,8 +4547,8 @@ function Analytics({ sessions, sessionTemplates = [], hideCalendar = false, hide
       </Card>}
       </div>
       )}
-      {/* Bloc 2 : Intensité + Fréquence */}
-      {showSectionHeaders && <div className="text-xs font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 pt-2">Évolution — courbes</div>}
+      {/* Bloc 2+3 : Courbes */}
+      {!onlyTables && <>{showSectionHeaders && <div className="text-xs font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 pt-2">Évolution — courbes</div>}
       <div className="grid md:grid-cols-2 gap-4">
         {/* Intensité */}
         <Card>
@@ -4750,8 +4761,9 @@ function Analytics({ sessions, sessionTemplates = [], hideCalendar = false, hide
   />
 
 </div>
+</>}
 {/* Bloc 4 : Répartition des séances par type sur 30 jours */}
-{!hideRecentSplit && <div className="grid md:grid-cols-2 gap-4">
+{!onlyCurves && !onlyTables && !hideRecentSplit && <div className="grid md:grid-cols-2 gap-4">
   <Card className="md:col-span-2">
     <CardContent className="p-4 space-y-3">
       <div className="flex items-center justify-between">
@@ -4808,7 +4820,7 @@ function Analytics({ sessions, sessionTemplates = [], hideCalendar = false, hide
 </div>}
 
       {/* Bloc 5 : Progression tonnage (séances + exercices) */}
-      {showSectionHeaders && <div className="text-xs font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 pt-2">Tableaux</div>}
+      {!onlyCurves && <>{showSectionHeaders && <div className="text-xs font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 pt-2">Tableaux</div>}
       <div className="grid gap-4">
         <Card>
           <CardContent className="p-4 space-y-4">
@@ -5114,6 +5126,7 @@ function Analytics({ sessions, sessionTemplates = [], hideCalendar = false, hide
           </CardContent>
         </Card>
       </div>
+      </>}
 
     </div>
   );
