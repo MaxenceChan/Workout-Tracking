@@ -55,6 +55,10 @@ html.dark {
   --shadow-glow: 0 10px 40px -10px rgba(10, 161, 101, 0.45);
 }
 
+/* ─────────── Scrollbar hidden ─────────── */
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
 /* ─────────── Base ─────────── */
 html,
 body {

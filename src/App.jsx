@@ -1544,7 +1544,7 @@ function SGMobileStats({ data, user }) {
         </div>
 
         {/* Sub-tab pills */}
-        <div style={{ display: 'flex', gap: 6, marginBottom: 14, overflowX: 'auto', paddingBottom: 2 }}>
+        <div className="no-scrollbar" style={{ display: 'flex', gap: 6, marginBottom: 14, overflowX: 'auto', paddingBottom: 2 }}>
           {subTabs.map(t => (
             <button key={t.k} onClick={() => setSubTab(t.k)} style={{ padding: '9px 16px', borderRadius: 20, border: 'none', cursor: 'pointer', background: subTab === t.k ? SG.ink : 'rgba(255,255,255,0.55)', color: subTab === t.k ? '#fff' : SG.ink, fontSize: 13, fontWeight: 700, flexShrink: 0, transition: 'all 200ms', boxShadow: subTab === t.k ? '0 4px 12px rgba(0,0,0,0.15)' : 'none', whiteSpace: 'nowrap' }}>{t.label}</button>
           ))}
