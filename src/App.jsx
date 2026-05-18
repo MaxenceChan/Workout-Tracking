@@ -271,6 +271,88 @@ function SGTemplatePicker({ templates, onSelect, onClose }) {
   );
 }
 
+// ─── ExercisePicker ───────────────────────────────────────────────────────────
+function ExercisePicker({ knownExercises = [], onSelect, onClose }) {
+  const [query, setQuery] = useState('');
+  const q = query.trim().toLowerCase();
+  const filtered = knownExercises.filter(e => !q || e.toLowerCase().includes(q));
+  const exactMatch = knownExercises.some(e => e.toLowerCase() === q);
+  const canCreate = q.length > 0 && !exactMatch;
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 250, background: 'rgba(31,26,20,0.45)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }} onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 600, background: SG.bg1, borderRadius: '28px 28px 0 0', padding: '20px 20px 0', boxShadow: '0 -20px 50px rgba(0,0,0,0.18)', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(31,26,20,0.12)', margin: '0 auto 16px', flexShrink: 0 }} />
+        <div style={{ fontFamily: SG.serif, fontSize: 22, fontWeight: 500, color: SG.ink, marginBottom: 14, textAlign: 'center', flexShrink: 0 }}>Ajouter un exercice</div>
+        <input
+          type="text" value={query} onChange={e => setQuery(e.target.value)}
+          placeholder="Rechercher ou créer..." autoFocus
+          style={{ width: '100%', padding: '12px 16px', borderRadius: 14, border: `1.5px solid rgba(31,26,20,0.14)`, background: 'rgba(255,255,255,0.7)', fontSize: 15, color: SG.ink, outline: 'none', boxSizing: 'border-box', marginBottom: 12, fontFamily: SG.sans, flexShrink: 0 }}
+        />
+        <div style={{ overflowY: 'auto', flex: 1, paddingBottom: 44 }}>
+          {canCreate && (
+            <button onClick={() => onSelect(query.trim())} style={{ width: '100%', padding: '13px 16px', borderRadius: 14, border: `1.5px dashed rgba(31,26,20,0.18)`, background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, textAlign: 'left' }}>
+              <div style={{ width: 32, height: 32, borderRadius: 10, background: SG.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+              </div>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: SG.ink }}>Créer « {query.trim()} »</div>
+                <div style={{ fontSize: 11, color: SG.inkSoft, marginTop: 1 }}>Nouvel exercice</div>
+              </div>
+            </button>
+          )}
+          {filtered.map(ex => (
+            <button key={ex} onClick={() => onSelect(ex)} style={{ width: '100%', padding: '13px 16px', borderRadius: 14, border: 'none', background: 'rgba(255,255,255,0.55)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, textAlign: 'left' }}>
+              <div style={{ width: 32, height: 32, borderRadius: 10, background: 'rgba(31,26,20,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={SG.inkSoft} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="9" width="3" height="6" rx="1"/><rect x="19" y="9" width="3" height="6" rx="1"/><rect x="5" y="7" width="3" height="10" rx="1"/><rect x="16" y="7" width="3" height="10" rx="1"/><path d="M8 12h8"/></svg>
+              </div>
+              <div style={{ fontSize: 15, fontWeight: 500, color: SG.ink }}>{ex}</div>
+            </button>
+          ))}
+          {filtered.length === 0 && !canCreate && (
+            <div style={{ textAlign: 'center', padding: '24px 0', fontSize: 13, color: SG.inkFaint }}>Aucun exercice trouvé</div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── SGMobileProfileModal ─────────────────────────────────────────────────────
+function SGMobileProfileModal({ user, onClose }) {
+  const firstName = (user?.displayName || user?.email || 'Utilisateur').split(/[@\s]/)[0];
+  const firstLetter = firstName[0]?.toUpperCase() || 'U';
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(31,26,20,0.45)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }} onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 600, background: SG.bg1, borderRadius: '28px 28px 0 0', padding: '24px 24px 52px', boxShadow: '0 -20px 50px rgba(0,0,0,0.18)' }}>
+        <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(31,26,20,0.12)', margin: '0 auto 22px' }} />
+        <div style={{ textAlign: 'center', marginBottom: 24 }}>
+          <div style={{ width: 72, height: 72, borderRadius: 36, margin: '0 auto 12px', background: `linear-gradient(135deg, ${SG.accent} 0%, ${SG.accent2} 100%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: SG.serif, fontSize: 30, fontWeight: 500, color: '#fff', boxShadow: `0 8px 24px ${SG.accent}44` }}>{firstLetter}</div>
+          <div style={{ fontFamily: SG.serif, fontSize: 24, fontWeight: 500, color: SG.ink }}>{firstName}</div>
+          <div style={{ fontSize: 12, color: SG.inkSoft, marginTop: 3 }}>{user?.email}</div>
+        </div>
+        <Glass radius={18} tint="rgba(255,255,255,0.55)" style={{ marginBottom: 14, overflow: 'hidden' }}>
+          <div>
+            <div style={{ padding: '15px 18px', borderBottom: '0.5px solid rgba(31,26,20,0.08)' }}>
+              <div style={{ fontSize: 10, color: SG.inkFaint, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 6 }}>Conditions générales</div>
+              <div style={{ fontSize: 13, color: SG.inkSoft, lineHeight: 1.6 }}>En utilisant Workout Tracker, tu acceptes nos conditions d'utilisation. L'application collecte uniquement les données nécessaires à ton suivi sportif.</div>
+            </div>
+            <div style={{ padding: '15px 18px' }}>
+              <div style={{ fontSize: 10, color: SG.inkFaint, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 6 }}>Politique de confidentialité</div>
+              <div style={{ fontSize: 13, color: SG.inkSoft, lineHeight: 1.6 }}>Tes données sont stockées de manière sécurisée via Firebase. Elles ne sont jamais partagées avec des tiers et restent sous ton contrôle.</div>
+            </div>
+          </div>
+        </Glass>
+        <button onClick={() => signOutUser()} style={{ width: '100%', padding: 16, borderRadius: 20, border: 'none', background: 'rgba(178,58,58,0.08)', color: '#B23A3A', fontWeight: 700, fontSize: 15, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#B23A3A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5M15 12H3"/></svg>
+          Déconnexion
+        </button>
+        <div style={{ textAlign: 'center', marginTop: 16, fontSize: 11, color: SG.inkFaint }}>Workout Tracker · © 2026 Maxence Chan</div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Glass primitive ──────────────────────────────────────────────────────────
 function Glass({ children, style = {}, radius = 24, tint = 'rgba(255,255,255,0.50)', onClick }) {
   const ref = useRef(null);
@@ -351,7 +433,7 @@ function useTimer(startedAt) {
   return { display: `${mm}:${ss}`, elapsed, now };
 }
 
-function SGActiveSession({ session, onFinish, onClose, onCancel, sessions }) {
+function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, knownExercises = [] }) {
   const { display: timerDisplay, now } = useTimer(session.startedAt);
   const [exercises, setExercises] = useState(session.exercises);
   const [sessionName, setSessionName] = useState(session.name);
@@ -413,9 +495,8 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions }) {
     ));
   };
 
-  const addExercise = () => {
-    if (!newExName.trim()) return;
-    setExercises(exs => [...exs, { name: newExName.trim(), sets: Array(3).fill(null).map(() => ({ reps: 10, weight: 0, done: false })) }]);
+  const addExercise = (name) => {
+    setExercises(exs => [...exs, { name, sets: Array(3).fill(null).map(() => ({ reps: 10, weight: 0, done: false })) }]);
     setSessionName('Séance libre');
     setNewExName('');
     setShowAddEx(false);
@@ -755,17 +836,11 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions }) {
         )}
 
         {showAddEx && (
-          <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(31,26,20,0.45)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }} onClick={() => setShowAddEx(false)}>
-            <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 600, background: SG.bg1, borderRadius: '28px 28px 0 0', padding: '20px 24px 44px', boxShadow: '0 -20px 50px rgba(0,0,0,0.18)' }}>
-              <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(31,26,20,0.12)', margin: '0 auto 20px' }} />
-              <div style={{ fontFamily: SG.serif, fontSize: 22, fontWeight: 500, color: SG.ink, marginBottom: 16, textAlign: 'center' }}>Ajouter un exercice</div>
-              <input type="text" value={newExName} onChange={e => setNewExName(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') addExercise(); }}
-                placeholder="Nom de l'exercice..." autoFocus
-                style={{ width: '100%', padding: '14px 16px', borderRadius: 16, border: `1.5px solid rgba(31,26,20,0.14)`, background: 'rgba(255,255,255,0.7)', fontSize: 15, color: SG.ink, outline: 'none', boxSizing: 'border-box', marginBottom: 12, fontFamily: SG.serif }} />
-              <button onClick={addExercise} style={{ width: '100%', padding: 14, borderRadius: 18, border: 'none', cursor: 'pointer', background: SG.accent, color: '#fff', fontWeight: 700, fontSize: 15 }}>Ajouter</button>
-            </div>
-          </div>
+          <ExercisePicker
+            knownExercises={knownExercises}
+            onSelect={(name) => { addExercise(name); setSessionName('Séance libre'); setShowAddEx(false); }}
+            onClose={() => setShowAddEx(false)}
+          />
         )}
       </div>
     </div>
@@ -1408,13 +1483,14 @@ function SGMobileStats({ data, user }) {
 }
 
 // ─── SGMobileTemplateEdit ─────────────────────────────────────────────────────
-function SGMobileTemplateEdit({ tpl, onSave, onCancel }) {
+function SGMobileTemplateEdit({ tpl, onSave, onCancel, knownExercises = [] }) {
   const isNew = !tpl?.id;
   const [name, setName] = useState(tpl?.name || '');
   const [exercises, setExercises] = useState([...(tpl?.exercises || [])]);
   const [saving, setSaving] = useState(false);
+  const [showExPicker, setShowExPicker] = useState(false);
 
-  const addEx = () => setExercises(e => [...e, '']);
+  const addEx = () => setShowExPicker(true);
   const updEx = (i, v) => setExercises(e => e.map((x, idx) => idx === i ? v : x));
   const delEx = (i) => setExercises(e => e.filter((_, idx) => idx !== i));
 
@@ -1462,20 +1538,29 @@ function SGMobileTemplateEdit({ tpl, onSave, onCancel }) {
           {saving ? 'Enregistrement…' : (isNew ? 'Créer le modèle' : 'Enregistrer le modèle')}
         </button>
       </div>
+      {showExPicker && (
+        <ExercisePicker
+          knownExercises={knownExercises}
+          onSelect={(name) => { setExercises(e => [...e, name]); setShowExPicker(false); }}
+          onClose={() => setShowExPicker(false)}
+        />
+      )}
     </div>
   );
 }
 
 // ─── SGMobileTpl ──────────────────────────────────────────────────────────────
-function SGMobileTpl({ data, user, onTab, onOpenForm, onSaveTpl }) {
+function SGMobileTpl({ data, user, onTab, onOpenForm, onSaveTpl, knownExercises = [] }) {
   const templates = data.sessionTemplates || [];
-  const firstName = (user?.email || 'Toi').split('@')[0];
+  const firstName = (user?.displayName || user?.email || 'Toi').split(/[@\s]/)[0];
   const firstLetter = firstName[0]?.toUpperCase() || 'M';
   const [editingTpl, setEditingTpl] = useState(null);
+  const [showProfile, setShowProfile] = useState(false);
 
   if (editingTpl !== null) {
     return <SGMobileTemplateEdit
       tpl={editingTpl || undefined}
+      knownExercises={knownExercises}
       onSave={async (updated) => { await (onSaveTpl ? onSaveTpl(updated) : upsertSessionTemplate(user.id, updated)); setEditingTpl(null); }}
       onCancel={() => setEditingTpl(null)}
     />;
@@ -1483,16 +1568,20 @@ function SGMobileTpl({ data, user, onTab, onOpenForm, onSaveTpl }) {
 
   return (
     <div style={{ position: 'relative', minHeight: '100vh', paddingBottom: 40 }}>
+      {showProfile && <SGMobileProfileModal user={user} onClose={() => setShowProfile(false)} />}
       <div style={{ position: 'relative', padding: '54px 18px 0', maxWidth: 600, margin: '0 auto' }}>
         <div style={{ marginBottom: 18, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
           <div>
             <div style={{ fontSize: 11, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase' }}>MODÈLES</div>
             <h1 style={{ fontFamily: SG.serif, fontSize: 34, fontWeight: 500, lineHeight: 1, margin: '4px 0 0', color: SG.ink }}>Séances</h1>
           </div>
-          <button onClick={() => setEditingTpl({})} style={{ padding: '10px 16px', borderRadius: 18, border: 'none', background: SG.ink, color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-            Nouveau
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button onClick={() => setShowProfile(true)} style={{ width: 40, height: 40, borderRadius: 20, background: `linear-gradient(135deg, ${SG.accent} 0%, ${SG.accent2} 100%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', cursor: 'pointer', fontFamily: SG.serif, fontSize: 17, fontWeight: 500, color: '#fff', boxShadow: `0 4px 12px ${SG.accent}44`, flexShrink: 0 }}>{firstLetter}</button>
+            <button onClick={() => setEditingTpl({})} style={{ padding: '10px 16px', borderRadius: 18, border: 'none', background: SG.ink, color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+              Nouveau
+            </button>
+          </div>
         </div>
 
         {templates.length === 0 ? (
@@ -1521,39 +1610,6 @@ function SGMobileTpl({ data, user, onTab, onOpenForm, onSaveTpl }) {
           </div>
         )}
 
-        <div style={{ marginTop: 24, borderTop: `0.5px solid rgba(31,26,20,0.10)`, paddingTop: 24 }}>
-          <div style={{ textAlign: 'center', marginBottom: 20 }}>
-            <div style={{ width: 64, height: 64, borderRadius: 32, margin: '0 auto 12px', background: `linear-gradient(135deg, ${SG.accent} 0%, ${SG.accent2} 100%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: SG.serif, fontSize: 28, fontWeight: 500, color: '#fff', boxShadow: `0 8px 24px ${SG.accent}44` }}>{firstLetter}</div>
-            <div style={{ fontFamily: SG.serif, fontSize: 22, fontWeight: 500, color: SG.ink }}>{firstName}</div>
-            <div style={{ fontSize: 12, color: SG.inkSoft, marginTop: 2 }}>{user?.email}</div>
-          </div>
-
-          <Glass radius={18} tint="rgba(255,255,255,0.55)" style={{ marginBottom: 12, overflow: 'hidden' }}>
-            <div>
-              <div onClick={() => onTab('analytics')} style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12, borderBottom: '0.5px solid rgba(31,26,20,0.08)', cursor: 'pointer' }}>
-                <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(31,26,20,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={SG.ink} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-6"/><path d="M22 20H2"/></svg>
-                </div>
-                <div style={{ flex: 1, fontSize: 15, fontWeight: 500, color: SG.ink }}>Statistiques complètes</div>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={SG.inkFaint} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 6l6 6-6 6"/></svg>
-              </div>
-              <div onClick={() => signOutUser()} style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
-                <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(178,58,58,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#B23A3A" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5M15 12H3"/></svg>
-                </div>
-                <div style={{ flex: 1, fontSize: 15, fontWeight: 500, color: '#B23A3A' }}>Déconnexion</div>
-              </div>
-            </div>
-          </Glass>
-
-          <div style={{ textAlign: 'center', marginTop: 24, paddingBottom: 16, fontSize: 11, color: SG.inkFaint, lineHeight: 2 }}>
-            <div>Workout Tracker · © 2026 Maxence Chan</div>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginTop: 4 }}>
-              <span style={{ textDecoration: 'underline', cursor: 'pointer' }}>Conditions d'utilisation</span>
-              <span style={{ textDecoration: 'underline', cursor: 'pointer' }}>Politique de confidentialité</span>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );
@@ -2085,6 +2141,7 @@ function App() {
             onClose={() => setActiveSession(null)}
             onCancel={() => setActiveSession(null)}
             sessions={data.sessions || []}
+            knownExercises={getUserExercises(data)}
           />
         </div>
       );
@@ -2100,6 +2157,7 @@ function App() {
         />}
         {mobileView === 'analytics' && <SGMobileStats data={data} user={user} />}
         {mobileView === 'tpl' && <SGMobileTpl data={data} user={user} onTab={handleTabChange} onOpenForm={(tpl) => launchSession(tpl)}
+          knownExercises={getUserExercises(data)}
           onSaveTpl={async (tpl) => {
             await upsertSessionTemplate(user.id, tpl);
             setData(cur => {
