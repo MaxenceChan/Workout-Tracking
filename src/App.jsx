@@ -1121,11 +1121,19 @@ function SGMobileHistory({ data, user, onDeleteSession, upsertFn }) {
   const types = ['Tout', ...Array.from(new Set(sessions.map(s => s.type).filter(Boolean)))];
   const filtered = filter === 'Tout' ? sessions : sessions.filter(s => s.type === filter);
   const today = new Date();
-  const month = today.getMonth(), year = today.getFullYear();
-  const daysInMonth = new Date(year, month+1, 0).getDate();
-  const firstDay = (new Date(year, month, 1).getDay() + 6) % 7;
+  const [calMonth, setCalMonth] = useState(today.getMonth());
+  const [calYear, setCalYear] = useState(today.getFullYear());
+  const daysInMonth = new Date(calYear, calMonth+1, 0).getDate();
+  const firstDay = (new Date(calYear, calMonth, 1).getDay() + 6) % 7;
   const sessionDates = new Set(sessions.map(s => s.date));
   const monthNames = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  const prevMonth = () => { if (calMonth === 0) { setCalMonth(11); setCalYear(y => y-1); } else setCalMonth(m => m-1); };
+  const nextMonth = () => {
+    const isCurrentMonth = calMonth === today.getMonth() && calYear === today.getFullYear();
+    if (isCurrentMonth) return;
+    if (calMonth === 11) { setCalMonth(0); setCalYear(y => y+1); } else setCalMonth(m => m+1);
+  };
+  const isCurrentMonth = calMonth === today.getMonth() && calYear === today.getFullYear();
 
   if (detail && editing) {
     return <SGMobileSessionEdit
@@ -1208,10 +1216,13 @@ function SGMobileHistory({ data, user, onDeleteSession, upsertFn }) {
         <Glass radius={24} tint="rgba(255,255,255,0.5)" style={{ marginBottom: 14 }}>
           <div style={{ padding: 16 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <div style={{ fontFamily: SG.serif, fontSize: 17, fontWeight: 500, color: SG.ink }}>{monthNames[month]} {year}</div>
-              <div style={{ display: 'flex', gap: 8, fontSize: 11, color: SG.inkSoft }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: 4, background: SG.accent, display: 'inline-block' }}/> séance</span>
-              </div>
+              <button onClick={prevMonth} style={{ width: 32, height: 32, borderRadius: 10, border: 'none', background: 'rgba(31,26,20,0.06)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={SG.ink} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+              </button>
+              <div style={{ fontFamily: SG.serif, fontSize: 17, fontWeight: 500, color: SG.ink }}>{monthNames[calMonth]} {calYear}</div>
+              <button onClick={nextMonth} style={{ width: 32, height: 32, borderRadius: 10, border: 'none', background: isCurrentMonth ? 'rgba(31,26,20,0.03)' : 'rgba(31,26,20,0.06)', cursor: isCurrentMonth ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: isCurrentMonth ? 0.3 : 1 }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={SG.ink} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+              </button>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, marginBottom: 4 }}>
               {['L','M','M','J','V','S','D'].map((d,i) => <div key={i} style={{ textAlign: 'center', fontSize: 10, color: SG.inkFaint, fontWeight: 700 }}>{d}</div>)}
@@ -1220,10 +1231,10 @@ function SGMobileHistory({ data, user, onDeleteSession, upsertFn }) {
               {Array(firstDay).fill(null).map((_,i) => <div key={'e'+i}/>)}
               {Array.from({ length: daysInMonth }, (_,i) => {
                 const day = i+1;
-                const iso = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+                const iso = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
                 const hasSess = sessionDates.has(iso);
-                const isToday = day === today.getDate();
-                return <div key={day} style={{ aspectRatio:'1', borderRadius:10, display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:600, background: hasSess ? SG.accent : (isToday ? 'rgba(31,26,20,0.08)' : 'transparent'), color: hasSess ? '#fff' : SG.ink, border: isToday && !hasSess ? `1.5px solid ${SG.ink}` : 'none' }}>{day}</div>;
+                const isToday = isCurrentMonth && day === today.getDate();
+                return <div key={day} onClick={() => { const s = sessions.find(x => x.date === iso); if (s) setDetail(s); }} style={{ aspectRatio:'1', borderRadius:10, display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:600, background: hasSess ? SG.accent : (isToday ? 'rgba(31,26,20,0.08)' : 'transparent'), color: hasSess ? '#fff' : SG.ink, border: isToday && !hasSess ? `1.5px solid ${SG.ink}` : 'none', cursor: hasSess ? 'pointer' : 'default' }}>{day}</div>;
               })}
             </div>
           </div>
@@ -1350,7 +1361,7 @@ function SGMobileStats({ data, user }) {
 
             {/* Embed full Analytics component */}
             <div style={{ marginTop: 8 }}>
-              <Analytics sessions={data.sessions} sessionTemplates={data.sessionTemplates} />
+              <Analytics sessions={data.sessions} sessionTemplates={data.sessionTemplates} hideCalendar={true} />
             </div>
           </>
         )}
@@ -3961,7 +3972,7 @@ const cardRef = React.useRef(null);
 // Analytics (graphiques + calendrier)
 // ───────────────────────────────────────────────────────────────
 
-function Analytics({ sessions, sessionTemplates = [] }) {
+function Analytics({ sessions, sessionTemplates = [], hideCalendar = false }) {
   // Exos filtrés : uniquement ceux avec des données
   const allExercises = useMemo(() => {
     if (!sessions || sessions.length === 0) return [];
@@ -4281,7 +4292,7 @@ function Analytics({ sessions, sessionTemplates = [] }) {
     <div className="space-y-6">
       {/* Bloc 1 : Calendrier + Heatmap */}
       <div className="grid md:grid-cols-2 gap-4">
-        <MonthlyCalendar sessions={sessions} />
+        {!hideCalendar && <MonthlyCalendar sessions={sessions} />}
         <Card>
         <CardContent className="p-5 sm:p-6 space-y-4">
           {/* Header */}
