@@ -997,7 +997,7 @@ function SGSessionSummary({ exercises, sessionName, startedAt, sessions, onClose
 }
 
 // ─── SGMobileHome ─────────────────────────────────────────────────────────────
-function SGMobileHome({ data, user, onOpenForm, onLaunchTpl }) {
+function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession }) {
   const sessions = data.sessions || [];
   const templates = data.sessionTemplates || [];
   const lastSession = sessions[0];
@@ -1130,13 +1130,14 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl }) {
         {lastSession && (
           <>
             <div style={{ fontSize: 11, color: SG.inkSoft, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', margin: '20px 4px 8px' }}>Dernière séance</div>
-            <Glass radius={22} tint="rgba(255,255,255,0.5)" style={{ marginBottom: 12 }}>
+            <Glass radius={22} tint="rgba(255,255,255,0.5)" style={{ marginBottom: 12 }} onClick={() => onViewSession?.(lastSession)}>
               <div style={{ padding: 18 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
                     <div style={{ fontFamily: SG.serif, fontSize: 20, fontWeight: 500, color: SG.ink }}>{lastSession.type || 'Séance'}</div>
-                    <div style={{ fontSize: 12, color: SG.inkSoft, marginTop: 2 }}>{sgFmt(lastSession.date)} · {lastSession.dur || '—'} min · {sgTonnage(lastSession).toLocaleString('fr-FR')} kg</div>
+                    <div style={{ fontSize: 12, color: SG.inkSoft, marginTop: 2 }}>{sgFmt(lastSession.date)}{lastSession.dur ? ` · ${lastSession.dur} min` : ''} · {sgTonnage(lastSession).toLocaleString('fr-FR')} kg</div>
                   </div>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={SG.inkFaint} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg>
                 </div>
               </div>
             </Glass>
@@ -1218,12 +1219,16 @@ function SGMobileSessionEdit({ session, onSave, onCancel, upsertFn }) {
 }
 
 // ─── SGMobileHistory ──────────────────────────────────────────────────────────
-function SGMobileHistory({ data, user, onDeleteSession, upsertFn }) {
+function SGMobileHistory({ data, user, onDeleteSession, upsertFn, initialDetail, onClearInitialDetail }) {
   const sessions = data.sessions || [];
   const [filter, setFilter] = useState('Tout');
   const [detail, setDetail] = useState(null);
   const [editing, setEditing] = useState(false);
   const detailRef = useRef(null);
+
+  useEffect(() => {
+    if (initialDetail) { setDetail(initialDetail); onClearInitialDetail?.(); }
+  }, [initialDetail]);
 
   const exportDetail = async () => {
     if (!detailRef.current) return;
@@ -1294,7 +1299,7 @@ function SGMobileHistory({ data, user, onDeleteSession, upsertFn }) {
               </div>
               <div>
                 <div style={{ fontSize: 10, color: SG.inkFaint, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase' }}>Durée</div>
-                <div style={{ fontFamily: SG.serif, fontSize: 24, fontWeight: 500, lineHeight: 1, marginTop: 2, color: SG.ink }}>{detail.dur || '—'}<span style={{ fontSize: 11, color: SG.inkSoft }}>min</span></div>
+                <div style={{ fontFamily: SG.serif, fontSize: 24, fontWeight: 500, lineHeight: 1, marginTop: 2, color: SG.ink }}>{detail.dur ? <>{detail.dur}<span style={{ fontSize: 11, color: SG.inkSoft }}>min</span></> : '—'}</div>
               </div>
               <div>
                 <div style={{ fontSize: 10, color: SG.inkFaint, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase' }}>Exercices</div>
@@ -1386,10 +1391,12 @@ function SGMobileHistory({ data, user, onDeleteSession, upsertFn }) {
                     <div style={{ fontSize: 10, color: SG.inkFaint, fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase' }}>Tonnage</div>
                     <div style={{ fontFamily: SG.serif, fontSize: 17, fontWeight: 500, color: SG.ink }}>{sgTonnage(s).toLocaleString('fr-FR')} <span style={{ fontSize: 10, color: SG.inkSoft }}>kg</span></div>
                   </div>
+                  {s.dur ? (
                   <div>
                     <div style={{ fontSize: 10, color: SG.inkFaint, fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase' }}>Durée</div>
-                    <div style={{ fontFamily: SG.serif, fontSize: 17, fontWeight: 500, color: SG.ink }}>{s.dur || '—'} <span style={{ fontSize: 10, color: SG.inkSoft }}>min</span></div>
+                    <div style={{ fontFamily: SG.serif, fontSize: 17, fontWeight: 500, color: SG.ink }}>{s.dur} <span style={{ fontSize: 10, color: SG.inkSoft }}>min</span></div>
                   </div>
+                  ) : null}
                   <div style={{ flex: 1 }}/>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={SG.inkFaint} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 6l6 6-6 6"/></svg>
                 </div>
@@ -1977,6 +1984,7 @@ function App() {
   const [activeSession, setActiveSession] = useState(null);
   const [showTplPicker, setShowTplPicker] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
+  const [pendingDetail, setPendingDetail] = useState(null);
 
   const launchSession = (tpl) => {
     try {
@@ -2218,8 +2226,12 @@ function App() {
           </svg>
         </button>
         {showOptions && <SGMobileProfileModal user={user} onClose={() => setShowOptions(false)} />}
-        {mobileView === 'home' && <SGMobileHome data={data} user={user} onOpenForm={() => launchSession(null)} onLaunchTpl={(tpl) => launchSession(tpl)} />}
+        {mobileView === 'home' && <SGMobileHome data={data} user={user} onOpenForm={() => launchSession(null)} onLaunchTpl={(tpl) => launchSession(tpl)}
+          onViewSession={(s) => { setPendingDetail(s); handleTabChange('sessions'); }}
+        />}
         {mobileView === 'sessions' && <SGMobileHistory data={data} user={user}
+          initialDetail={pendingDetail}
+          onClearInitialDetail={() => setPendingDetail(null)}
           onDeleteSession={async (id) => { try { await deleteSession(user.id, id); setData(cur => ({ ...cur, sessions: cur.sessions.filter(s => s.id !== id) })); } catch(e) { alert('Erreur: ' + e.message); } }}
           upsertFn={async (s) => { await upsertSessions(user.id, [s], user.email); setData(cur => ({ ...cur, sessions: cur.sessions.map(x => x.id === s.id ? s : x) })); }}
         />}
