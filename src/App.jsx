@@ -107,24 +107,14 @@ function useViewport() {
 }
 
 function SGMobileBackground() {
-  const { theme } = useTheme();
-  const isDark = theme === 'dark';
-  const blobs = isDark ? [
-    { x: -80, y: -60, size: 300, color: '#3D1F10', opacity: 0.8, blur: 90 },
-    { x: 220, y: 140, size: 260, color: '#1A2010', opacity: 0.7, blur: 100 },
-    { x: -40, y: 500, size: 280, color: '#4A1E0E', opacity: 0.5, blur: 120 },
-    { x: 200, y: 680, size: 240, color: '#1E2E14', opacity: 0.5, blur: 110 },
-  ] : [
+  const blobs = [
     { x: -80, y: -60, size: 300, color: '#F4C9A0', opacity: 0.55, blur: 90 },
     { x: 220, y: 140, size: 260, color: '#D9B89E', opacity: 0.45, blur: 100 },
     { x: -40, y: 500, size: 280, color: '#C8643A', opacity: 0.18, blur: 120 },
     { x: 200, y: 680, size: 240, color: '#8B9A6B', opacity: 0.22, blur: 110 },
   ];
   return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: -1, overflow: 'hidden', pointerEvents: 'none',
-      background: isDark ? '#141210' : SG.bg1,
-    }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: -1, overflow: 'hidden', pointerEvents: 'none' }}>
       {blobs.map((b, i) => (
         <div key={i} style={{
           position: 'absolute', left: b.x, top: b.y,
@@ -370,63 +360,34 @@ function ExercisePicker({ knownExercises = [], onSelect, onClose }) {
 
 // ─── SGMobileProfileModal ─────────────────────────────────────────────────────
 function SGMobileProfileModal({ user, onClose }) {
-  const { theme, toggleTheme } = useTheme();
-  const isDark = theme === 'dark';
   const firstName = (user?.displayName || user?.email || 'Utilisateur').split(/[@\s]/)[0];
   const firstLetter = firstName[0]?.toUpperCase() || 'U';
-
-  const modalBg = isDark ? '#1C1814' : SG.bg1;
-  const ink = isDark ? '#F5EFE6' : SG.ink;
-  const inkSoft = isDark ? 'rgba(245,239,230,0.62)' : SG.inkSoft;
-  const inkFaint = isDark ? 'rgba(245,239,230,0.32)' : SG.inkFaint;
-  const rowBorder = isDark ? 'rgba(245,239,230,0.08)' : 'rgba(31,26,20,0.08)';
-  const glassTint = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.55)';
-
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(31,26,20,0.45)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }} onClick={onClose}>
-      <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 600, background: modalBg, borderRadius: '28px 28px 0 0', padding: '24px 24px 52px', boxShadow: '0 -20px 50px rgba(0,0,0,0.28)' }}>
-        <div style={{ width: 36, height: 4, borderRadius: 2, background: rowBorder, margin: '0 auto 22px' }} />
+      <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 600, background: SG.bg1, borderRadius: '28px 28px 0 0', padding: '24px 24px 52px', boxShadow: '0 -20px 50px rgba(0,0,0,0.18)' }}>
+        <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(31,26,20,0.12)', margin: '0 auto 22px' }} />
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
           <div style={{ width: 72, height: 72, borderRadius: 36, margin: '0 auto 12px', background: `linear-gradient(135deg, ${SG.accent} 0%, ${SG.accent2} 100%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: SG.serif, fontSize: 30, fontWeight: 500, color: '#fff', boxShadow: `0 8px 24px ${SG.accent}44` }}>{firstLetter}</div>
-          <div style={{ fontFamily: SG.serif, fontSize: 24, fontWeight: 500, color: ink }}>{firstName}</div>
-          <div style={{ fontSize: 12, color: inkSoft, marginTop: 3 }}>{user?.email}</div>
+          <div style={{ fontFamily: SG.serif, fontSize: 24, fontWeight: 500, color: SG.ink }}>{firstName}</div>
+          <div style={{ fontSize: 12, color: SG.inkSoft, marginTop: 3 }}>{user?.email}</div>
         </div>
-
-        {/* Mode nuit */}
-        <Glass radius={18} tint={glassTint} style={{ marginBottom: 14, overflow: 'hidden' }}>
+        <Glass radius={18} tint="rgba(255,255,255,0.55)" style={{ marginBottom: 14, overflow: 'hidden' }}>
           <div>
-            <button onClick={toggleTheme} style={{ width: '100%', padding: '16px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'transparent', border: 'none', cursor: 'pointer', borderBottom: `0.5px solid ${rowBorder}` }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ width: 34, height: 34, borderRadius: 10, background: isDark ? '#2C2820' : 'rgba(31,26,20,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>
-                  {isDark ? '🌙' : '☀️'}
-                </div>
-                <div style={{ textAlign: 'left' }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: ink }}>Mode nuit</div>
-                  <div style={{ fontSize: 11, color: inkSoft }}>{isDark ? 'Activé' : 'Désactivé'}</div>
-                </div>
-              </div>
-              {/* Toggle iOS-style */}
-              <div style={{ width: 51, height: 31, borderRadius: 16, background: isDark ? SG.accent : 'rgba(31,26,20,0.15)', transition: 'background 0.25s', position: 'relative', flexShrink: 0 }}>
-                <div style={{ position: 'absolute', top: 3, left: isDark ? 23 : 3, width: 25, height: 25, borderRadius: 13, background: '#fff', boxShadow: '0 2px 6px rgba(0,0,0,0.22)', transition: 'left 0.25s' }} />
-              </div>
-            </button>
-
-            <div style={{ padding: '15px 18px', borderBottom: `0.5px solid ${rowBorder}` }}>
-              <div style={{ fontSize: 10, color: inkFaint, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 6 }}>Conditions générales</div>
-              <div style={{ fontSize: 13, color: inkSoft, lineHeight: 1.6 }}>En utilisant Workout Tracker, tu acceptes nos conditions d'utilisation. L'application collecte uniquement les données nécessaires à ton suivi sportif.</div>
+            <div style={{ padding: '15px 18px', borderBottom: '0.5px solid rgba(31,26,20,0.08)' }}>
+              <div style={{ fontSize: 10, color: SG.inkFaint, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 6 }}>Conditions générales</div>
+              <div style={{ fontSize: 13, color: SG.inkSoft, lineHeight: 1.6 }}>En utilisant Workout Tracker, tu acceptes nos conditions d'utilisation. L'application collecte uniquement les données nécessaires à ton suivi sportif.</div>
             </div>
             <div style={{ padding: '15px 18px' }}>
-              <div style={{ fontSize: 10, color: inkFaint, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 6 }}>Politique de confidentialité</div>
-              <div style={{ fontSize: 13, color: inkSoft, lineHeight: 1.6 }}>Tes données sont stockées de manière sécurisée via Firebase. Elles ne sont jamais partagées avec des tiers et restent sous ton contrôle.</div>
+              <div style={{ fontSize: 10, color: SG.inkFaint, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 6 }}>Politique de confidentialité</div>
+              <div style={{ fontSize: 13, color: SG.inkSoft, lineHeight: 1.6 }}>Tes données sont stockées de manière sécurisée via Firebase. Elles ne sont jamais partagées avec des tiers et restent sous ton contrôle.</div>
             </div>
           </div>
         </Glass>
-
         <button onClick={() => signOutUser()} style={{ width: '100%', padding: 16, borderRadius: 20, border: 'none', background: 'rgba(178,58,58,0.08)', color: '#B23A3A', fontWeight: 700, fontSize: 15, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#B23A3A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5M15 12H3"/></svg>
           Déconnexion
         </button>
-        <div style={{ textAlign: 'center', marginTop: 16, fontSize: 11, color: inkFaint }}>Workout Tracker · © 2026 Maxence Chan</div>
+        <div style={{ textAlign: 'center', marginTop: 16, fontSize: 11, color: SG.inkFaint }}>Workout Tracker · © 2026 Maxence Chan</div>
       </div>
     </div>
   );
@@ -1288,6 +1249,7 @@ function SGMobileSessionEdit({ session, onSave, onCancel, upsertFn }) {
       sets: (ex.sets || []).map(s => ({ reps: String(s.reps ?? ''), weight: String(s.weight ?? '') }))
     }))
   );
+  const [date, setDate] = useState(session.date || toLocalISO(new Date()));
   const [saving, setSaving] = useState(false);
 
   const updEx = (i, fn) => setExercises(exs => exs.map((e, idx) => idx === i ? fn(e) : e));
@@ -1299,7 +1261,7 @@ function SGMobileSessionEdit({ session, onSave, onCancel, upsertFn }) {
 
   const handleSave = async () => {
     setSaving(true);
-    const updated = { ...session, exercises: exercises.map(ex => ({ name: ex.name, sets: ex.sets.map(s => ({ reps: Number(s.reps) || 0, weight: Number(s.weight) || 0 })) })) };
+    const updated = { ...session, date, exercises: exercises.map(ex => ({ name: ex.name, sets: ex.sets.map(s => ({ reps: Number(s.reps) || 0, weight: Number(s.weight) || 0 })) })) };
     await upsertFn(updated);
     onSave(updated);
     setSaving(false);
@@ -1308,10 +1270,17 @@ function SGMobileSessionEdit({ session, onSave, onCancel, upsertFn }) {
   return (
     <div style={{ position: 'relative', minHeight: '100vh', paddingBottom: 120 }}>
       <div style={{ position: 'relative', padding: '54px 18px 0', maxWidth: 600, margin: '0 auto' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <h1 style={{ fontFamily: SG.serif, fontSize: 28, fontWeight: 500, color: SG.ink, margin: 0 }}>Modifier</h1>
           <button onClick={onCancel} style={{ background: 'rgba(31,26,20,0.07)', border: 'none', borderRadius: 14, padding: '8px 14px', fontSize: 13, fontWeight: 600, color: SG.ink, cursor: 'pointer' }}>Annuler</button>
         </div>
+        <Glass radius={16} tint="rgba(255,255,255,0.55)" style={{ marginBottom: 14 }}>
+          <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ fontSize: 11, color: SG.inkFaint, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', flexShrink: 0 }}>Date</div>
+            <input type="date" value={date} max={toLocalISO(new Date())} onChange={e => setDate(e.target.value)}
+              style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: 15, fontFamily: SG.serif, color: SG.ink, cursor: 'pointer' }} />
+          </div>
+        </Glass>
 
         {exercises.map((ex, ei) => (
           <Glass key={ei} radius={20} tint="rgba(255,255,255,0.55)" style={{ marginBottom: 10 }}>
