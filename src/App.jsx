@@ -1518,7 +1518,7 @@ function SGMobileStats({ data, user }) {
 
         {subTab === 'evolution' && (
           <div style={{ marginTop: 4 }}>
-            <Analytics sessions={filteredSessions} sessionTemplates={data.sessionTemplates} hideCalendar={true} hideFrequency={true} hideRecentSplit={true} />
+            <Analytics sessions={filteredSessions} sessionTemplates={data.sessionTemplates} hideCalendar={true} hideFrequency={true} hideRecentSplit={true} onlyCurves={true} />
           </div>
         )}
 
@@ -6900,28 +6900,28 @@ function StepsTracker({ user }) {
           <div className="grid lg:grid-cols-2 gap-6">
 
             {/* Courbe */}
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={graphData}>
+            <ResponsiveContainer width="100%" height={320}>
+              <LineChart data={graphData} margin={{ top: 10, right: 12, left: 0, bottom: 40 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
-                <XAxis dataKey="date" tick={{ fill: axisColor }} />
-                <YAxis tick={{ fill: axisColor }} />
+                <XAxis dataKey="date" tick={{ fill: axisColor, fontSize: 11 }} angle={-35} textAnchor="end" interval="preserveStartEnd" />
+                <YAxis tick={{ fill: axisColor, fontSize: 11 }} width={60} tickFormatter={(v) => `${Math.round(v/1000)}k`} />
                 <Tooltip content={<BlackTooltip />} />
-                <Line dataKey="steps" stroke="#3b82f6" dot />
+                <Line dataKey="steps" stroke="#3b82f6" dot={false} strokeWidth={2} />
               </LineChart>
             </ResponsiveContainer>
 
             {/* Histogramme */}
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={monthlySteps}>
+            <ResponsiveContainer width="100%" height={320}>
+              <BarChart data={monthlySteps} margin={{ top: 28, right: 12, left: 0, bottom: 40 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
-                <XAxis dataKey="month" tick={{ fill: axisColor }} />
-                <YAxis tick={{ fill: axisColor }} />
+                <XAxis dataKey="month" tick={{ fill: axisColor, fontSize: 11 }} angle={-35} textAnchor="end" interval={0} />
+                <YAxis tick={{ fill: axisColor, fontSize: 11 }} width={60} tickFormatter={(v) => `${Math.round(v/1000)}k`} />
                 <Tooltip content={<BlackTooltip />} />
                 <Bar dataKey="total" fill="#3b82f6">
                   <LabelList
                     dataKey="totalK"
                     position="top"
-                    fill={axisColor}
+                    style={{ fill: axisColor, fontSize: 11, fontWeight: 600 }}
                     formatter={(v) => `${v}k`}
                   />
                 </Bar>
