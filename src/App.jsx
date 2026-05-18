@@ -351,7 +351,7 @@ function useTimer(startedAt) {
   return { display: `${mm}:${ss}`, elapsed, now };
 }
 
-function SGActiveSession({ session, onFinish, onCancel, sessions }) {
+function SGActiveSession({ session, onFinish, onClose, onCancel, sessions }) {
   const { display: timerDisplay, now } = useTimer(session.startedAt);
   const [exercises, setExercises] = useState(session.exercises);
   const [sessionName, setSessionName] = useState(session.name);
@@ -437,11 +437,11 @@ function SGActiveSession({ session, onFinish, onCancel, sessions }) {
     else if (curExIdx === to) setCurExIdx(idx);
   };
 
-  const handleFinish = () => setShowSummary(true);
-  const handleConfirm = () => {
+  const handleFinish = () => {
     const elapsed = Math.floor((Date.now() - session.startedAt) / 1000);
     const dur = Math.round(elapsed / 60) || 1;
-    onFinish({ exercises, dur, tonnage, name: sessionName });
+    onFinish({ exercises, dur, tonnage, name: sessionName }); // save immediately
+    setShowSummary(true);
   };
 
   const handleExLongPressStart = () => { longPressRef.current = setTimeout(() => setShowReorder(true), 500); };
@@ -585,7 +585,7 @@ function SGActiveSession({ session, onFinish, onCancel, sessions }) {
       sessionName={sessionName}
       startedAt={session.startedAt}
       sessions={sessions || []}
-      onConfirm={handleConfirm}
+      onClose={onClose}
       onBack={() => setShowSummary(false)}
     />
   );
@@ -771,7 +771,7 @@ function SGActiveSession({ session, onFinish, onCancel, sessions }) {
 }
 
 // ─── SGSessionSummary ─────────────────────────────────────────────────────────
-function SGSessionSummary({ exercises, sessionName, startedAt, sessions, onConfirm, onBack }) {
+function SGSessionSummary({ exercises, sessionName, startedAt, sessions, onClose, onBack }) {
   const elapsed = Math.floor((Date.now() - startedAt) / 1000);
   const dur = Math.round(elapsed / 60) || 1;
   const [expandedEx, setExpandedEx] = useState(null);
@@ -907,8 +907,8 @@ function SGSessionSummary({ exercises, sessionName, startedAt, sessions, onConfi
           );
         })}
 
-        <button onClick={onConfirm} style={{ width: '100%', padding: 16, borderRadius: 22, marginTop: 20, border: 'none', background: SG.ink, color: '#fff', cursor: 'pointer', fontSize: 15, fontWeight: 700, boxShadow: '0 8px 20px rgba(0,0,0,0.15)' }}>
-          Enregistrer la séance
+        <button onClick={onClose} style={{ width: '100%', padding: 16, borderRadius: 22, marginTop: 20, border: 'none', background: SG.ink, color: '#fff', cursor: 'pointer', fontSize: 15, fontWeight: 700, boxShadow: '0 8px 20px rgba(0,0,0,0.15)' }}>
+          Fermer
         </button>
         <button onClick={onBack} style={{ width: '100%', padding: 12, borderRadius: 18, marginTop: 8, border: 'none', background: 'transparent', color: SG.inkSoft, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
           ← Retour à la séance
@@ -1878,7 +1878,7 @@ function App() {
     setShowTplPicker(false);
   };
 
-  const finishSession = async ({ exercises, dur, tonnage, name }) => {
+  const saveSession = async ({ exercises, dur, tonnage, name }) => {
     const s = {
       id: uuidv4(),
       type: name || activeSession.name,
@@ -1897,7 +1897,7 @@ function App() {
     } catch (e) {
       console.error('Error saving session:', e);
     }
-    setActiveSession(null);
+    // Note: does NOT close the session — summary screen handles that
   };
   const tractionAuthorized = isTractionAuthorized(user?.email);
   const navItems = useMemo(
@@ -2070,7 +2070,8 @@ function App() {
           <SGMobileBackground />
           <SGActiveSession
             session={activeSession}
-            onFinish={finishSession}
+            onFinish={saveSession}
+            onClose={() => setActiveSession(null)}
             onCancel={() => setActiveSession(null)}
             sessions={data.sessions || []}
           />
