@@ -1418,7 +1418,6 @@ function SGMobileStats({ data, user }) {
   const subTabs = [
     { k: 'stats', label: 'Progrès' },
     { k: 'evolution', label: 'Évolution' },
-    { k: 'tableaux', label: 'Tableaux' },
     { k: 'poids', label: 'Poids' },
     { k: 'pas', label: 'Pas' },
   ];
@@ -1429,6 +1428,13 @@ function SGMobileStats({ data, user }) {
         <div style={{ marginBottom: 18 }}>
           <div style={{ fontSize: 11, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase' }}>STATISTIQUES</div>
           <h1 style={{ fontFamily: SG.serif, fontSize: 34, fontWeight: 500, lineHeight: 1, margin: '4px 0 0', color: SG.ink }}>Progrès</h1>
+        </div>
+
+        {/* Sub-tab pills */}
+        <div style={{ display: 'flex', gap: 6, marginBottom: 14, overflowX: 'auto', paddingBottom: 2 }}>
+          {subTabs.map(t => (
+            <button key={t.k} onClick={() => setSubTab(t.k)} style={{ padding: '9px 16px', borderRadius: 20, border: 'none', cursor: 'pointer', background: subTab === t.k ? SG.ink : 'rgba(255,255,255,0.55)', color: subTab === t.k ? '#fff' : SG.ink, fontSize: 13, fontWeight: 700, flexShrink: 0, transition: 'all 200ms', boxShadow: subTab === t.k ? '0 4px 12px rgba(0,0,0,0.15)' : 'none', whiteSpace: 'nowrap' }}>{t.label}</button>
+          ))}
         </div>
 
         {/* Date filter — hidden on Poids / Pas tabs */}
@@ -1453,13 +1459,6 @@ function SGMobileStats({ data, user }) {
             </div>
           </Glass>
         )}
-
-        {/* Sub-tab pills */}
-        <div style={{ display: 'flex', gap: 6, marginBottom: 18, overflowX: 'auto', paddingBottom: 2 }}>
-          {subTabs.map(t => (
-            <button key={t.k} onClick={() => setSubTab(t.k)} style={{ padding: '9px 16px', borderRadius: 20, border: 'none', cursor: 'pointer', background: subTab === t.k ? SG.ink : 'rgba(255,255,255,0.55)', color: subTab === t.k ? '#fff' : SG.ink, fontSize: 13, fontWeight: 700, flexShrink: 0, transition: 'all 200ms', boxShadow: subTab === t.k ? '0 4px 12px rgba(0,0,0,0.15)' : 'none', whiteSpace: 'nowrap' }}>{t.label}</button>
-          ))}
-        </div>
 
         {subTab === 'stats' && (
           <>
@@ -1517,13 +1516,7 @@ function SGMobileStats({ data, user }) {
 
         {subTab === 'evolution' && (
           <div style={{ marginTop: 4 }}>
-            <Analytics sessions={filteredSessions} sessionTemplates={data.sessionTemplates} hideCalendar={true} hideFrequency={true} hideRecentSplit={true} onlyCurves={true} />
-          </div>
-        )}
-
-        {subTab === 'tableaux' && (
-          <div style={{ marginTop: 4 }}>
-            <Analytics sessions={filteredSessions} sessionTemplates={data.sessionTemplates} hideCalendar={true} hideFrequency={true} hideRecentSplit={true} onlyTables={true} />
+            <Analytics sessions={filteredSessions} sessionTemplates={data.sessionTemplates} hideCalendar={true} hideFrequency={true} hideRecentSplit={true} />
           </div>
         )}
 
