@@ -6922,7 +6922,7 @@ function StravaTracker({ user }) {
 }
 
 // ───────────────────────────────────────────────
-// Suivi des pas (Google Fit)
+// Suivi des pas (Apple Health sur iOS, Google Fit sinon)
 // ───────────────────────────────────────────────
 function StepsTracker({ user }) {
   const { theme } = useTheme();
@@ -6930,16 +6930,68 @@ function StepsTracker({ user }) {
   const axisColor = theme === "dark" ? "#ffffff" : "#000000";
   const gridColor = theme === "dark" ? "#444" : "#e5e7eb";
 
+  // Détection iOS + mode standalone (PWA depuis écran d'accueil)
+  const isIOS = useMemo(() => /iPhone|iPad|iPod/.test(navigator.userAgent), []);
+  const isStandalone = useMemo(() => window.navigator.standalone === true, []);
+  const hasHealthKit = useMemo(() => 'health' in navigator, []);
+  const useAppleHealth = isIOS && isStandalone && hasHealthKit;
+  const iosNeedsPWA = isIOS && !isStandalone;
+
   const [stepsData, setStepsData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [needsReauth, setNeedsReauth] = useState(false);
+  const [appleStatus, setAppleStatus] = useState('idle'); // idle | requesting | granted | denied | error
 
   /* ─────────────────────────────
-     FETCH GOOGLE FIT
+     FETCH APPLE HEALTH (iOS PWA)
+  ───────────────────────────── */
+  const fetchAppleHealth = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      setAppleStatus('requesting');
+
+      await navigator.health.requestPermission({ read: ['stepCount'] });
+      setAppleStatus('granted');
+
+      const end = new Date();
+      const start = new Date();
+      start.setFullYear(start.getFullYear() - 2); // 2 ans d'historique
+
+      const samples = await navigator.health.queryStatistics({
+        type: 'stepCount',
+        startDate: start,
+        endDate: end,
+        interval: 'day',
+      });
+
+      const formatted = (samples || [])
+        .map(s => ({
+          date: new Date(s.startDate).toLocaleDateString('fr-CA'),
+          steps: Math.round(s.sumQuantity?.doubleValue ?? s.value ?? 0),
+        }))
+        .filter(d => d.steps > 0)
+        .sort((a, b) => a.date.localeCompare(b.date));
+
+      setStepsData(formatted);
+    } catch (e) {
+      setAppleStatus(e.name === 'NotAllowedError' ? 'denied' : 'error');
+      setError('APPLE_HEALTH_ERROR');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (useAppleHealth) fetchAppleHealth();
+  }, [useAppleHealth]);
+
+  /* ─────────────────────────────
+     FETCH GOOGLE FIT (non-iOS)
   ───────────────────────────── */
   useEffect(() => {
-    if (!user?.id) return;
+    if (isIOS || !user?.id) return;
 
     const fetchSteps = async () => {
       try {
@@ -6965,7 +7017,7 @@ function StepsTracker({ user }) {
     };
 
     fetchSteps();
-  }, [user?.id]);
+  }, [user?.id, isIOS]);
 
   /* ─────────────────────────────
      FILTRE PÉRIODE UNIFIÉ
@@ -7013,11 +7065,37 @@ function StepsTracker({ user }) {
       <Card>
         <CardContent>
           <h3 className="font-semibold">🚶 Suivi des pas</h3>
-          {loading && <p className="text-sm text-gray-500 mt-2">Chargement des pas…</p>}
-          {!loading && error && <div className="mt-2 space-y-2"><p className="text-sm text-red-500">❌ Impossible de récupérer les pas.</p><Button variant="secondary" onClick={() => { window.location.href = `/api/auth/google-fit?uid=${user.id}`; }}>Connecter Google Fit</Button></div>}
-          {!loading && !error && !needsReauth && !stepsData.length && <div className="mt-2 space-y-2"><p className="text-sm text-gray-500">⚡ Connecte Google Fit pour commencer le suivi des pas.</p><Button variant="secondary" onClick={() => { window.location.href = `/api/auth/google-fit?uid=${user.id}`; }}>Connecter Google Fit</Button></div>}
-          {!loading && !error && !needsReauth && stepsData.length > 0 && <p className="text-sm text-green-500 mt-2">✅ Google Fit connecté</p>}
-          {!loading && !error && needsReauth && <div className="mt-2 space-y-2"><p className="text-sm text-amber-500">⚠️ Reconnexion Google Fit nécessaire.</p><Button variant="secondary" onClick={() => { window.location.href = `/api/auth/google-fit?uid=${user.id}`; }}>Se reconnecter</Button></div>}
+
+          {/* iOS – pas en mode PWA */}
+          {iosNeedsPWA && (
+            <div className="mt-2 space-y-2">
+              <p className="text-sm text-amber-600">📲 Pour accéder à Apple Santé, ouvre l'app depuis ton écran d'accueil (pas depuis Safari).</p>
+              <p className="text-xs text-gray-500">Safari → bouton partage → "Ajouter à l'écran d'accueil"</p>
+            </div>
+          )}
+
+          {/* iOS PWA – Apple Health */}
+          {useAppleHealth && (
+            <>
+              {loading && <p className="text-sm text-gray-500 mt-2">Chargement Apple Santé…</p>}
+              {!loading && appleStatus === 'idle' && <p className="text-sm text-gray-500 mt-2">Connexion à Apple Santé…</p>}
+              {!loading && appleStatus === 'granted' && stepsData.length > 0 && <p className="text-sm text-green-500 mt-2">✅ Apple Santé connecté</p>}
+              {!loading && appleStatus === 'denied' && <div className="mt-2 space-y-2"><p className="text-sm text-red-500">❌ Permission refusée. Va dans Réglages → Confidentialité → Santé pour autoriser l'app.</p><Button variant="secondary" onClick={fetchAppleHealth}>Réessayer</Button></div>}
+              {!loading && appleStatus === 'error' && <div className="mt-2 space-y-2"><p className="text-sm text-red-500">❌ Erreur Apple Santé. iOS 18+ requis.</p><Button variant="secondary" onClick={fetchAppleHealth}>Réessayer</Button></div>}
+              {!loading && appleStatus === 'granted' && !stepsData.length && <p className="text-sm text-gray-500 mt-2">Aucun pas trouvé dans Apple Santé.</p>}
+            </>
+          )}
+
+          {/* Android / desktop – Google Fit */}
+          {!isIOS && (
+            <>
+              {loading && <p className="text-sm text-gray-500 mt-2">Chargement des pas…</p>}
+              {!loading && error && <div className="mt-2 space-y-2"><p className="text-sm text-red-500">❌ Impossible de récupérer les pas.</p><Button variant="secondary" onClick={() => { window.location.href = `/api/auth/google-fit?uid=${user.id}`; }}>Connecter Google Fit</Button></div>}
+              {!loading && !error && !needsReauth && !stepsData.length && <div className="mt-2 space-y-2"><p className="text-sm text-gray-500">⚡ Connecte Google Fit pour commencer le suivi des pas.</p><Button variant="secondary" onClick={() => { window.location.href = `/api/auth/google-fit?uid=${user.id}`; }}>Connecter Google Fit</Button></div>}
+              {!loading && !error && !needsReauth && stepsData.length > 0 && <p className="text-sm text-green-500 mt-2">✅ Google Fit connecté</p>}
+              {!loading && !error && needsReauth && <div className="mt-2 space-y-2"><p className="text-sm text-amber-500">⚠️ Reconnexion Google Fit nécessaire.</p><Button variant="secondary" onClick={() => { window.location.href = `/api/auth/google-fit?uid=${user.id}`; }}>Se reconnecter</Button></div>}
+            </>
+          )}
         </CardContent>
       </Card>
 
