@@ -1407,13 +1407,19 @@ function SGMobileHistory({ data, user, onDeleteSession, upsertFn }) {
 function SGMobileStats({ data, user }) {
   const [subTab, setSubTab] = useState('stats');
   const sessions = data.sessions || [];
-  const totalTonnage = sessions.reduce((acc, s) => acc + sgTonnage(s), 0);
+  const todayISO = new Date().toISOString().slice(0, 10);
+  const firstSessionDate = sessions.length > 0 ? sessions[sessions.length - 1].date : todayISO;
+  const [startDate, setStartDate] = useState(firstSessionDate);
+  const [endDate, setEndDate] = useState(todayISO);
+  const filteredSessions = sessions.filter(s => s.date >= startDate && s.date <= endDate);
+
+  const totalTonnage = filteredSessions.reduce((acc, s) => acc + sgTonnage(s), 0);
   const byType = {};
-  sessions.forEach(s => { if (s.type) byType[s.type] = (byType[s.type]||0) + sgTonnage(s); });
+  filteredSessions.forEach(s => { if (s.type) byType[s.type] = (byType[s.type]||0) + sgTonnage(s); });
   const types = Object.entries(byType).sort((a,b) => b[1]-a[1]);
   const typeColors = [SG.accent, SG.accent2, '#D9A441', '#7C3AED'];
-  const weeks = Math.max(1, Math.ceil((new Date() - new Date((sessions[sessions.length-1]?.date||new Date().toISOString().slice(0,10))+'T00:00:00'))/(7*24*3600*1000)));
-  const avgPerWeek = sessions.length > 0 ? (sessions.length / weeks).toFixed(1) : '0';
+  const weeks = Math.max(1, Math.ceil((new Date(endDate) - new Date(startDate+'T00:00:00'))/(7*24*3600*1000)));
+  const avgPerWeek = filteredSessions.length > 0 ? (filteredSessions.length / weeks).toFixed(1) : '0';
 
   const subTabs = [
     { k: 'stats', label: 'Progrès' },
@@ -1438,6 +1444,27 @@ function SGMobileStats({ data, user }) {
 
         {subTab === 'stats' && (
           <>
+            {/* Date filter */}
+            <Glass radius={20} tint="rgba(255,255,255,0.55)" style={{ marginBottom: 14 }}>
+              <div style={{ padding: '14px 16px' }}>
+                <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 10 }}>Période</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div>
+                    <div style={{ fontSize: 10, color: SG.inkFaint, marginBottom: 4 }}>Début</div>
+                    <input type="date" value={startDate} max={endDate}
+                      onChange={e => setStartDate(e.target.value)}
+                      style={{ width: '100%', padding: '10px 12px', borderRadius: 12, border: '1.5px solid rgba(31,26,20,0.12)', background: 'rgba(255,255,255,0.7)', fontSize: 13, color: SG.ink, boxSizing: 'border-box', outline: 'none' }} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 10, color: SG.inkFaint, marginBottom: 4 }}>Fin</div>
+                    <input type="date" value={endDate} min={startDate} max={todayISO}
+                      onChange={e => setEndDate(e.target.value)}
+                      style={{ width: '100%', padding: '10px 12px', borderRadius: 12, border: '1.5px solid rgba(31,26,20,0.12)', background: 'rgba(255,255,255,0.7)', fontSize: 13, color: SG.ink, boxSizing: 'border-box', outline: 'none' }} />
+                  </div>
+                </div>
+              </div>
+            </Glass>
+
             <Glass radius={26} tint="rgba(255,255,255,0.5)" style={{ marginBottom: 12 }}>
               <div style={{ padding: 22 }}>
                 <div style={{ fontSize: 11, color: SG.inkSoft, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase' }}>Tonnage cumulé</div>
@@ -1490,7 +1517,7 @@ function SGMobileStats({ data, user }) {
 
             {/* Embed full Analytics component */}
             <div style={{ marginTop: 8 }}>
-              <Analytics sessions={data.sessions} sessionTemplates={data.sessionTemplates} hideCalendar={true} />
+              <Analytics sessions={filteredSessions} sessionTemplates={data.sessionTemplates} hideCalendar={true} hideFrequency={true} hideRecentSplit={true} showSectionHeaders={true} />
             </div>
           </>
         )}
@@ -4118,7 +4145,7 @@ const cardRef = React.useRef(null);
 // Analytics (graphiques + calendrier)
 // ───────────────────────────────────────────────────────────────
 
-function Analytics({ sessions, sessionTemplates = [], hideCalendar = false }) {
+function Analytics({ sessions, sessionTemplates = [], hideCalendar = false, hideFrequency = false, hideRecentSplit = false, showSectionHeaders = false }) {
   // Exos filtrés : uniquement ceux avec des données
   const allExercises = useMemo(() => {
     if (!sessions || sessions.length === 0) return [];
@@ -4437,9 +4464,10 @@ function Analytics({ sessions, sessionTemplates = [], hideCalendar = false }) {
   return (
     <div className="space-y-6">
       {/* Bloc 1 : Calendrier + Heatmap */}
+      {(!hideCalendar || !hideFrequency) && (
       <div className="grid md:grid-cols-2 gap-4">
         {!hideCalendar && <MonthlyCalendar sessions={sessions} />}
-        <Card>
+        {!hideFrequency && <Card>
         <CardContent className="p-5 sm:p-6 space-y-4">
           {/* Header */}
           <div className="flex items-start justify-between">
@@ -4493,9 +4521,11 @@ function Analytics({ sessions, sessionTemplates = [], hideCalendar = false }) {
             </div>
           </div>
         </CardContent>
-      </Card>
+      </Card>}
       </div>
+      )}
       {/* Bloc 2 : Intensité + Fréquence */}
+      {showSectionHeaders && <div className="text-xs font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 pt-2">Évolution — courbes</div>}
       <div className="grid md:grid-cols-2 gap-4">
         {/* Intensité */}
         <Card>
@@ -4709,7 +4739,7 @@ function Analytics({ sessions, sessionTemplates = [], hideCalendar = false }) {
 
 </div>
 {/* Bloc 4 : Répartition des séances par type sur 30 jours */}
-<div className="grid md:grid-cols-2 gap-4">
+{!hideRecentSplit && <div className="grid md:grid-cols-2 gap-4">
   <Card className="md:col-span-2">
     <CardContent className="p-4 space-y-3">
       <div className="flex items-center justify-between">
@@ -4763,9 +4793,10 @@ function Analytics({ sessions, sessionTemplates = [], hideCalendar = false }) {
       </div>
     </CardContent>
   </Card>
-</div>
+</div>}
 
       {/* Bloc 5 : Progression tonnage (séances + exercices) */}
+      {showSectionHeaders && <div className="text-xs font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 pt-2">Tableaux</div>}
       <div className="grid gap-4">
         <Card>
           <CardContent className="p-4 space-y-4">
