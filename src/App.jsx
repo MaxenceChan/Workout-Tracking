@@ -78,6 +78,13 @@ const SESSION_DRAFT_KEY = "workout-tracker-current-session";
 const TEMPLATE_DRAFT_KEY = "workout-tracker-template-draft";
 const headerGif = new URL("./components/gif deadlift.gif", import.meta.url).href;
 const cn = (...c) => c.filter(Boolean).join(" ");
+// Retourne la date locale au format YYYY-MM-DD (évite le décalage UTC de toISOString)
+const toLocalISO = (d) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
 
 // ─────────────────────────────────────────────────────────────────
 // Soft Glow — Mobile Design System (D1)
@@ -443,9 +450,9 @@ const sgStreak = (sessions) => {
 const sgWeekDone = (sessions, runActivities = []) => {
   const today = new Date(); const day = today.getDay();
   const monday = new Date(today); monday.setDate(today.getDate() - (day===0?6:day-1)); monday.setHours(0,0,0,0);
-  const mondayISO = monday.toISOString().slice(0,10);
-  const todayISO = today.toISOString().slice(0,10);
-  const muscu = sessions.filter(s => new Date(s.date+'T00:00:00') >= monday).length;
+  const mondayISO = toLocalISO(monday);
+  const todayISO = toLocalISO(today);
+  const muscu = sessions.filter(s => s.date >= mondayISO && s.date <= todayISO).length;
   const runs = runActivities.filter(a => a.date >= mondayISO && a.date <= todayISO).length;
   return muscu + runs;
 };
@@ -454,7 +461,7 @@ const sgWeekDays = (sessions, runActivities = []) => {
   const today = new Date(); const todayDay = today.getDay(); const todayOffset = todayDay===0?6:todayDay-1;
   return labels.map((label, i) => {
     const d = new Date(today); d.setDate(today.getDate() + (i - todayOffset)); d.setHours(0,0,0,0);
-    const iso = d.toISOString().slice(0,10);
+    const iso = toLocalISO(d);
     const hasMuscu = sessions.some(s => s.date === iso);
     const hasRun = runActivities.some(a => a.date === iso);
     const type = hasMuscu && hasRun ? 'both' : hasMuscu ? 'muscu' : hasRun ? 'run' : null;
@@ -496,6 +503,7 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, known
   const [newExName, setNewExName] = useState('');
   const [showSummary, setShowSummary] = useState(false);
   const [summarySessionsSnapshot, setSummarySessionsSnapshot] = useState(null);
+  const [sessionDate, setSessionDate] = useState(toLocalISO(new Date()));
   const longPressRef = useRef(null);
   const [renamingExIdx, setRenamingExIdx] = useState(null);
   const [renameValue, setRenameValue] = useState('');
@@ -565,8 +573,8 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, known
   const handleFinish = () => {
     const elapsed = Math.floor((Date.now() - session.startedAt) / 1000);
     const dur = Math.round(elapsed / 60) || 1;
-    setSummarySessionsSnapshot([...(sessions || [])]); // snapshot BEFORE save updates sessions
-    onFinish({ exercises, dur, tonnage, name: sessionName }); // save immediately
+    setSummarySessionsSnapshot([...(sessions || [])]);
+    onFinish({ exercises, dur, tonnage, name: sessionName, date: sessionDate });
     setShowSummary(true);
   };
 
@@ -731,6 +739,8 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, known
               <div style={{ width: 6, height: 6, borderRadius: 3, background: SG.accent }} /> EN COURS
             </div>
             <div style={{ fontFamily: SG.serif, fontSize: 16, fontStyle: 'italic', color: SG.ink }}>{sessionName}</div>
+            <input type="date" value={sessionDate} max={toLocalISO(new Date())} onChange={e => setSessionDate(e.target.value)}
+              style={{ marginTop: 4, fontSize: 11, color: SG.inkSoft, background: 'transparent', border: 'none', outline: 'none', textAlign: 'center', cursor: 'pointer', width: '100%' }} />
           </div>
           <div style={{ width: 44, height: 44 }} />
         </div>
@@ -1058,9 +1068,9 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession }) {
     const monday = (() => {
       const d = new Date(); const day = d.getDay();
       d.setDate(d.getDate() - (day === 0 ? 6 : day - 1)); d.setHours(0,0,0,0);
-      return d.toISOString().slice(0,10);
+      return toLocalISO(d);
     })();
-    const today = new Date().toISOString().slice(0,10);
+    const today = toLocalISO(new Date());
 
     fetch(`/api/steps?uid=${user.id}`)
       .then(r => r.json())
@@ -2121,11 +2131,11 @@ function App() {
     setActiveSession({ name: 'Séance libre', templateId: null, exercises: [{ name: firstExName, sets: prefillSets || defaultSets() }], startedAt: Date.now() });
   };
 
-  const saveSession = async ({ exercises, dur, tonnage, name }) => {
+  const saveSession = async ({ exercises, dur, tonnage, name, date }) => {
     const s = {
       id: uuidv4(),
       type: name || activeSession.name,
-      date: new Date().toISOString().slice(0, 10),
+      date: date || toLocalISO(new Date()),
       exercises,
       dur,
       tonnage,
@@ -3562,7 +3572,7 @@ useEffect(() => {
 
     const session = {
       id: uuidv4(),
-      date: todayISO(), // 🔒 toujours la date du jour
+      date: date || toLocalISO(new Date()),
       type: tplName,
       exercises: cleaned,
       createdAt: new Date().toISOString(),
