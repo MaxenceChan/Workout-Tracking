@@ -920,14 +920,15 @@ function SGSessionSummary({ exercises, sessionName, startedAt, sessions, onClose
     const doneSetsArr = (ex.sets || []).filter(s => s.done);
     const curEx = doneSetsArr.reduce((s, st) => s + st.reps * st.weight, 0);
     let prevEx = null;
+    let prevSets = [];
     for (const s of sessions) {
       const match = (s.exercises || []).find(e =>
         typeof e === 'object' && (e.name || '').toLowerCase().trim() === ex.name.toLowerCase().trim()
       );
-      if (match) { prevEx = exTon(match.sets); break; }
+      if (match) { prevEx = exTon(match.sets); prevSets = match.sets || []; break; }
     }
     const pct = prevEx !== null && prevEx > 0 ? Math.round(((curEx - prevEx) / prevEx) * 100) : null;
-    return { name: ex.name, curEx, prevEx, pct, doneSets: doneSetsArr.length, totalSets: (ex.sets||[]).length, sets: doneSetsArr };
+    return { name: ex.name, curEx, prevEx, pct, doneSets: doneSetsArr.length, totalSets: (ex.sets||[]).length, sets: doneSetsArr, prevSets };
   });
 
   // Overall: compare vs last session of same type
@@ -1019,17 +1020,30 @@ function SGSessionSummary({ exercises, sessionName, startedAt, sessions, onClose
                 </div>
                 {open && ex.sets.length > 0 && (
                   <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 5 }}>
-                    {ex.sets.map((s, si) => (
-                      <div key={si} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 12, background: 'rgba(255,255,255,0.5)' }}>
-                        <div style={{ width: 24, height: 24, borderRadius: 12, background: SG.accent2, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: '#fff', flexShrink: 0 }}>
-                          {si + 1}
+                    {ex.sets.map((s, si) => {
+                      const prevSet = ex.prevSets[si];
+                      const curTon = (Number(s.reps) || 0) * (Number(s.weight) || 0);
+                      const prevTon = prevSet ? (Number(prevSet.reps) || 0) * (Number(prevSet.weight) || 0) : null;
+                      const setPct = prevTon !== null && prevTon > 0 ? Math.round(((curTon - prevTon) / prevTon) * 100) : null;
+                      const isExtra = si >= ex.prevSets.length;
+                      return (
+                        <div key={si} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 12, background: 'rgba(255,255,255,0.5)' }}>
+                          <div style={{ width: 24, height: 24, borderRadius: 12, background: SG.accent2, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: '#fff', flexShrink: 0 }}>
+                            {si + 1}
+                          </div>
+                          <div style={{ fontFamily: SG.serif, fontSize: 15, fontWeight: 500, color: SG.ink }}>{s.reps} reps</div>
+                          <div style={{ fontSize: 12, color: SG.inkSoft }}>×</div>
+                          <div style={{ fontFamily: SG.serif, fontSize: 15, fontWeight: 500, color: SG.ink }}>{s.weight} kg</div>
+                          <div style={{ flex: 1, textAlign: 'right' }}>
+                            {!isExtra && setPct !== null && (
+                              <span style={{ fontSize: 12, fontWeight: 700, color: setPct >= 0 ? '#2D7A3A' : '#B23A3A', background: setPct >= 0 ? 'rgba(45,122,58,0.10)' : 'rgba(178,58,58,0.10)', padding: '3px 8px', borderRadius: 8 }}>
+                                {setPct >= 0 ? '+' : ''}{setPct}%
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        <div style={{ fontFamily: SG.serif, fontSize: 15, fontWeight: 500, color: SG.ink }}>{s.reps} reps</div>
-                        <div style={{ fontSize: 12, color: SG.inkSoft }}>×</div>
-                        <div style={{ fontFamily: SG.serif, fontSize: 15, fontWeight: 500, color: SG.ink }}>{s.weight} kg</div>
-                        <div style={{ flex: 1, textAlign: 'right', fontSize: 11, color: SG.inkFaint }}>{((s.reps * s.weight)/1000).toFixed(2)} t</div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
                 {open && ex.sets.length === 0 && (
