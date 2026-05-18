@@ -271,52 +271,36 @@ function SGTemplatePicker({ templates, onSelect, onClose }) {
   );
 }
 
-// ─── FrDateInput — selects jour/mois/année, toujours DD/MM/YYYY ──────────────
-function FrDateInput({ value, min, max, onChange, style }) {
-  const parts = value ? value.split('-') : ['', '', ''];
-  const y = parts[0] || '';
-  const m = parts[1] || '';
-  const d = parts[2] || '';
+// ─── FrDateInput — champ texte unique DD/MM/YYYY ─────────────────────────────
+function FrDateInput({ value, onChange, style }) {
+  const toDisplay = (iso) => {
+    if (!iso) return '';
+    const [y, m, d] = iso.split('-');
+    return `${d}/${m}/${y}`;
+  };
+  const [text, setText] = useState(toDisplay(value));
 
-  const curYear = new Date().getFullYear();
-  const minYear = min ? Number(min.slice(0, 4)) : 2020;
-  const maxYear = max ? Number(max.slice(0, 4)) : curYear;
-  const years = Array.from({ length: maxYear - minYear + 1 }, (_, i) => minYear + i);
-  const monthNames = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
-  const daysInMonth = (y && m) ? new Date(Number(y), Number(m), 0).getDate() : 31;
+  useEffect(() => { setText(toDisplay(value)); }, [value]);
 
-  const emit = (newY, newM, newD) => {
-    if (!newY || !newM || !newD) return;
-    const clamped = Math.min(Number(newD), new Date(Number(newY), Number(newM), 0).getDate());
-    const iso = `${newY}-${String(newM).padStart(2,'0')}-${String(clamped).padStart(2,'0')}`;
-    if (min && iso < min) return;
-    if (max && iso > max) return;
-    onChange(iso);
+  const handleChange = (e) => {
+    let raw = e.target.value.replace(/[^\d]/g, '').slice(0, 8);
+    let formatted = raw;
+    if (raw.length > 2) formatted = raw.slice(0,2) + '/' + raw.slice(2);
+    if (raw.length > 4) formatted = raw.slice(0,2) + '/' + raw.slice(2,4) + '/' + raw.slice(4);
+    setText(formatted);
+    if (raw.length === 8) {
+      const d = raw.slice(0,2), m = raw.slice(2,4), y = raw.slice(4,8);
+      const iso = `${y}-${m}-${d}`;
+      if (!isNaN(new Date(iso))) onChange(iso);
+    }
   };
 
-  const sel = { padding: '8px 6px', borderRadius: 10, border: '1.5px solid rgba(31,26,20,0.12)', background: 'rgba(255,255,255,0.7)', fontSize: 13, color: '#1F1A14', outline: 'none', flex: 1, textAlign: 'center' };
-
   return (
-    <div style={{ display: 'flex', gap: 6, ...style }}>
-      <select value={d} onChange={e => emit(y, m, e.target.value)} style={sel}>
-        <option value="">JJ</option>
-        {Array.from({ length: daysInMonth }, (_, i) => {
-          const v = String(i + 1).padStart(2, '0');
-          return <option key={v} value={v}>{i + 1}</option>;
-        })}
-      </select>
-      <select value={m} onChange={e => emit(y, e.target.value, d)} style={sel}>
-        <option value="">MM</option>
-        {monthNames.map((mn, i) => {
-          const v = String(i + 1).padStart(2, '0');
-          return <option key={v} value={v}>{mn}</option>;
-        })}
-      </select>
-      <select value={y} onChange={e => emit(e.target.value, m, d)} style={{ ...sel, flex: 1.4 }}>
-        <option value="">AAAA</option>
-        {years.map(yr => <option key={yr} value={String(yr)}>{yr}</option>)}
-      </select>
-    </div>
+    <input
+      type="text" inputMode="numeric" value={text} onChange={handleChange}
+      placeholder="JJ/MM/AAAA" maxLength={10}
+      style={{ width: '100%', padding: '10px 12px', borderRadius: 12, border: '1.5px solid rgba(31,26,20,0.12)', background: 'rgba(255,255,255,0.7)', fontSize: 13, color: '#1F1A14', outline: 'none', boxSizing: 'border-box', textAlign: 'center', ...style }}
+    />
   );
 }
 
@@ -1191,9 +1175,9 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession }) {
           </Glass>
           <Glass radius={20} tint="rgba(255,255,255,0.5)">
             <div style={{ padding: 14 }}>
-              <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase' }}>Total séances</div>
+              <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase' }}>Total sem. · Séances</div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 6 }}>
-                <div style={{ fontFamily: SG.serif, fontSize: 32, fontWeight: 500, lineHeight: 1, color: SG.ink }}>{sessions.length}</div>
+                <div style={{ fontFamily: SG.serif, fontSize: 32, fontWeight: 500, lineHeight: 1, color: SG.ink }}>{weekDone}</div>
               </div>
             </div>
           </Glass>
