@@ -1078,6 +1078,35 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession }) {
   const sessions = data.sessions || [];
   const templates = data.sessionTemplates || [];
   const lastSession = sessions[0];
+
+  const [weekSteps, setWeekSteps] = useState(null);
+  const [weekRunKm, setWeekRunKm] = useState(null);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const monday = (() => {
+      const d = new Date(); const day = d.getDay();
+      d.setDate(d.getDate() - (day === 0 ? 6 : day - 1)); d.setHours(0,0,0,0);
+      return d.toISOString().slice(0,10);
+    })();
+    const today = new Date().toISOString().slice(0,10);
+
+    fetch(`/api/steps?uid=${user.id}`)
+      .then(r => r.json())
+      .then(d => {
+        const steps = Array.isArray(d) ? d : (d?.steps || []);
+        const total = steps.filter(s => s.date >= monday && s.date <= today).reduce((a,b) => a + (b.steps||0), 0);
+        setWeekSteps(total);
+      }).catch(() => {});
+
+    fetch(`/api/strava?uid=${user.id}`)
+      .then(r => r.json())
+      .then(d => {
+        const acts = Array.isArray(d) ? d : (d?.activities || []);
+        const dist = acts.filter(a => a.date >= monday && a.date <= today).reduce((a,b) => a + (b.distance||0), 0);
+        setWeekRunKm(parseFloat((dist/1000).toFixed(1)));
+      }).catch(() => {});
+  }, [user?.id]);
   const weekDone = sgWeekDone(sessions);
   const weekDays = sgWeekDays(sessions);
   const firstSession = sessions.length > 0 ? sessions[sessions.length - 1] : null;
@@ -1152,10 +1181,11 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession }) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
           <Glass radius={20} tint="rgba(255,255,255,0.5)">
             <div style={{ padding: 14 }}>
-              <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase' }}>Cette sem.</div>
+              <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase' }}>Cette sem. · Pas</div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 6 }}>
-                <div style={{ fontFamily: SG.serif, fontSize: 32, fontWeight: 500, lineHeight: 1, color: SG.ink }}>{weekDone}</div>
-                <div style={{ fontSize: 11, color: SG.inkSoft }}>séances</div>
+                <div style={{ fontFamily: SG.serif, fontSize: 32, fontWeight: 500, lineHeight: 1, color: SG.ink }}>
+                  {weekSteps === null ? '—' : weekSteps >= 1000 ? `${(weekSteps/1000).toFixed(1)}k` : weekSteps}
+                </div>
               </div>
             </div>
           </Glass>
@@ -1178,9 +1208,12 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession }) {
           </Glass>
           <Glass radius={20} tint="rgba(255,255,255,0.5)">
             <div style={{ padding: 14 }}>
-              <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase' }}>Modèles</div>
+              <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase' }}>Distance sem. · Run</div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 6 }}>
-                <div style={{ fontFamily: SG.serif, fontSize: 32, fontWeight: 500, lineHeight: 1, color: SG.ink }}>{templates.length}</div>
+                <div style={{ fontFamily: SG.serif, fontSize: 32, fontWeight: 500, lineHeight: 1, color: SG.ink }}>
+                  {weekRunKm === null ? '—' : weekRunKm}
+                </div>
+                {weekRunKm !== null && <div style={{ fontSize: 11, color: SG.inkSoft }}>km</div>}
               </div>
             </div>
           </Glass>
