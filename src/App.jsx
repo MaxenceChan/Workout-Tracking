@@ -1381,7 +1381,9 @@ function SGMobileHistory({ data, user, onDeleteSession, upsertFn, initialDetail,
             <Glass key={s.id} radius={20} tint="rgba(255,255,255,0.5)" onClick={() => setDetail(s)}>
               <div style={{ padding: '16px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <div style={{ fontFamily: SG.serif, fontSize: 19, fontWeight: 500, color: SG.ink }}>{s.type || 'Séance'}</div>
+                  <div style={{ fontFamily: SG.serif, fontSize: 19, fontWeight: 500, color: SG.ink }}>
+                    {s.type || 'Séance'} <span style={{ fontFamily: SG.sans, fontSize: 13, fontWeight: 500, color: SG.inkSoft }}>· {(s.exercises||[]).length} exercices</span>
+                  </div>
                   <div style={{ fontSize: 12, color: SG.inkSoft, marginTop: 3 }}>
                     {sgFmt(s.date)} · {sgTonnage(s).toLocaleString('fr-FR')} kg{s.dur ? ` · ${s.dur} min` : ''}
                   </div>
