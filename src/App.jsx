@@ -351,7 +351,7 @@ function useTimer(startedAt) {
   return { display: `${mm}:${ss}`, elapsed, now };
 }
 
-function SGActiveSession({ session, onFinish, onCancel }) {
+function SGActiveSession({ session, onFinish, onCancel, sessions }) {
   const { display: timerDisplay, now } = useTimer(session.startedAt);
   const [exercises, setExercises] = useState(session.exercises);
   const [sessionName, setSessionName] = useState(session.name);
@@ -369,6 +369,7 @@ function SGActiveSession({ session, onFinish, onCancel }) {
   const [showReorder, setShowReorder] = useState(false);
   const [showAddEx, setShowAddEx] = useState(false);
   const [newExName, setNewExName] = useState('');
+  const [showSummary, setShowSummary] = useState(false);
   const longPressRef = useRef(null);
   const [renamingExIdx, setRenamingExIdx] = useState(null);
   const [renameValue, setRenameValue] = useState('');
@@ -436,7 +437,8 @@ function SGActiveSession({ session, onFinish, onCancel }) {
     else if (curExIdx === to) setCurExIdx(idx);
   };
 
-  const handleFinish = () => {
+  const handleFinish = () => setShowSummary(true);
+  const handleConfirm = () => {
     const elapsed = Math.floor((Date.now() - session.startedAt) / 1000);
     const dur = Math.round(elapsed / 60) || 1;
     onFinish({ exercises, dur, tonnage, name: sessionName });
@@ -575,6 +577,17 @@ function SGActiveSession({ session, onFinish, onCancel }) {
         )}
       </div>
     </Glass>
+  );
+
+  if (showSummary) return (
+    <SGSessionSummary
+      exercises={exercises}
+      sessionName={sessionName}
+      startedAt={session.startedAt}
+      sessions={sessions || []}
+      onConfirm={handleConfirm}
+      onBack={() => setShowSummary(false)}
+    />
   );
 
   return (
@@ -752,6 +765,127 @@ function SGActiveSession({ session, onFinish, onCancel }) {
             </div>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ─── SGSessionSummary ─────────────────────────────────────────────────────────
+function SGSessionSummary({ exercises, sessionName, startedAt, sessions, onConfirm, onBack }) {
+  const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+  const dur = Math.round(elapsed / 60) || 1;
+
+  const exTon = (sets) => (sets || []).reduce((s, st) => s + (Number(st.reps)||0) * (Number(st.weight)||0), 0);
+
+  // Current session: only count validated sets
+  const curTonnage = exercises.reduce((acc, ex) =>
+    acc + (ex.sets || []).filter(s => s.done).reduce((s, st) => s + st.reps * st.weight, 0), 0);
+
+  // Per-exercise: compare vs last recorded session containing that exercise
+  const exComparisons = exercises.map(ex => {
+    const curEx = (ex.sets || []).filter(s => s.done).reduce((s, st) => s + st.reps * st.weight, 0);
+    let prevEx = null;
+    for (const s of sessions) {
+      const match = (s.exercises || []).find(e =>
+        typeof e === 'object' && (e.name || '').toLowerCase().trim() === ex.name.toLowerCase().trim()
+      );
+      if (match) { prevEx = exTon(match.sets); break; }
+    }
+    const pct = prevEx !== null && prevEx > 0 ? Math.round(((curEx - prevEx) / prevEx) * 100) : null;
+    return { name: ex.name, curEx, prevEx, pct, doneSets: (ex.sets||[]).filter(s=>s.done).length, totalSets: (ex.sets||[]).length };
+  });
+
+  // Overall: compare vs last session of same type
+  const prevSession = sessions.find(s => s.type === sessionName);
+  const prevOverall = prevSession ? exTon((prevSession.exercises||[]).flatMap(e => e.sets||[])) : null;
+  const overallPct = prevOverall !== null && prevOverall > 0
+    ? Math.round(((curTonnage - prevOverall) / prevOverall) * 100) : null;
+
+  const isFirst = overallPct === null;
+  const isPositive = isFirst || overallPct >= 0;
+
+  const title = isFirst
+    ? "C'est parti, première séance enregistrée !"
+    : overallPct > 0
+      ? `Bravo ! Tu as progressé de +${overallPct}% 💪`
+      : overallPct === 0
+        ? 'Même tonnage que la dernière fois — régulier !'
+        : `Continue, le progrès n'est pas linéaire 🔥`;
+
+  const subtitle = isFirst
+    ? 'Tu as posé la première pierre. Reviens régulièrement.'
+    : isPositive
+      ? 'Tu surpasses ta dernière performance. Keep going.'
+      : 'Chaque séance compte, même les jours difficiles.';
+
+  return (
+    <div style={{ position: 'relative', minHeight: '100vh', paddingBottom: 50 }}>
+      <div style={{ position: 'relative', padding: '54px 18px 0', maxWidth: 600, margin: '0 auto' }}>
+
+        <div style={{ textAlign: 'center', marginBottom: 24 }}>
+          <div style={{ fontSize: 52, marginBottom: 10 }}>{isFirst ? '🎉' : isPositive ? '🏆' : '💪'}</div>
+          <div style={{ fontFamily: SG.serif, fontSize: 24, fontWeight: 500, color: SG.ink, lineHeight: 1.25, fontStyle: 'italic' }}>{title}</div>
+          <div style={{ fontSize: 13, color: SG.inkSoft, marginTop: 8, lineHeight: 1.4 }}>{subtitle}</div>
+        </div>
+
+        <Glass radius={26} tint="rgba(255,255,255,0.55)" style={{ marginBottom: 16 }}>
+          <div style={{ padding: '18px 20px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, textAlign: 'center' }}>
+            <div>
+              <div style={{ fontFamily: SG.serif, fontSize: 28, fontWeight: 500, color: SG.ink }}>{dur}</div>
+              <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', marginTop: 2 }}>min</div>
+            </div>
+            <div>
+              <div style={{ fontFamily: SG.serif, fontSize: 28, fontWeight: 500, color: SG.ink }}>{(curTonnage/1000).toFixed(2)}</div>
+              <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', marginTop: 2 }}>tonnes</div>
+            </div>
+            <div>
+              {overallPct !== null ? (
+                <>
+                  <div style={{ fontFamily: SG.serif, fontSize: 28, fontWeight: 500, color: overallPct >= 0 ? '#2D7A3A' : '#B23A3A' }}>
+                    {overallPct >= 0 ? '+' : ''}{overallPct}%
+                  </div>
+                  <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', marginTop: 2 }}>vs dernière</div>
+                </>
+              ) : (
+                <>
+                  <div style={{ fontFamily: SG.serif, fontSize: 28, fontWeight: 500, color: SG.ink }}>—</div>
+                  <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', marginTop: 2 }}>1ère fois</div>
+                </>
+              )}
+            </div>
+          </div>
+        </Glass>
+
+        <div style={{ fontSize: 11, color: SG.inkSoft, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', margin: '0 4px 10px' }}>Par exercice</div>
+        {exComparisons.map((ex, i) => (
+          <Glass key={i} radius={18} tint="rgba(255,255,255,0.5)" style={{ marginBottom: 8 }}>
+            <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: SG.serif, fontSize: 16, fontWeight: 500, color: SG.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ex.name}</div>
+                <div style={{ fontSize: 11, color: SG.inkSoft, marginTop: 2 }}>
+                  {(ex.curEx/1000).toFixed(2)} t · {ex.doneSets}/{ex.totalSets} séries
+                  {ex.prevEx !== null && <> · préc. {(ex.prevEx/1000).toFixed(2)} t</>}
+                </div>
+              </div>
+              {ex.pct !== null ? (
+                <div style={{ flexShrink: 0, padding: '6px 12px', borderRadius: 12, background: ex.pct >= 0 ? 'rgba(45,122,58,0.12)' : 'rgba(178,58,58,0.10)', color: ex.pct >= 0 ? '#2D7A3A' : '#B23A3A', fontFamily: SG.serif, fontSize: 18, fontWeight: 500 }}>
+                  {ex.pct >= 0 ? '+' : ''}{ex.pct}%
+                </div>
+              ) : (
+                <div style={{ flexShrink: 0, padding: '6px 10px', borderRadius: 12, background: 'rgba(31,26,20,0.06)', color: SG.inkSoft, fontSize: 11, fontWeight: 700, letterSpacing: 0.3 }}>
+                  1ÈRE FOIS
+                </div>
+              )}
+            </div>
+          </Glass>
+        ))}
+
+        <button onClick={onConfirm} style={{ width: '100%', padding: 16, borderRadius: 22, marginTop: 20, border: 'none', background: SG.ink, color: '#fff', cursor: 'pointer', fontSize: 15, fontWeight: 700, boxShadow: '0 8px 20px rgba(0,0,0,0.15)' }}>
+          Enregistrer la séance
+        </button>
+        <button onClick={onBack} style={{ width: '100%', padding: 12, borderRadius: 18, marginTop: 8, border: 'none', background: 'transparent', color: SG.inkSoft, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+          ← Retour à la séance
+        </button>
       </div>
     </div>
   );
@@ -1900,6 +2034,7 @@ function App() {
             session={activeSession}
             onFinish={finishSession}
             onCancel={() => setActiveSession(null)}
+            sessions={data.sessions || []}
           />
         </div>
       );
