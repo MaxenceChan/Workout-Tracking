@@ -516,10 +516,10 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, known
 
   useEffect(() => {
     if (!currentEx) return;
-    const cur = currentEx.sets[0];
+    const cur = currentEx.sets[curSetIdx];
     setReps(cur?.reps || 10);
     setKg(cur?.weight || 0);
-  }, [curExIdx]);
+  }, [curExIdx, curSetIdx]);
 
   const validateSet = () => {
     const updatedExercises = exercises.map((ex, ei) => {
