@@ -6851,17 +6851,6 @@ function StravaTracker({ user }) {
     date: fmtDay(a.date),
     label: a.name,
   }));
-  const trendLine = (() => {
-    const n = scatterData.length;
-    if (n < 2) return scatterData.map(d => ({ x: d.x, trend: d.y }));
-    const sumX = scatterData.reduce((s, d) => s + d.x, 0);
-    const sumY = scatterData.reduce((s, d) => s + d.y, 0);
-    const sumXY = scatterData.reduce((s, d) => s + d.x * d.y, 0);
-    const sumX2 = scatterData.reduce((s, d) => s + d.x * d.x, 0);
-    const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
-    const intercept = (sumY - slope * sumX) / n;
-    return scatterData.map(d => ({ x: d.x, trend: parseFloat(Math.max(0, slope * d.x + intercept).toFixed(2)) }));
-  })();
 
   return (
     <div className="space-y-6">
@@ -6925,8 +6914,7 @@ function StravaTracker({ user }) {
                       </div>
                     );
                   }} />
-                  <Scatter data={scatterData} fill="#fc4c02" opacity={0.85} />
-                  <Line data={trendLine} type="linear" dataKey="trend" stroke="#fc4c02" dot={false} strokeWidth={2} strokeDasharray="6 3" strokeOpacity={0.5} />
+                  <Line data={scatterData} type="monotone" dataKey="y" stroke="#fc4c02" strokeWidth={2} dot={{ fill: '#fc4c02', r: 4, strokeWidth: 0 }} activeDot={{ r: 6 }} />
                 </ComposedChart>
               </ResponsiveContainer>
             </CardContent>
