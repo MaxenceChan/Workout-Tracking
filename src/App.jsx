@@ -377,7 +377,7 @@ function SGActiveSession({ session, onFinish, onCancel }) {
   const isResting = restRemaining > 0;
   const currentEx = exercises[curExIdx];
   const tonnage = exercises.reduce((acc, ex) =>
-    acc + ex.sets.reduce((s, st) => s + (st.done ? st.reps * st.weight : 0), 0), 0);
+    acc + (ex.sets || []).reduce((s, st) => s + (Number(st.reps) || 0) * (Number(st.weight) || 0), 0), 0);
   const completedSets = exercises.reduce((acc, ex) => acc + ex.sets.filter(s => s.done).length, 0);
   const totalSets = exercises.reduce((acc, ex) => acc + ex.sets.length, 0);
 
@@ -471,6 +471,17 @@ function SGActiveSession({ session, onFinish, onCancel }) {
             ) : (
               <div style={{ fontFamily: SG.serif, fontSize: 26, fontWeight: 500, marginTop: 3, letterSpacing: -0.4, color: SG.ink }}>{ex.name}</div>
             )}
+            {(() => {
+              const exTonnage = (ex.sets || []).reduce((s, st) => s + (Number(st.reps)||0) * (Number(st.weight)||0), 0);
+              const doneTonnage = (ex.sets || []).filter(s => s.done).reduce((s, st) => s + st.reps * st.weight, 0);
+              const hasDone = (ex.sets || []).some(s => s.done);
+              if (!exTonnage) return null;
+              return (
+                <div style={{ fontSize: 11, color: SG.inkSoft, marginTop: 2 }}>
+                  {hasDone ? `${(doneTonnage/1000).toFixed(2)} / ` : ''}{(exTonnage/1000).toFixed(2)} t
+                </div>
+              );
+            })()}
           </div>
           <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0, marginLeft: 8 }}>
             {isCurrent && isResting && (
