@@ -516,10 +516,10 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, known
 
   useEffect(() => {
     if (!currentEx) return;
-    const lastDone = [...currentEx.sets].reverse().find(s => s.done);
-    if (lastDone) { setReps(lastDone.reps); setKg(lastDone.weight); }
-    else { const cur = currentEx.sets[curSetIdx]; setReps(cur?.reps || 10); setKg(cur?.weight || 0); }
-  }, [curExIdx, curSetIdx]);
+    const cur = currentEx.sets[0];
+    setReps(cur?.reps || 10);
+    setKg(cur?.weight || 0);
+  }, [curExIdx]);
 
   const validateSet = () => {
     const updatedExercises = exercises.map((ex, ei) => {
@@ -2166,7 +2166,7 @@ function App() {
     };
     try {
       await upsertSessions(user.id, [s], user.email);
-      setData(cur => ({ ...cur, sessions: [s, ...cur.sessions] }));
+      // onSnapshot Firestore met à jour data automatiquement — pas besoin de setData
     } catch (e) {
       console.error('Error saving session:', e);
     }
