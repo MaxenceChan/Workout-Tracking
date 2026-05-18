@@ -1318,7 +1318,7 @@ function SGMobileHistory({ data, user, onDeleteSession, upsertFn, initialDetail,
                   {(ex.sets||[]).map((s,j) => (
                     <div key={j} style={{ padding: '8px 10px', borderRadius: 12, background: 'rgba(255,255,255,0.6)', textAlign: 'center' }}>
                       <div style={{ fontSize: 9, color: SG.inkFaint, fontWeight: 700 }}>S{j+1}</div>
-                      <div style={{ fontFamily: SG.serif, fontSize: 14, fontWeight: 500, color: SG.ink }}>{s.reps}×{s.weight}</div>
+                      <div style={{ fontFamily: SG.serif, fontSize: 14, fontWeight: 500, color: SG.ink }}>{s.reps}×{s.weight}kg</div>
                     </div>
                   ))}
                 </div>
@@ -1379,27 +1379,14 @@ function SGMobileHistory({ data, user, onDeleteSession, upsertFn, initialDetail,
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {filtered.map(s => (
             <Glass key={s.id} radius={20} tint="rgba(255,255,255,0.5)" onClick={() => setDetail(s)}>
-              <div style={{ padding: 16 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div>
-                    <div style={{ fontSize: 11, color: SG.inkSoft, fontWeight: 600 }}>{sgFmt(s.date)}</div>
-                    <div style={{ fontFamily: SG.serif, fontSize: 19, fontWeight: 500, marginTop: 2, color: SG.ink }}>{s.type || 'Séance'}</div>
+              <div style={{ padding: '16px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontFamily: SG.serif, fontSize: 19, fontWeight: 500, color: SG.ink }}>{s.type || 'Séance'}</div>
+                  <div style={{ fontSize: 12, color: SG.inkSoft, marginTop: 3 }}>
+                    {sgFmt(s.date)} · {sgTonnage(s).toLocaleString('fr-FR')} kg{s.dur ? ` · ${s.dur} min` : ''}
                   </div>
                 </div>
-                <div style={{ display: 'flex', gap: 18, marginTop: 10, paddingTop: 10, borderTop: '0.5px solid rgba(31,26,20,0.08)' }}>
-                  <div>
-                    <div style={{ fontSize: 10, color: SG.inkFaint, fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase' }}>Tonnage</div>
-                    <div style={{ fontFamily: SG.serif, fontSize: 17, fontWeight: 500, color: SG.ink }}>{sgTonnage(s).toLocaleString('fr-FR')} <span style={{ fontSize: 10, color: SG.inkSoft }}>kg</span></div>
-                  </div>
-                  {s.dur ? (
-                  <div>
-                    <div style={{ fontSize: 10, color: SG.inkFaint, fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase' }}>Durée</div>
-                    <div style={{ fontFamily: SG.serif, fontSize: 17, fontWeight: 500, color: SG.ink }}>{s.dur} <span style={{ fontSize: 10, color: SG.inkSoft }}>min</span></div>
-                  </div>
-                  ) : null}
-                  <div style={{ flex: 1 }}/>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={SG.inkFaint} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 6l6 6-6 6"/></svg>
-                </div>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={SG.inkFaint} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 6l6 6-6 6"/></svg>
               </div>
             </Glass>
           ))}
