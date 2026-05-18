@@ -120,7 +120,7 @@ function SGMobileBackground() {
   );
 }
 
-function MobileSGTabBar({ tab, onTab }) {
+function MobileSGTabBar({ tab, onTab, onFAB }) {
   const tabs = [
     {
       k: 'log', label: "Aujourd'hui",
@@ -207,7 +207,7 @@ function MobileSGTabBar({ tab, onTab }) {
         {tabBtn(tabs[3])}
       </div>
       <button
-        onClick={() => onTab('log')}
+        onClick={onFAB}
         aria-label="Nouvelle séance"
         style={{
           position: 'absolute', left: '50%', bottom: 18,
@@ -224,6 +224,49 @@ function MobileSGTabBar({ tab, onTab }) {
           <path d="M12 5v14"/><path d="M5 12h14"/>
         </svg>
       </button>
+    </div>
+  );
+}
+
+// ─── SGTemplatePicker ─────────────────────────────────────────────────────────
+function SGTemplatePicker({ templates, onSelect, onClose }) {
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(31,26,20,0.45)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }} onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 600, background: SG.bg1, borderRadius: '28px 28px 0 0', padding: '20px 20px 48px', boxShadow: '0 -20px 50px rgba(0,0,0,0.18)', maxHeight: '80vh', overflowY: 'auto' }}>
+        <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(31,26,20,0.12)', margin: '0 auto 20px' }} />
+        <div style={{ fontFamily: SG.serif, fontSize: 24, fontWeight: 500, color: SG.ink, marginBottom: 6, textAlign: 'center' }}>Démarrer une séance</div>
+        <div style={{ fontSize: 13, color: SG.inkSoft, textAlign: 'center', marginBottom: 20 }}>Choisis un modèle ou démarre librement</div>
+        <button onClick={() => onSelect(null)} style={{ width: '100%', padding: '16px 18px', borderRadius: 20, border: `1.5px dashed rgba(31,26,20,0.20)`, background: 'rgba(255,255,255,0.5)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 14, marginBottom: 10, textAlign: 'left' }}>
+          <div style={{ width: 44, height: 44, borderRadius: 14, background: SG.ink, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+          </div>
+          <div>
+            <div style={{ fontFamily: SG.serif, fontSize: 18, fontWeight: 500, color: SG.ink }}>Séance libre</div>
+            <div style={{ fontSize: 12, color: SG.inkSoft, marginTop: 2 }}>Commence sans modèle prédéfini</div>
+          </div>
+        </button>
+        {templates.length > 0 && (
+          <>
+            <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 800, letterSpacing: 1.2, textTransform: 'uppercase', margin: '16px 4px 10px' }}>Mes modèles</div>
+            {templates.map(tpl => (
+              <button key={tpl.id} onClick={() => onSelect(tpl)} style={{ width: '100%', padding: '14px 18px', borderRadius: 20, border: '1px solid rgba(255,255,255,0.5)', background: 'rgba(255,255,255,0.55)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 14, marginBottom: 8, textAlign: 'left', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)' }}>
+                <div style={{ width: 44, height: 44, borderRadius: 14, background: `linear-gradient(135deg, ${SG.accent} 0%, ${SG.accent2} 100%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="2" y="9" width="3" height="6" rx="1"/><rect x="19" y="9" width="3" height="6" rx="1"/>
+                    <rect x="5" y="7" width="3" height="10" rx="1"/><rect x="16" y="7" width="3" height="10" rx="1"/>
+                    <path d="M8 12h8"/>
+                  </svg>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontFamily: SG.serif, fontSize: 18, fontWeight: 500, color: SG.ink }}>{tpl.name}</div>
+                  <div style={{ fontSize: 12, color: SG.inkSoft, marginTop: 2 }}>{(tpl.exercises || []).length} exercices</div>
+                </div>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={SG.inkFaint} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+              </button>
+            ))}
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -311,25 +354,36 @@ function useTimer(startedAt) {
 function SGActiveSession({ session, onFinish, onCancel }) {
   const { display: timerDisplay, now } = useTimer(session.startedAt);
   const [exercises, setExercises] = useState(session.exercises);
+  const [sessionName, setSessionName] = useState(session.name);
   const [curExIdx, setCurExIdx] = useState(0);
   const [curSetIdx, setCurSetIdx] = useState(0);
-  const [reps, setReps] = useState(10);
-  const [kg, setKg] = useState(0);
+  const [reps, setReps] = useState(() => session.exercises[0]?.sets[0]?.reps || 10);
+  const [kg, setKg] = useState(() => session.exercises[0]?.sets[0]?.weight || 0);
+  const [kgInput, setKgInput] = useState('');
+  const [repsInput, setRepsInput] = useState('');
+  const [editingKg, setEditingKg] = useState(false);
+  const [editingReps, setEditingReps] = useState(false);
   const [restEnd, setRestEnd] = useState(null);
   const [showAbandon, setShowAbandon] = useState(false);
+  const [expandedIdx, setExpandedIdx] = useState(null);
+  const [showReorder, setShowReorder] = useState(false);
+  const [showAddEx, setShowAddEx] = useState(false);
+  const [newExName, setNewExName] = useState('');
+  const longPressRef = useRef(null);
 
   const restRemaining = restEnd ? Math.max(0, Math.ceil((restEnd - now) / 1000)) : 0;
   const isResting = restRemaining > 0;
-
   const currentEx = exercises[curExIdx];
   const tonnage = exercises.reduce((acc, ex) =>
     acc + ex.sets.reduce((s, st) => s + (st.done ? st.reps * st.weight : 0), 0), 0);
+  const completedSets = exercises.reduce((acc, ex) => acc + ex.sets.filter(s => s.done).length, 0);
+  const totalSets = exercises.reduce((acc, ex) => acc + ex.sets.length, 0);
 
-  // Sync reps/kg from last done set
   useEffect(() => {
     if (!currentEx) return;
     const lastDone = [...currentEx.sets].reverse().find(s => s.done);
     if (lastDone) { setReps(lastDone.reps); setKg(lastDone.weight); }
+    else { const cur = currentEx.sets[curSetIdx]; setReps(cur?.reps || 10); setKg(cur?.weight || 0); }
   }, [curExIdx, curSetIdx]);
 
   const validateSet = () => {
@@ -338,45 +392,161 @@ function SGActiveSession({ session, onFinish, onCancel }) {
       return { ...ex, sets: ex.sets.map((s, si) => si === curSetIdx ? { ...s, reps, weight: kg, done: true } : s) };
     });
     setExercises(updatedExercises);
-    setRestEnd(Date.now() + 90000); // 90s rest
-
+    setRestEnd(Date.now() + 90000);
     const ex = updatedExercises[curExIdx];
     const nextSetIdx = curSetIdx + 1;
     if (nextSetIdx < ex.sets.length) {
       setCurSetIdx(nextSetIdx);
     } else {
       const nextExIdx = curExIdx + 1;
-      if (nextExIdx < exercises.length) {
-        setCurExIdx(nextExIdx);
-        setCurSetIdx(0);
-      }
+      if (nextExIdx < exercises.length) { setCurExIdx(nextExIdx); setCurSetIdx(0); setExpandedIdx(null); }
     }
   };
 
   const addSet = () => {
     setExercises(exs => exs.map((ex, ei) =>
-      ei === curExIdx ? { ...ex, sets: [...ex.sets, { reps: 10, weight: kg, done: false }] } : ex
+      ei === curExIdx ? { ...ex, sets: [...ex.sets, { reps, weight: kg, done: false }] } : ex
     ));
+  };
+
+  const addExercise = () => {
+    if (!newExName.trim()) return;
+    setExercises(exs => [...exs, { name: newExName.trim(), sets: Array(3).fill(null).map(() => ({ reps: 10, weight: 0, done: false })) }]);
+    setSessionName('Séance libre');
+    setNewExName('');
+    setShowAddEx(false);
+  };
+
+  const deleteExercise = (idx) => {
+    if (exercises.length <= 1) return;
+    setExercises(exs => exs.filter((_, i) => i !== idx));
+    setSessionName('Séance libre');
+    if (curExIdx > idx) setCurExIdx(c => c - 1);
+    else if (curExIdx === idx) { setCurSetIdx(0); if (curExIdx >= exercises.length - 1 && curExIdx > 0) setCurExIdx(c => c - 1); }
+  };
+
+  const moveEx = (idx, dir) => {
+    const to = idx + dir;
+    if (to < 0 || to >= exercises.length) return;
+    setExercises(exs => { const arr = [...exs]; [arr[idx], arr[to]] = [arr[to], arr[idx]]; return arr; });
+    setSessionName('Séance libre');
+    if (curExIdx === idx) setCurExIdx(to);
+    else if (curExIdx === to) setCurExIdx(idx);
   };
 
   const handleFinish = () => {
     const elapsed = Math.floor((Date.now() - session.startedAt) / 1000);
     const dur = Math.round(elapsed / 60) || 1;
-    onFinish({ exercises, dur, tonnage });
+    onFinish({ exercises, dur, tonnage, name: sessionName });
   };
 
-  const completedSets = exercises.reduce((acc, ex) => acc + ex.sets.filter(s => s.done).length, 0);
-  const totalSets = exercises.reduce((acc, ex) => acc + ex.sets.length, 0);
+  const handleExLongPressStart = () => { longPressRef.current = setTimeout(() => setShowReorder(true), 500); };
+  const handleExLongPressEnd = () => { clearTimeout(longPressRef.current); };
 
   const iconCheck = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 13l4 4L19 7"/></svg>;
   const iconMinus = (c='currentColor') => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.4" strokeLinecap="round"><path d="M5 12h14"/></svg>;
   const iconPlus = (c='currentColor') => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.4" strokeLinecap="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>;
+  const iconTrash = (c='#B23A3A') => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>;
+
+  const renderExCard = (ex, exIdx, isCurrent) => (
+    <Glass radius={26} tint={isCurrent ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.45)'}
+      style={{ marginBottom: 12, border: isCurrent ? `1.5px solid ${SG.accent}` : '1px solid rgba(255,255,255,0.4)', boxShadow: isCurrent ? `0 8px 24px ${SG.accent}22` : 'none' }}>
+      <div style={{ padding: 20 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 11, color: isCurrent ? SG.accent : SG.inkSoft, fontWeight: 800, letterSpacing: 0.8, textTransform: 'uppercase' }}>EXERCICE {exIdx + 1} / {exercises.length}</div>
+            <div style={{ fontFamily: SG.serif, fontSize: 26, fontWeight: 500, marginTop: 3, letterSpacing: -0.4, color: SG.ink }}>{ex.name}</div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {isCurrent && isResting && (
+              <div style={{ padding: '8px 12px', borderRadius: 16, background: SG.ink, color: '#fff', fontFamily: SG.serif, fontSize: 16, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ width: 6, height: 6, borderRadius: 3, background: SG.accent }} />
+                {String(Math.floor(restRemaining/60)).padStart(2,'0')}:{String(restRemaining%60).padStart(2,'0')}
+              </div>
+            )}
+            <button onClick={(e) => { e.stopPropagation(); deleteExercise(exIdx); }} style={{ width: 32, height: 32, borderRadius: 10, border: 'none', background: 'rgba(178,58,58,0.10)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{iconTrash()}</button>
+          </div>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 14 }}>
+          {ex.sets.map((s, si) => {
+            const isCur = isCurrent && si === curSetIdx;
+            return (
+              <div key={si} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 16, background: isCur ? SG.ink : (s.done ? 'rgba(139,154,107,0.12)' : 'rgba(255,255,255,0.4)'), color: isCur ? '#fff' : SG.ink, transition: 'all 200ms' }}>
+                <div style={{ width: 28, height: 28, borderRadius: 14, background: s.done ? SG.accent2 : (isCur ? SG.accent : 'transparent'), border: !s.done && !isCur ? `1.5px solid rgba(31,26,20,0.20)` : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 12, fontWeight: 800, flexShrink: 0 }}>
+                  {s.done ? iconCheck : (si + 1)}
+                </div>
+                <div style={{ flex: 1, fontFamily: SG.serif, fontSize: 17, fontWeight: 500 }}>
+                  {s.done ? `${s.reps} reps · ${s.weight} kg` : (isCur ? `${reps} reps · ${kg} kg` : (s.reps ? `${s.reps} reps · ${s.weight} kg` : '— reps · — kg'))}
+                </div>
+                {isCur && !s.done && <div style={{ fontSize: 10, fontWeight: 800, color: SG.accent, letterSpacing: 0.5 }}>EN COURS</div>}
+              </div>
+            );
+          })}
+          {isCurrent && (
+            <button onClick={addSet} style={{ marginTop: 4, padding: '8px 14px', borderRadius: 14, border: `1.5px dashed rgba(31,26,20,0.14)`, background: 'transparent', cursor: 'pointer', fontSize: 12, color: SG.inkSoft, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+              {iconPlus(SG.inkSoft)} Ajouter une série
+            </button>
+          )}
+        </div>
+        {isCurrent && (
+          <>
+            <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <Glass radius={18} tint="rgba(255,255,255,0.6)">
+                <div style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <button onClick={() => setReps(v => Math.max(1, v - 1))} style={{ width: 36, height: 36, borderRadius: 18, border: 'none', cursor: 'pointer', background: SG.ink, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{iconMinus('#fff')}</button>
+                  <div style={{ textAlign: 'center', flex: 1, cursor: 'pointer' }} onClick={() => { setEditingReps(true); setRepsInput(String(reps)); }}>
+                    <div style={{ fontSize: 9, color: SG.inkSoft, fontWeight: 800, letterSpacing: 1 }}>REPS</div>
+                    {editingReps ? (
+                      <input type="number" value={repsInput} onChange={e => setRepsInput(e.target.value)}
+                        onBlur={() => { const v = parseInt(repsInput); if (v > 0) setReps(v); setEditingReps(false); }}
+                        onKeyDown={e => { if (e.key === 'Enter') { const v = parseInt(repsInput); if (v > 0) setReps(v); setEditingReps(false); } }}
+                        autoFocus style={{ width: 60, border: 'none', background: 'transparent', textAlign: 'center', fontFamily: SG.serif, fontSize: 26, fontWeight: 500, color: SG.ink, outline: 'none' }} />
+                    ) : (
+                      <div style={{ fontFamily: SG.serif, fontSize: 26, fontWeight: 500, lineHeight: 1.1, letterSpacing: -0.5, color: SG.ink }}>{reps}</div>
+                    )}
+                  </div>
+                  <button onClick={() => setReps(v => v + 1)} style={{ width: 36, height: 36, borderRadius: 18, border: 'none', cursor: 'pointer', background: SG.accent, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 4px 10px ${SG.accent}44` }}>{iconPlus('#fff')}</button>
+                </div>
+              </Glass>
+              <Glass radius={18} tint="rgba(255,255,255,0.6)">
+                <div style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <button onClick={() => setKg(v => Math.max(0, parseFloat((v - 2.5).toFixed(1))))} style={{ width: 36, height: 36, borderRadius: 18, border: 'none', cursor: 'pointer', background: SG.ink, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{iconMinus('#fff')}</button>
+                  <div style={{ textAlign: 'center', flex: 1, cursor: 'pointer' }} onClick={() => { setEditingKg(true); setKgInput(String(kg)); }}>
+                    <div style={{ fontSize: 9, color: SG.inkSoft, fontWeight: 800, letterSpacing: 1 }}>KG</div>
+                    {editingKg ? (
+                      <input type="number" step="0.5" value={kgInput} onChange={e => setKgInput(e.target.value)}
+                        onBlur={() => { const v = parseFloat(kgInput); if (v >= 0) setKg(v); setEditingKg(false); }}
+                        onKeyDown={e => { if (e.key === 'Enter') { const v = parseFloat(kgInput); if (v >= 0) setKg(v); setEditingKg(false); } }}
+                        autoFocus style={{ width: 60, border: 'none', background: 'transparent', textAlign: 'center', fontFamily: SG.serif, fontSize: 26, fontWeight: 500, color: SG.ink, outline: 'none' }} />
+                    ) : (
+                      <div style={{ fontFamily: SG.serif, fontSize: 26, fontWeight: 500, lineHeight: 1.1, letterSpacing: -0.5, color: SG.ink }}>{Number.isInteger(kg) ? kg : kg.toFixed(1)}</div>
+                    )}
+                  </div>
+                  <button onClick={() => setKg(v => parseFloat((v + 2.5).toFixed(1)))} style={{ width: 36, height: 36, borderRadius: 18, border: 'none', cursor: 'pointer', background: SG.accent, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 4px 10px ${SG.accent}44` }}>{iconPlus('#fff')}</button>
+                </div>
+              </Glass>
+            </div>
+            {curSetIdx < currentEx.sets.length && !currentEx.sets[curSetIdx]?.done && (
+              <button onClick={validateSet} style={{ marginTop: 14, width: '100%', height: 58, borderRadius: 22, border: 'none', cursor: 'pointer', background: SG.accent, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontWeight: 800, fontSize: 17, letterSpacing: 0.3, boxShadow: `0 12px 28px ${SG.accent}44, inset 0 1px 0 rgba(255,255,255,0.3)` }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 13l4 4L19 7"/></svg>
+                Valider la série {curSetIdx + 1}
+              </button>
+            )}
+          </>
+        )}
+        {!isCurrent && (
+          <button onClick={() => { setCurExIdx(exIdx); setCurSetIdx(0); setExpandedIdx(null); }} style={{ marginTop: 14, width: '100%', padding: 12, borderRadius: 18, border: `1.5px solid ${SG.ink}`, background: 'transparent', cursor: 'pointer', fontSize: 14, fontWeight: 700, color: SG.ink }}>
+            Passer à cet exercice
+          </button>
+        )}
+      </div>
+    </Glass>
+  );
 
   return (
     <div style={{ position: 'relative', minHeight: '100vh', paddingBottom: 30 }}>
       <div style={{ position: 'relative', padding: '50px 18px 0', maxWidth: 600, margin: '0 auto' }}>
 
-        {/* Top bar */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
           <Glass radius={22} tint="rgba(255,255,255,0.7)" style={{ width: 44, height: 44 }} onClick={() => setShowAbandon(true)}>
             <div style={{ width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -387,12 +557,11 @@ function SGActiveSession({ session, onFinish, onCancel }) {
             <div style={{ fontSize: 10, color: SG.accent, fontWeight: 800, letterSpacing: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
               <div style={{ width: 6, height: 6, borderRadius: 3, background: SG.accent }} /> EN COURS
             </div>
-            <div style={{ fontFamily: SG.serif, fontSize: 16, fontStyle: 'italic', color: SG.ink }}>{session.name}</div>
+            <div style={{ fontFamily: SG.serif, fontSize: 16, fontStyle: 'italic', color: SG.ink }}>{sessionName}</div>
           </div>
           <div style={{ width: 44, height: 44 }} />
         </div>
 
-        {/* Timer + Tonnage */}
         <Glass radius={26} tint="rgba(255,255,255,0.50)" style={{ marginBottom: 12 }}>
           <div style={{ padding: '18px 22px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
@@ -405,7 +574,6 @@ function SGActiveSession({ session, onFinish, onCancel }) {
                 <div style={{ fontFamily: SG.serif, fontSize: 40, fontWeight: 500, letterSpacing: -1, lineHeight: 1, marginTop: 2, color: SG.ink }}>{(tonnage / 1000).toFixed(1)}<span style={{ fontSize: 16, color: SG.inkSoft, fontStyle: 'italic' }}>t</span></div>
               </div>
             </div>
-            {/* Progress bars per exercise */}
             <div style={{ display: 'flex', gap: 4, marginTop: 14 }}>
               {exercises.map((ex, i) => {
                 const pct = ex.sets.filter(s => s.done).length / ex.sets.length;
@@ -421,98 +589,49 @@ function SGActiveSession({ session, onFinish, onCancel }) {
           </div>
         </Glass>
 
-        {/* Current exercise card */}
-        {currentEx && (
-          <Glass radius={26} tint="rgba(255,255,255,0.55)" style={{ marginBottom: 12, border: `1.5px solid ${SG.accent}`, boxShadow: `0 8px 24px ${SG.accent}22` }}>
-            <div style={{ padding: 20 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
-                <div>
-                  <div style={{ fontSize: 11, color: SG.accent, fontWeight: 800, letterSpacing: 0.8, textTransform: 'uppercase' }}>EXERCICE {curExIdx + 1} / {exercises.length}</div>
-                  <div style={{ fontFamily: SG.serif, fontSize: 26, fontWeight: 500, marginTop: 3, letterSpacing: -0.4, color: SG.ink }}>{currentEx.name}</div>
-                </div>
-                {isResting && (
-                  <div style={{ padding: '8px 12px', borderRadius: 16, background: SG.ink, color: '#fff', fontFamily: SG.serif, fontSize: 16, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <div style={{ width: 6, height: 6, borderRadius: 3, background: SG.accent }} />
-                    {String(Math.floor(restRemaining / 60)).padStart(2,'0')}:{String(restRemaining % 60).padStart(2,'0')}
-                  </div>
-                )}
-              </div>
+        {currentEx && renderExCard(currentEx, curExIdx, true)}
 
-              {/* Sets list */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 14 }}>
-                {currentEx.sets.map((s, si) => {
-                  const isCurrent = si === curSetIdx;
-                  return (
-                    <div key={si} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 16, background: isCurrent ? SG.ink : (s.done ? 'rgba(139,154,107,0.12)' : 'rgba(255,255,255,0.4)'), color: isCurrent ? '#fff' : SG.ink, transition: 'all 200ms' }}>
-                      <div style={{ width: 28, height: 28, borderRadius: 14, background: s.done ? SG.accent2 : (isCurrent ? SG.accent : 'transparent'), border: !s.done && !isCurrent ? `1.5px solid rgba(31,26,20,0.20)` : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 12, fontWeight: 800, flexShrink: 0 }}>
-                        {s.done ? iconCheck : (si + 1)}
-                      </div>
-                      <div style={{ flex: 1, fontFamily: SG.serif, fontSize: 17, fontWeight: 500 }}>
-                        {s.done ? `${s.reps} reps · ${s.weight} kg` : (isCurrent ? `${reps} reps · ${kg} kg` : '— reps · — kg')}
-                      </div>
-                      {isCurrent && !s.done && <div style={{ fontSize: 10, fontWeight: 800, color: SG.accent, letterSpacing: 0.5 }}>EN COURS</div>}
-                    </div>
-                  );
-                })}
-                <button onClick={addSet} style={{ marginTop: 4, padding: '8px 14px', borderRadius: 14, border: `1.5px dashed rgba(31,26,20,0.14)`, background: 'transparent', cursor: 'pointer', fontSize: 12, color: SG.inkSoft, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-                  {iconPlus(SG.inkSoft)} Ajouter une série
-                </button>
-              </div>
-
-              {/* Steppers */}
-              <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                {[{ label: 'REPS', val: reps, set: setReps, step: 1, min: 1 }, { label: 'KG', val: kg, set: setKg, step: 2.5, min: 0 }].map(({ label, val, set, step, min }) => (
-                  <Glass key={label} radius={18} tint="rgba(255,255,255,0.6)">
-                    <div style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <button onClick={() => set(v => Math.max(min, v - step))} style={{ width: 36, height: 36, borderRadius: 18, border: 'none', cursor: 'pointer', background: SG.ink, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{iconMinus('#fff')}</button>
-                      <div style={{ textAlign: 'center', flex: 1 }}>
-                        <div style={{ fontSize: 9, color: SG.inkSoft, fontWeight: 800, letterSpacing: 1 }}>{label}</div>
-                        <div style={{ fontFamily: SG.serif, fontSize: 26, fontWeight: 500, lineHeight: 1.1, letterSpacing: -0.5, color: SG.ink }}>{Number.isInteger(val) ? val : val.toFixed(1)}</div>
-                      </div>
-                      <button onClick={() => set(v => v + step)} style={{ width: 36, height: 36, borderRadius: 18, border: 'none', cursor: 'pointer', background: SG.accent, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 4px 10px ${SG.accent}44` }}>{iconPlus('#fff')}</button>
-                    </div>
-                  </Glass>
-                ))}
-              </div>
-
-              {/* Validate button */}
-              {curSetIdx < currentEx.sets.length && !currentEx.sets[curSetIdx]?.done && (
-                <button onClick={validateSet} style={{ marginTop: 14, width: '100%', height: 58, borderRadius: 22, border: 'none', cursor: 'pointer', background: SG.accent, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontWeight: 800, fontSize: 17, letterSpacing: 0.3, boxShadow: `0 12px 28px ${SG.accent}44, inset 0 1px 0 rgba(255,255,255,0.3)` }}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 13l4 4L19 7"/></svg>
-                  Valider la série {curSetIdx + 1}
-                </button>
-              )}
-            </div>
-          </Glass>
-        )}
-
-        {/* À suivre */}
         {exercises.slice(curExIdx + 1).length > 0 && (
           <>
             <div style={{ fontSize: 11, color: SG.inkSoft, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', margin: '14px 4px 8px' }}>À suivre</div>
-            {exercises.slice(curExIdx + 1).map((ex, i) => (
-              <Glass key={i} radius={18} tint="rgba(255,255,255,0.4)" style={{ marginBottom: 6 }}>
-                <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <div style={{ width: 6, height: 32, borderRadius: 3, background: SG.accent2, flexShrink: 0 }} />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontFamily: SG.serif, fontSize: 16, fontWeight: 500, color: SG.ink }}>{ex.name}</div>
-                    <div style={{ fontSize: 11, color: SG.inkSoft }}>{ex.sets.length} séries</div>
-                  </div>
-                  <div style={{ fontSize: 11, color: SG.inkFaint }}>{curExIdx + i + 2} / {exercises.length}</div>
-                </div>
-              </Glass>
-            ))}
+            {exercises.slice(curExIdx + 1).map((ex, i) => {
+              const exIdx = curExIdx + 1 + i;
+              const isExpanded = expandedIdx === exIdx;
+              return isExpanded
+                ? <div key={exIdx}>{renderExCard(ex, exIdx, false)}</div>
+                : (
+                  <Glass key={exIdx} radius={18} tint="rgba(255,255,255,0.4)" style={{ marginBottom: 6 }}
+                    onClick={() => setExpandedIdx(isExpanded ? null : exIdx)}>
+                    <div onTouchStart={handleExLongPressStart} onTouchEnd={handleExLongPressEnd} onTouchCancel={handleExLongPressEnd}
+                      style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <div style={{ width: 6, height: 32, borderRadius: 3, background: SG.accent2, flexShrink: 0 }} />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontFamily: SG.serif, fontSize: 16, fontWeight: 500, color: SG.ink }}>{ex.name}</div>
+                        <div style={{ fontSize: 11, color: SG.inkSoft }}>{ex.sets.length} séries</div>
+                      </div>
+                      <div style={{ fontSize: 11, color: SG.inkFaint }}>{exIdx + 1} / {exercises.length}</div>
+                    </div>
+                  </Glass>
+                );
+            })}
           </>
         )}
 
-        {/* Finish */}
-        <button onClick={handleFinish} style={{ width: '100%', padding: 16, borderRadius: 22, marginTop: 18, border: 'none', background: SG.ink, color: '#fff', cursor: 'pointer', fontSize: 15, fontWeight: 700, boxShadow: '0 8px 20px rgba(0,0,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-          Terminer la séance
+        <button onClick={() => setShowAddEx(true)} style={{ width: '100%', padding: '12px 16px', borderRadius: 18, border: `1.5px dashed rgba(31,26,20,0.18)`, background: 'transparent', cursor: 'pointer', fontSize: 13, color: SG.inkSoft, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 8, marginBottom: 12 }}>
+          {iconPlus(SG.inkSoft)} Ajouter un exercice
         </button>
 
-        {/* Abandon dialog */}
+        <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+          <button onClick={() => setShowReorder(true)} title="Réorganiser" style={{ width: 52, height: 58, borderRadius: 18, border: 'none', background: 'rgba(255,255,255,0.55)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)' }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={SG.inkSoft} strokeWidth="2" strokeLinecap="round"><circle cx="9" cy="6" r="1" fill={SG.inkSoft}/><circle cx="9" cy="12" r="1" fill={SG.inkSoft}/><circle cx="9" cy="18" r="1" fill={SG.inkSoft}/><circle cx="15" cy="6" r="1" fill={SG.inkSoft}/><circle cx="15" cy="12" r="1" fill={SG.inkSoft}/><circle cx="15" cy="18" r="1" fill={SG.inkSoft}/></svg>
+          </button>
+          <button onClick={handleFinish} style={{ flex: 1, height: 58, borderRadius: 22, border: 'none', background: SG.ink, color: '#fff', cursor: 'pointer', fontSize: 15, fontWeight: 700, boxShadow: '0 8px 20px rgba(0,0,0,0.15)' }}>
+            Terminer la séance
+          </button>
+        </div>
+
         {showAbandon && (
-          <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(31,26,20,0.45)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }} onClick={() => setShowAbandon(false)}>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(31,26,20,0.45)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }} onClick={() => setShowAbandon(false)}>
             <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 600, background: SG.bg1, borderRadius: '28px 28px 0 0', padding: '20px 24px 40px', boxShadow: '0 -20px 50px rgba(0,0,0,0.18)' }}>
               <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(31,26,20,0.12)', margin: '0 auto 20px' }} />
               <div style={{ fontFamily: SG.serif, fontSize: 24, fontWeight: 500, color: SG.ink, marginBottom: 8, textAlign: 'center' }}>Quitter sans enregistrer ?</div>
@@ -521,6 +640,49 @@ function SGActiveSession({ session, onFinish, onCancel }) {
                 <button onClick={onCancel} style={{ padding: 14, borderRadius: 18, border: 'none', cursor: 'pointer', background: '#B23A3A', color: '#fff', fontWeight: 700, fontSize: 15 }}>Abandonner</button>
                 <button onClick={() => setShowAbandon(false)} style={{ padding: 14, borderRadius: 18, border: 'none', cursor: 'pointer', background: 'rgba(31,26,20,0.06)', color: SG.ink, fontWeight: 700, fontSize: 15 }}>Continuer ma séance</button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {showReorder && (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(31,26,20,0.45)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }} onClick={() => setShowReorder(false)}>
+            <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 600, background: SG.bg1, borderRadius: '28px 28px 0 0', padding: '20px 20px 44px', boxShadow: '0 -20px 50px rgba(0,0,0,0.18)', maxHeight: '80vh', overflowY: 'auto' }}>
+              <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(31,26,20,0.12)', margin: '0 auto 20px' }} />
+              <div style={{ fontFamily: SG.serif, fontSize: 22, fontWeight: 500, color: SG.ink, marginBottom: 16, textAlign: 'center' }}>Réorganiser les exercices</div>
+              {exercises.map((ex, idx) => (
+                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 16, background: idx === curExIdx ? `${SG.accent}14` : 'rgba(255,255,255,0.55)', marginBottom: 6, border: idx === curExIdx ? `1px solid ${SG.accent}44` : '1px solid rgba(255,255,255,0.3)' }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontFamily: SG.serif, fontSize: 16, fontWeight: 500, color: SG.ink }}>{ex.name}</div>
+                    <div style={{ fontSize: 11, color: SG.inkSoft }}>{ex.sets.filter(s => s.done).length}/{ex.sets.length} séries</div>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <button onClick={() => moveEx(idx, -1)} disabled={idx === 0} style={{ width: 30, height: 30, borderRadius: 8, border: 'none', background: idx === 0 ? 'rgba(0,0,0,0.04)' : SG.ink, cursor: idx === 0 ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: idx === 0 ? 0.25 : 1 }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 15l7-7 7 7"/></svg>
+                    </button>
+                    <button onClick={() => moveEx(idx, 1)} disabled={idx === exercises.length - 1} style={{ width: 30, height: 30, borderRadius: 8, border: 'none', background: idx === exercises.length - 1 ? 'rgba(0,0,0,0.04)' : SG.ink, cursor: idx === exercises.length - 1 ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: idx === exercises.length - 1 ? 0.25 : 1 }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 9l7 7 7-7"/></svg>
+                    </button>
+                  </div>
+                  <button onClick={() => deleteExercise(idx)} style={{ width: 30, height: 30, borderRadius: 8, border: 'none', background: 'rgba(178,58,58,0.12)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {iconTrash()}
+                  </button>
+                </div>
+              ))}
+              <button onClick={() => setShowReorder(false)} style={{ marginTop: 16, width: '100%', padding: 14, borderRadius: 18, border: 'none', cursor: 'pointer', background: SG.ink, color: '#fff', fontWeight: 700, fontSize: 15 }}>OK</button>
+            </div>
+          </div>
+        )}
+
+        {showAddEx && (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(31,26,20,0.45)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }} onClick={() => setShowAddEx(false)}>
+            <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 600, background: SG.bg1, borderRadius: '28px 28px 0 0', padding: '20px 24px 44px', boxShadow: '0 -20px 50px rgba(0,0,0,0.18)' }}>
+              <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(31,26,20,0.12)', margin: '0 auto 20px' }} />
+              <div style={{ fontFamily: SG.serif, fontSize: 22, fontWeight: 500, color: SG.ink, marginBottom: 16, textAlign: 'center' }}>Ajouter un exercice</div>
+              <input type="text" value={newExName} onChange={e => setNewExName(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') addExercise(); }}
+                placeholder="Nom de l'exercice..." autoFocus
+                style={{ width: '100%', padding: '14px 16px', borderRadius: 16, border: `1.5px solid rgba(31,26,20,0.14)`, background: 'rgba(255,255,255,0.7)', fontSize: 15, color: SG.ink, outline: 'none', boxSizing: 'border-box', marginBottom: 12, fontFamily: SG.serif }} />
+              <button onClick={addExercise} style={{ width: '100%', padding: 14, borderRadius: 18, border: 'none', cursor: 'pointer', background: SG.accent, color: '#fff', fontWeight: 700, fontSize: 15 }}>Ajouter</button>
             </div>
           </div>
         )}
@@ -1432,24 +1594,33 @@ function App() {
   const vw = useViewport();
   const isMobile = vw < 1024;
   const [activeSession, setActiveSession] = useState(null);
+  const [showTplPicker, setShowTplPicker] = useState(false);
 
   const launchSession = (tpl) => {
-    const exercises = (tpl?.exercises || []).map(exName => ({
-      name: typeof exName === 'string' ? exName : exName.name,
-      sets: Array(4).fill(null).map(() => ({ reps: 10, weight: 0, done: false }))
-    }));
-    setActiveSession({
-      name: tpl?.name || 'Séance libre',
-      templateId: tpl?.id || null,
-      exercises,
-      startedAt: Date.now(),
+    const sessions = data.sessions || [];
+    const exercises = (tpl?.exercises || []).map(exName => {
+      const name = typeof exName === 'string' ? exName : exName.name;
+      let prefillSets = null;
+      for (const s of sessions) {
+        const match = (s.exercises || []).find(e =>
+          (e.name || '').toLowerCase().trim() === name.toLowerCase().trim()
+        );
+        if (match?.sets?.length) {
+          prefillSets = match.sets.map(st => ({ reps: st.reps || 10, weight: st.weight || 0, done: false }));
+          break;
+        }
+      }
+      return { name, sets: prefillSets || Array(4).fill(null).map(() => ({ reps: 10, weight: 0, done: false })) };
     });
+    const exList = exercises.length > 0 ? exercises : [{ name: 'Exercice 1', sets: Array(4).fill(null).map(() => ({ reps: 10, weight: 0, done: false })) }];
+    setActiveSession({ name: tpl?.name || 'Séance libre', templateId: tpl?.id || null, exercises: exList, startedAt: Date.now() });
+    setShowTplPicker(false);
   };
 
-  const finishSession = async ({ exercises, dur, tonnage }) => {
+  const finishSession = async ({ exercises, dur, tonnage, name }) => {
     const s = {
       id: uuidv4(),
-      type: activeSession.name,
+      type: name || activeSession.name,
       date: new Date().toISOString().slice(0, 10),
       exercises,
       dur,
@@ -1655,7 +1826,8 @@ function App() {
         />}
         {mobileView === 'analytics' && <SGMobileStats data={data} user={user} />}
         {mobileView === 'tpl' && <SGMobileTpl data={data} user={user} onTab={handleTabChange} onOpenForm={(tpl) => launchSession(tpl)} />}
-        <MobileSGTabBar tab={mobileView} onTab={handleTabChange} />
+        {showTplPicker && <SGTemplatePicker templates={data.sessionTemplates || []} onSelect={(tpl) => launchSession(tpl)} onClose={() => setShowTplPicker(false)} />}
+        <MobileSGTabBar tab={mobileView} onTab={handleTabChange} onFAB={() => setShowTplPicker(true)} />
       </div>
     );
   }
