@@ -1135,7 +1135,7 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession }) {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
                     <div style={{ fontFamily: SG.serif, fontSize: 20, fontWeight: 500, color: SG.ink }}>{lastSession.type || 'Séance'}</div>
-                    <div style={{ fontSize: 12, color: SG.inkSoft, marginTop: 2 }}>{sgFmt(lastSession.date)}{lastSession.dur ? ` · ${lastSession.dur} min` : ''} · {sgTonnage(lastSession).toLocaleString('fr-FR')} kg</div>
+                    <div style={{ fontSize: 12, color: SG.inkSoft, marginTop: 2 }}>{sgFmt(lastSession.date)} · {(lastSession.exercises||[]).length} exercices{lastSession.dur ? ` · ${lastSession.dur} min` : ''} · {sgTonnage(lastSession).toLocaleString('fr-FR')} kg</div>
                   </div>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={SG.inkFaint} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg>
                 </div>
