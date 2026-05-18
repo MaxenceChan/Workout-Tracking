@@ -6891,8 +6891,8 @@ function StravaTracker({ user }) {
           <Card>
             <CardContent>
               <h3 className="font-semibold text-lg mb-3">🗒️ Dernières sorties</h3>
-              <div className="space-y-2 max-h-80 overflow-y-auto">
-                {[...filtered].reverse().map(a => {
+              <div className="space-y-2">
+                {[...filtered].sort((a,b) => b.date < a.date ? -1 : 1).slice(0, 5).map(a => {
                   const km = (a.distance / 1000).toFixed(2);
                   const min = Math.floor(a.moving_time / 60);
                   const sec = a.moving_time % 60;
