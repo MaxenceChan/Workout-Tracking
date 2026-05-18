@@ -1976,14 +1976,20 @@ function App() {
   const isMobile = vw < 1024;
   const [activeSession, setActiveSession] = useState(null);
   const [showTplPicker, setShowTplPicker] = useState(false);
+  const [showLibrePicker, setShowLibrePicker] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
   const [pendingDetail, setPendingDetail] = useState(null);
 
   const launchSession = (tpl) => {
+    setShowTplPicker(false);
+    if (!tpl) {
+      setShowLibrePicker(true);
+      return;
+    }
     try {
       const sessions = data.sessions || [];
       const defaultSets = () => Array(4).fill(null).map(() => ({ reps: 10, weight: 0, done: false }));
-      const exercises = (tpl?.exercises || []).map(exName => {
+      const exercises = (tpl.exercises || []).map(exName => {
         const name = (typeof exName === 'string' ? exName : (exName?.name || '')) || 'Exercice';
         let prefillSets = null;
         for (const s of sessions) {
@@ -1998,13 +2004,29 @@ function App() {
         return { name, sets: prefillSets || defaultSets() };
       });
       const exList = exercises.length > 0 ? exercises : [{ name: 'Exercice 1', sets: defaultSets() }];
-      setActiveSession({ name: tpl?.name || 'Séance libre', templateId: tpl?.id || null, exercises: exList, startedAt: Date.now() });
+      setActiveSession({ name: tpl.name || 'Séance libre', templateId: tpl.id || null, exercises: exList, startedAt: Date.now() });
     } catch (err) {
       console.error('launchSession error:', err);
       const defaultSets = () => Array(4).fill(null).map(() => ({ reps: 10, weight: 0, done: false }));
       setActiveSession({ name: 'Séance libre', templateId: null, exercises: [{ name: 'Exercice 1', sets: defaultSets() }], startedAt: Date.now() });
     }
-    setShowTplPicker(false);
+  };
+
+  const launchLibreSession = (firstExName) => {
+    setShowLibrePicker(false);
+    const defaultSets = () => Array(4).fill(null).map(() => ({ reps: 10, weight: 0, done: false }));
+    const sessions = data.sessions || [];
+    let prefillSets = null;
+    for (const s of sessions) {
+      const match = (s.exercises || []).find(e =>
+        typeof e === 'object' && e !== null && (e.name || '').toLowerCase().trim() === firstExName.toLowerCase().trim()
+      );
+      if (match?.sets?.length) {
+        prefillSets = match.sets.map(st => ({ reps: Number(st?.reps) || 10, weight: Number(st?.weight) || 0, done: false }));
+        break;
+      }
+    }
+    setActiveSession({ name: 'Séance libre', templateId: null, exercises: [{ name: firstExName, sets: prefillSets || defaultSets() }], startedAt: Date.now() });
   };
 
   const saveSession = async ({ exercises, dur, tonnage, name }) => {
@@ -2240,6 +2262,7 @@ function App() {
           }}
         />}
         {showTplPicker && <SGTemplatePicker templates={data.sessionTemplates || []} onSelect={(tpl) => launchSession(tpl)} onClose={() => setShowTplPicker(false)} />}
+        {showLibrePicker && <ExercisePicker knownExercises={getUserExercises(data)} onSelect={launchLibreSession} onClose={() => setShowLibrePicker(false)} />}
         <MobileSGTabBar tab={mobileView} onTab={handleTabChange} onFAB={() => setShowTplPicker(true)} />
       </div>
     );
