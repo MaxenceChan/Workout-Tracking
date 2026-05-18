@@ -439,18 +439,25 @@ const sgStreak = (sessions) => {
   }
   return streak;
 };
-const sgWeekDone = (sessions) => {
+const sgWeekDone = (sessions, runActivities = []) => {
   const today = new Date(); const day = today.getDay();
   const monday = new Date(today); monday.setDate(today.getDate() - (day===0?6:day-1)); monday.setHours(0,0,0,0);
-  return sessions.filter(s => new Date(s.date+'T00:00:00') >= monday).length;
+  const mondayISO = monday.toISOString().slice(0,10);
+  const todayISO = today.toISOString().slice(0,10);
+  const muscu = sessions.filter(s => new Date(s.date+'T00:00:00') >= monday).length;
+  const runs = runActivities.filter(a => a.date >= mondayISO && a.date <= todayISO).length;
+  return muscu + runs;
 };
-const sgWeekDays = (sessions) => {
+const sgWeekDays = (sessions, runActivities = []) => {
   const labels = ['L','M','M','J','V','S','D'];
   const today = new Date(); const todayDay = today.getDay(); const todayOffset = todayDay===0?6:todayDay-1;
   return labels.map((label, i) => {
     const d = new Date(today); d.setDate(today.getDate() + (i - todayOffset)); d.setHours(0,0,0,0);
     const iso = d.toISOString().slice(0,10);
-    return { label, done: sessions.some(s => s.date === iso), today: i === todayOffset };
+    const hasMuscu = sessions.some(s => s.date === iso);
+    const hasRun = runActivities.some(a => a.date === iso);
+    const type = hasMuscu && hasRun ? 'both' : hasMuscu ? 'muscu' : hasRun ? 'run' : null;
+    return { label, done: hasMuscu || hasRun, today: i === todayOffset, type };
   });
 };
 
@@ -1043,6 +1050,7 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession }) {
 
   const [weekSteps, setWeekSteps] = useState(null);
   const [weekRunKm, setWeekRunKm] = useState(null);
+  const [weekRunActivities, setWeekRunActivities] = useState([]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -1065,12 +1073,14 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession }) {
       .then(r => r.json())
       .then(d => {
         const acts = Array.isArray(d) ? d : (d?.activities || []);
-        const dist = acts.filter(a => a.date >= monday && a.date <= today).reduce((a,b) => a + (b.distance||0), 0);
+        const weekActs = acts.filter(a => a.date >= monday && a.date <= today);
+        const dist = weekActs.reduce((a,b) => a + (b.distance||0), 0);
         setWeekRunKm(parseFloat((dist/1000).toFixed(1)));
+        setWeekRunActivities(weekActs);
       }).catch(() => {});
   }, [user?.id]);
-  const weekDone = sgWeekDone(sessions);
-  const weekDays = sgWeekDays(sessions);
+  const weekDone = sgWeekDone(sessions, weekRunActivities);
+  const weekDays = sgWeekDays(sessions, weekRunActivities);
   const firstSession = sessions.length > 0 ? sessions[sessions.length - 1] : null;
   const firstDate = firstSession ? new Date(firstSession.date + 'T00:00:00') : null;
   const weeksElapsed = firstDate ? Math.max(1, Math.round((Date.now() - firstDate.getTime()) / (7 * 24 * 3600 * 1000))) : 1;
@@ -1131,8 +1141,10 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession }) {
               {weekDays.map((wd, i) => (
                 <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
                   <div style={{ fontSize: 10, color: SG.inkFaint, fontWeight: 700 }}>{wd.label}</div>
-                  <div style={{ width: 28, height: 28, borderRadius: 14, background: wd.done ? SG.ink : 'rgba(255,255,255,0.55)', border: wd.today ? `1.5px solid ${SG.accent}` : '0.5px solid rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {wd.done && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 13l4 4L19 7"/></svg>}
+                  <div style={{ width: 28, height: 28, borderRadius: 14, background: wd.done ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.55)', border: wd.today ? `1.5px solid ${SG.accent}` : '0.5px solid rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: wd.type === 'both' ? 9 : 14 }}>
+                    {wd.type === 'muscu' && '🏋️'}
+                    {wd.type === 'run' && '👟'}
+                    {wd.type === 'both' && '🏋️👟'}
                   </div>
                 </div>
               ))}
