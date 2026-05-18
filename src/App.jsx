@@ -308,7 +308,7 @@ function FrDateInput({ value, onChange, style }) {
 function ExercisePicker({ knownExercises = [], onSelect, onClose }) {
   const [query, setQuery] = useState('');
   const inputRef = useRef(null);
-  const focusedRef = useRef(false);
+  const wasFocusedRef = useRef(false);
 
   // Freeze body scroll so keyboard opening doesn't shift the page
   useEffect(() => {
@@ -323,9 +323,9 @@ function ExercisePicker({ knownExercises = [], onSelect, onClose }) {
   const exactMatch = knownExercises.some(e => e.toLowerCase() === q);
   const canCreate = q.length > 0 && !exactMatch;
 
-  const handleInputClick = () => {
-    if (focusedRef.current) { inputRef.current?.blur(); focusedRef.current = false; }
-  };
+  // Capture focus state BEFORE onFocus fires so onClick can dismiss correctly
+  const handlePointerDown = () => { wasFocusedRef.current = document.activeElement === inputRef.current; };
+  const handleClick = () => { if (wasFocusedRef.current) inputRef.current?.blur(); };
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 250, background: SG.bg1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -340,9 +340,9 @@ function ExercisePicker({ knownExercises = [], onSelect, onClose }) {
           ref={inputRef}
           type="text" value={query} onChange={e => setQuery(e.target.value)}
           placeholder="Rechercher ou créer..."
-          onClick={handleInputClick}
-          onFocus={() => { focusedRef.current = true; }}
-          onBlur={() => { focusedRef.current = false; }}
+          onPointerDown={handlePointerDown}
+          onTouchStart={handlePointerDown}
+          onClick={handleClick}
           style={{ width: '100%', padding: '12px 16px', borderRadius: 14, border: `1.5px solid rgba(31,26,20,0.14)`, background: 'rgba(255,255,255,0.7)', fontSize: 15, color: SG.ink, outline: 'none', boxSizing: 'border-box', marginBottom: 12, fontFamily: SG.sans, flexShrink: 0 }}
         />
         <div style={{ overflowY: 'auto', flex: 1, paddingBottom: 44 }}>
