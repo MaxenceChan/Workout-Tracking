@@ -1301,35 +1301,39 @@ function SGMobileSessionEdit({ session, onSave, onCancel, upsertFn }) {
         </Glass>
 
         {exercises.map((ex, ei) => (
-          <Glass key={ei} radius={20} tint="rgba(255,255,255,0.55)" style={{ marginBottom: 10 }}>
-            <div style={{ padding: 16 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <Glass key={ei} radius={26} tint="rgba(255,255,255,0.50)" style={{ marginBottom: 12, border: '1px solid rgba(255,255,255,0.4)' }}>
+            <div style={{ padding: 20 }}>
+              <div style={{ fontSize: 11, color: SG.inkSoft, fontWeight: 800, letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 4 }}>EXERCICE {ei+1} / {exercises.length}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
                 <input value={ex.name} onChange={e => updEx(ei, ex => ({ ...ex, name: e.target.value }))}
-                  style={{ fontFamily: SG.serif, fontSize: 18, fontWeight: 500, color: SG.ink, background: 'transparent', border: 'none', outline: 'none', flex: 1 }} />
-                <button onClick={() => delEx(ei)} style={{ background: 'rgba(178,58,58,0.1)', border: 'none', borderRadius: 10, padding: '6px 10px', cursor: 'pointer', color: '#B23A3A', fontSize: 12, fontWeight: 700 }}>Suppr.</button>
+                  style={{ fontFamily: SG.serif, fontSize: 24, fontWeight: 500, color: SG.ink, background: 'transparent', border: 'none', borderBottom: `1.5px solid rgba(31,26,20,0.15)`, outline: 'none', flex: 1, letterSpacing: -0.4 }} />
+                <button onClick={() => delEx(ei)} style={{ background: 'rgba(178,58,58,0.1)', border: 'none', borderRadius: 10, padding: '6px 10px', cursor: 'pointer', color: '#B23A3A', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>Suppr.</button>
               </div>
-              {ex.sets.map((s, si) => (
-                <div key={si} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                  <div style={{ fontSize: 11, color: SG.inkFaint, fontWeight: 700, width: 20 }}>S{si+1}</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, flex: 1 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {ex.sets.map((s, si) => (
+                  <div key={si} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 14, background: 'rgba(255,255,255,0.5)' }}>
+                    <div style={{ width: 26, height: 26, borderRadius: 13, background: SG.ink, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: '#fff', flexShrink: 0 }}>{si+1}</div>
                     <input type="number" value={s.reps} onChange={e => updSet(ei, si, 'reps', e.target.value)}
-                      style={{ width: 52, padding: '8px 10px', borderRadius: 12, border: '1px solid rgba(31,26,20,0.12)', background: 'rgba(255,255,255,0.7)', fontSize: 15, fontFamily: SG.serif, textAlign: 'center', color: SG.ink }} />
-                    <span style={{ fontSize: 11, color: SG.inkSoft }}>reps</span>
+                      style={{ width: 52, padding: '8px 0', borderRadius: 0, border: 'none', borderBottom: `1.5px solid rgba(31,26,20,0.15)`, background: 'transparent', fontSize: 20, fontFamily: SG.serif, textAlign: 'center', color: SG.ink, outline: 'none' }} />
+                    <span style={{ fontSize: 12, color: SG.inkSoft }}>reps ×</span>
                     <input type="number" value={s.weight} onChange={e => updSet(ei, si, 'weight', e.target.value)}
-                      style={{ width: 60, padding: '8px 10px', borderRadius: 12, border: '1px solid rgba(31,26,20,0.12)', background: 'rgba(255,255,255,0.7)', fontSize: 15, fontFamily: SG.serif, textAlign: 'center', color: SG.ink }} />
-                    <span style={{ fontSize: 11, color: SG.inkSoft }}>kg</span>
+                      style={{ width: 60, padding: '8px 0', borderRadius: 0, border: 'none', borderBottom: `1.5px solid rgba(31,26,20,0.15)`, background: 'transparent', fontSize: 20, fontFamily: SG.serif, textAlign: 'center', color: SG.ink, outline: 'none' }} />
+                    <span style={{ fontSize: 12, color: SG.inkSoft }}>kg</span>
+                    <button onClick={() => delSet(ei, si)} style={{ marginLeft: 'auto', background: 'none', border: 'none', padding: '4px 6px', cursor: 'pointer', color: SG.inkFaint, fontSize: 20, lineHeight: 1 }}>×</button>
                   </div>
-                  <button onClick={() => delSet(ei, si)} style={{ background: 'none', border: 'none', padding: '4px 6px', cursor: 'pointer', color: SG.inkFaint, fontSize: 18, lineHeight: 1 }}>×</button>
-                </div>
-              ))}
-              <button onClick={() => addSet(ei)} style={{ marginTop: 6, padding: '8px 14px', borderRadius: 14, border: `1.5px dashed rgba(31,26,20,0.15)`, background: 'transparent', cursor: 'pointer', fontSize: 12, color: SG.inkSoft, fontWeight: 600 }}>+ Série</button>
+                ))}
+              </div>
+              <button onClick={() => addSet(ei)} style={{ marginTop: 10, width: '100%', padding: '10px 0', borderRadius: 14, border: `1.5px dashed rgba(31,26,20,0.15)`, background: 'transparent', cursor: 'pointer', fontSize: 13, color: SG.inkSoft, fontWeight: 600 }}>+ Série</button>
             </div>
           </Glass>
         ))}
 
-        <button onClick={addEx} style={{ width: '100%', padding: 14, borderRadius: 18, border: `1.5px dashed rgba(31,26,20,0.15)`, background: 'transparent', cursor: 'pointer', fontSize: 13, color: SG.inkSoft, fontWeight: 600, marginBottom: 14 }}>+ Exercice</button>
+        <button onClick={addEx} style={{ width: '100%', padding: 14, borderRadius: 20, border: `1.5px dashed rgba(31,26,20,0.18)`, background: 'transparent', cursor: 'pointer', fontSize: 13, color: SG.inkSoft, fontWeight: 600, marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={SG.inkSoft} strokeWidth="2.2" strokeLinecap="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+          Ajouter un exercice
+        </button>
 
-        <button onClick={handleSave} disabled={saving} style={{ width: '100%', padding: 16, borderRadius: 22, border: 'none', background: SG.ink, color: '#fff', fontWeight: 700, fontSize: 16, cursor: 'pointer', boxShadow: '0 8px 20px rgba(0,0,0,0.15)' }}>
+        <button onClick={handleSave} disabled={saving} style={{ width: '100%', padding: 18, borderRadius: 22, border: 'none', background: SG.ink, color: '#fff', fontWeight: 700, fontSize: 16, cursor: 'pointer', boxShadow: '0 8px 20px rgba(0,0,0,0.15)' }}>
           {saving ? 'Enregistrement…' : 'Enregistrer'}
         </button>
       </div>
@@ -1427,17 +1431,19 @@ function SGMobileHistory({ data, user, onDeleteSession, upsertFn, initialDetail,
             </div>
           </Glass>
           {(detail.exercises||[]).map((ex, i) => (
-            <Glass key={i} radius={18} tint="rgba(255,255,255,0.5)" style={{ marginBottom: 8 }}>
-              <div style={{ padding: 16 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                  <div style={{ fontFamily: SG.serif, fontSize: 17, fontWeight: 500, color: SG.ink }}>{ex.name}</div>
-                  <div style={{ fontSize: 11, color: SG.inkSoft }}>{(ex.sets||[]).length} séries</div>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min((ex.sets||[]).length, 4)}, 1fr)`, gap: 6 }}>
-                  {(ex.sets||[]).map((s,j) => (
-                    <div key={j} style={{ padding: '8px 10px', borderRadius: 12, background: 'rgba(255,255,255,0.6)', textAlign: 'center' }}>
-                      <div style={{ fontSize: 9, color: SG.inkFaint, fontWeight: 700 }}>S{j+1}</div>
-                      <div style={{ fontFamily: SG.serif, fontSize: 14, fontWeight: 500, color: SG.ink }}>{s.reps}×{s.weight}kg</div>
+            <Glass key={i} radius={26} tint="rgba(255,255,255,0.50)" style={{ marginBottom: 12, border: '1px solid rgba(255,255,255,0.4)' }}>
+              <div style={{ padding: 20 }}>
+                <div style={{ fontSize: 11, color: SG.inkSoft, fontWeight: 800, letterSpacing: 0.8, textTransform: 'uppercase' }}>EXERCICE {i+1} / {(detail.exercises||[]).length}</div>
+                <div style={{ fontFamily: SG.serif, fontSize: 24, fontWeight: 500, marginTop: 3, letterSpacing: -0.4, color: SG.ink }}>{ex.name}</div>
+                <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {(ex.sets||[]).map((s, j) => (
+                    <div key={j} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 14, background: 'rgba(255,255,255,0.5)' }}>
+                      <div style={{ width: 26, height: 26, borderRadius: 13, background: SG.ink, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: '#fff', flexShrink: 0 }}>{j+1}</div>
+                      <div style={{ fontFamily: SG.serif, fontSize: 22, fontWeight: 500, color: SG.ink }}>{s.reps}</div>
+                      <div style={{ fontSize: 12, color: SG.inkSoft }}>reps ×</div>
+                      <div style={{ fontFamily: SG.serif, fontSize: 22, fontWeight: 500, color: SG.ink }}>{s.weight}</div>
+                      <div style={{ fontSize: 12, color: SG.inkSoft }}>kg</div>
+                      <div style={{ flex: 1, textAlign: 'right', fontSize: 11, color: SG.inkFaint }}>{(((Number(s.reps)||0)*(Number(s.weight)||0))/1000).toFixed(2)} t</div>
                     </div>
                   ))}
                 </div>
