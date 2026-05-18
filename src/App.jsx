@@ -330,8 +330,8 @@ function ExercisePicker({ knownExercises = [], onSelect, onClose }) {
   const canCreate = q.length > 0 && !exactMatch;
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 250, background: 'rgba(31,26,20,0.45)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }} onClick={onClose}>
-      <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 600, background: SG.bg1, borderRadius: '28px 28px 0 0', padding: '20px 20px 0', boxShadow: '0 -20px 50px rgba(0,0,0,0.18)', height: '62vh', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 250, background: 'rgba(31,26,20,0.45)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }} onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} style={{ position: 'fixed', bottom: 0, left: 0, right: 0, margin: '0 auto', width: '100%', maxWidth: 600, background: SG.bg1, borderRadius: '28px 28px 0 0', padding: '20px 20px 0', boxShadow: '0 -20px 50px rgba(0,0,0,0.18)', height: 420, display: 'flex', flexDirection: 'column' }}>
         <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(31,26,20,0.12)', margin: '0 auto 16px', flexShrink: 0 }} />
         <div style={{ fontFamily: SG.serif, fontSize: 22, fontWeight: 500, color: SG.ink, marginBottom: 14, textAlign: 'center', flexShrink: 0 }}>Ajouter un exercice</div>
         <input
