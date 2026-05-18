@@ -1222,6 +1222,27 @@ function SGMobileHistory({ data, user, onDeleteSession, upsertFn }) {
   const [filter, setFilter] = useState('Tout');
   const [detail, setDetail] = useState(null);
   const [editing, setEditing] = useState(false);
+  const detailRef = useRef(null);
+
+  const exportDetail = async () => {
+    if (!detailRef.current) return;
+    try {
+      const canvas = await html2canvas(detailRef.current, { scale: 3, useCORS: true, backgroundColor: SG.bg1 });
+      const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+      const fileName = `seance-${detail.type || 'Libre'}-${detail.date || 'date'}.png`;
+      const isAndroid = /Android/.test(navigator.userAgent);
+      if (isAndroid && navigator.canShare && navigator.canShare({ files: [new File([blob], fileName)] })) {
+        await navigator.share({ title: '🏋️ Ma séance', text: 'Voici ma séance sur Workout Tracker 💪', files: [new File([blob], fileName, { type: 'image/png' })] });
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url; link.download = fileName;
+      document.body.appendChild(link); link.click(); link.remove();
+      URL.revokeObjectURL(url);
+      if (/iPad|iPhone|iPod/.test(navigator.userAgent)) alert('📲 Image enregistrée. Tu peux maintenant la partager depuis Photos.');
+    } catch (e) { console.error('Export error:', e); alert("Impossible d'exporter la séance."); }
+  };
   const types = ['Tout', ...Array.from(new Set(sessions.map(s => s.type).filter(Boolean)))];
   const filtered = filter === 'Tout' ? sessions : sessions.filter(s => s.type === filter);
   const today = new Date();
@@ -1252,7 +1273,7 @@ function SGMobileHistory({ data, user, onDeleteSession, upsertFn }) {
     const tonnage = sgTonnage(detail);
     return (
       <div style={{ position: 'relative', minHeight: '100vh', paddingBottom: 100 }}>
-        <div style={{ position: 'relative', padding: '54px 18px 0', maxWidth: 600, margin: '0 auto' }}>
+        <div ref={detailRef} style={{ position: 'relative', padding: '54px 18px 0', maxWidth: 600, margin: '0 auto' }}>
           <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 18 }}>
             <Glass radius={22} tint="rgba(255,255,255,0.7)" style={{ width: 44, height: 44 }} onClick={() => setDetail(null)}>
               <div style={{ width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1303,7 +1324,10 @@ function SGMobileHistory({ data, user, onDeleteSession, upsertFn }) {
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={SG.ink} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20h4l11-11-4-4L4 16v4z"/></svg>
               Éditer
             </button>
-            <button onClick={async () => { if (window.confirm('Supprimer cette séance ?')) { await onDeleteSession(detail.id); setDetail(null); } }} style={{ flex: 1, padding: 14, borderRadius: 18, border: 'none', background: 'rgba(178,58,58,0.1)', color: '#B23A3A', cursor: 'pointer', fontWeight: 600, fontSize: 14 }}>Supprimer la séance</button>
+            <button onClick={exportDetail} style={{ width: 48, padding: 14, borderRadius: 18, border: 'none', background: 'rgba(255,255,255,0.6)', color: SG.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={SG.ink} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+            </button>
+            <button onClick={async () => { if (window.confirm('Supprimer cette séance ?')) { await onDeleteSession(detail.id); setDetail(null); } }} style={{ flex: 1, padding: 14, borderRadius: 18, border: 'none', background: 'rgba(178,58,58,0.1)', color: '#B23A3A', cursor: 'pointer', fontWeight: 600, fontSize: 14 }}>Supprimer</button>
           </div>
         </div>
       </div>
@@ -1493,6 +1517,13 @@ function SGMobileTemplateEdit({ tpl, onSave, onCancel, knownExercises = [] }) {
   const addEx = () => setShowExPicker(true);
   const updEx = (i, v) => setExercises(e => e.map((x, idx) => idx === i ? v : x));
   const delEx = (i) => setExercises(e => e.filter((_, idx) => idx !== i));
+  const moveEx = (i, dir) => setExercises(e => {
+    const arr = [...e];
+    const j = i + dir;
+    if (j < 0 || j >= arr.length) return arr;
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+    return arr;
+  });
 
   const handleSave = async () => {
     setSaving(true);
@@ -1522,8 +1553,16 @@ function SGMobileTemplateEdit({ tpl, onSave, onCancel, knownExercises = [] }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
           {exercises.map((ex, i) => (
             <Glass key={i} radius={16} tint="rgba(255,255,255,0.55)">
-              <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ width: 24, height: 24, borderRadius: 12, background: SG.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 11, fontWeight: 800, flexShrink: 0 }}>{i + 1}</div>
+              <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flexShrink: 0 }}>
+                  <button onClick={() => moveEx(i, -1)} disabled={i === 0} style={{ background: 'none', border: 'none', padding: '2px 4px', cursor: i === 0 ? 'default' : 'pointer', opacity: i === 0 ? 0.2 : 0.55, lineHeight: 1 }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={SG.ink} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 15l-6-6-6 6"/></svg>
+                  </button>
+                  <button onClick={() => moveEx(i, 1)} disabled={i === exercises.length - 1} style={{ background: 'none', border: 'none', padding: '2px 4px', cursor: i === exercises.length - 1 ? 'default' : 'pointer', opacity: i === exercises.length - 1 ? 0.2 : 0.55, lineHeight: 1 }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={SG.ink} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+                  </button>
+                </div>
+                <div style={{ width: 22, height: 22, borderRadius: 11, background: SG.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 10, fontWeight: 800, flexShrink: 0 }}>{i + 1}</div>
                 <input value={ex} onChange={e => updEx(i, e.target.value)} placeholder="Nom de l'exercice"
                   style={{ flex: 1, fontFamily: SG.serif, fontSize: 16, fontWeight: 500, color: SG.ink, background: 'transparent', border: 'none', outline: 'none' }} />
                 <button onClick={() => delEx(i)} style={{ background: 'none', border: 'none', padding: '4px 8px', cursor: 'pointer', color: SG.inkFaint, fontSize: 20, lineHeight: 1 }}>×</button>
