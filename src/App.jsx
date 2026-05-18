@@ -6816,8 +6816,14 @@ function StravaTracker({ user }) {
   })();
 
   // Graphe distance par sortie (période filtrée)
+  const monthsFR = ['jan','fév','mars','avr','mai','juin','juil','août','sep','oct','nov','déc'];
+  const fmtDay = (iso) => {
+    if (!iso) return '';
+    const [, m, d] = iso.split('-');
+    return `${parseInt(d)} ${monthsFR[parseInt(m)-1]}`;
+  };
   const chartData = [...filtered].sort((a,b) => a.date < b.date ? -1 : 1).map(a => ({
-    date: a.date?.slice(5),
+    date: fmtDay(a.date),
     km: parseFloat((a.distance / 1000).toFixed(2)),
     name: a.name,
   }));
@@ -6867,13 +6873,15 @@ function StravaTracker({ user }) {
           <Card>
             <CardContent>
               <h3 className="font-semibold text-lg mb-4">📈 Distance par sortie (km)</h3>
-              <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={chartData} margin={{ top: 10, right: 12, left: 0, bottom: 40 }}>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={chartData} margin={{ top: 28, right: 12, left: 0, bottom: 40 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                   <XAxis dataKey="date" tick={{ fill: axisColor, fontSize: 11 }} angle={-35} textAnchor="end" interval="preserveStartEnd" />
                   <YAxis tick={{ fill: axisColor, fontSize: 11 }} width={45} tickFormatter={v => `${v}km`} />
                   <Tooltip content={<BlackTooltip />} formatter={(v, _, { payload }) => [`${v} km — ${payload?.name}`, 'Distance']} />
-                  <Bar dataKey="km" fill="#fc4c02" radius={[4,4,0,0]} />
+                  <Bar dataKey="km" fill="#fc4c02" radius={[4,4,0,0]}>
+                    <LabelList dataKey="km" position="top" style={{ fill: axisColor, fontSize: 10, fontWeight: 600 }} formatter={v => `${v}km`} />
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
