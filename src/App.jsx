@@ -271,6 +271,55 @@ function SGTemplatePicker({ templates, onSelect, onClose }) {
   );
 }
 
+// ─── FrDateInput — selects jour/mois/année, toujours DD/MM/YYYY ──────────────
+function FrDateInput({ value, min, max, onChange, style }) {
+  const parts = value ? value.split('-') : ['', '', ''];
+  const y = parts[0] || '';
+  const m = parts[1] || '';
+  const d = parts[2] || '';
+
+  const curYear = new Date().getFullYear();
+  const minYear = min ? Number(min.slice(0, 4)) : 2020;
+  const maxYear = max ? Number(max.slice(0, 4)) : curYear;
+  const years = Array.from({ length: maxYear - minYear + 1 }, (_, i) => minYear + i);
+  const monthNames = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+  const daysInMonth = (y && m) ? new Date(Number(y), Number(m), 0).getDate() : 31;
+
+  const emit = (newY, newM, newD) => {
+    if (!newY || !newM || !newD) return;
+    const clamped = Math.min(Number(newD), new Date(Number(newY), Number(newM), 0).getDate());
+    const iso = `${newY}-${String(newM).padStart(2,'0')}-${String(clamped).padStart(2,'0')}`;
+    if (min && iso < min) return;
+    if (max && iso > max) return;
+    onChange(iso);
+  };
+
+  const sel = { padding: '8px 6px', borderRadius: 10, border: '1.5px solid rgba(31,26,20,0.12)', background: 'rgba(255,255,255,0.7)', fontSize: 13, color: '#1F1A14', outline: 'none', flex: 1, textAlign: 'center' };
+
+  return (
+    <div style={{ display: 'flex', gap: 6, ...style }}>
+      <select value={d} onChange={e => emit(y, m, e.target.value)} style={sel}>
+        <option value="">JJ</option>
+        {Array.from({ length: daysInMonth }, (_, i) => {
+          const v = String(i + 1).padStart(2, '0');
+          return <option key={v} value={v}>{i + 1}</option>;
+        })}
+      </select>
+      <select value={m} onChange={e => emit(y, e.target.value, d)} style={sel}>
+        <option value="">MM</option>
+        {monthNames.map((mn, i) => {
+          const v = String(i + 1).padStart(2, '0');
+          return <option key={v} value={v}>{mn}</option>;
+        })}
+      </select>
+      <select value={y} onChange={e => emit(e.target.value, m, d)} style={{ ...sel, flex: 1.4 }}>
+        <option value="">AAAA</option>
+        {years.map(yr => <option key={yr} value={String(yr)}>{yr}</option>)}
+      </select>
+    </div>
+  );
+}
+
 // ─── ExercisePicker ───────────────────────────────────────────────────────────
 function ExercisePicker({ knownExercises = [], onSelect, onClose }) {
   const [query, setQuery] = useState('');
@@ -1447,15 +1496,11 @@ function SGMobileStats({ data, user }) {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <div>
                   <div style={{ fontSize: 10, color: SG.inkFaint, marginBottom: 4 }}>Début</div>
-                  <input type="date" lang="fr-FR" value={startDate} max={endDate}
-                    onChange={e => setStartDate(e.target.value)}
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: 12, border: '1.5px solid rgba(31,26,20,0.12)', background: 'rgba(255,255,255,0.7)', fontSize: 13, color: SG.ink, boxSizing: 'border-box', outline: 'none' }} />
+                  <FrDateInput value={startDate} max={endDate} onChange={setStartDate} />
                 </div>
                 <div>
                   <div style={{ fontSize: 10, color: SG.inkFaint, marginBottom: 4 }}>Fin</div>
-                  <input type="date" lang="fr-FR" value={endDate} min={startDate} max={todayISO}
-                    onChange={e => setEndDate(e.target.value)}
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: 12, border: '1.5px solid rgba(31,26,20,0.12)', background: 'rgba(255,255,255,0.7)', fontSize: 13, color: SG.ink, boxSizing: 'border-box', outline: 'none' }} />
+                  <FrDateInput value={endDate} min={startDate} max={todayISO} onChange={setEndDate} />
                 </div>
               </div>
             </div>
