@@ -774,6 +774,7 @@ function SGActiveSession({ session, onFinish, onCancel, sessions }) {
 function SGSessionSummary({ exercises, sessionName, startedAt, sessions, onConfirm, onBack }) {
   const elapsed = Math.floor((Date.now() - startedAt) / 1000);
   const dur = Math.round(elapsed / 60) || 1;
+  const [expandedEx, setExpandedEx] = useState(null);
 
   const exTon = (sets) => (sets || []).reduce((s, st) => s + (Number(st.reps)||0) * (Number(st.weight)||0), 0);
 
@@ -783,7 +784,8 @@ function SGSessionSummary({ exercises, sessionName, startedAt, sessions, onConfi
 
   // Per-exercise: compare vs last recorded session containing that exercise
   const exComparisons = exercises.map(ex => {
-    const curEx = (ex.sets || []).filter(s => s.done).reduce((s, st) => s + st.reps * st.weight, 0);
+    const doneSetsArr = (ex.sets || []).filter(s => s.done);
+    const curEx = doneSetsArr.reduce((s, st) => s + st.reps * st.weight, 0);
     let prevEx = null;
     for (const s of sessions) {
       const match = (s.exercises || []).find(e =>
@@ -792,7 +794,7 @@ function SGSessionSummary({ exercises, sessionName, startedAt, sessions, onConfi
       if (match) { prevEx = exTon(match.sets); break; }
     }
     const pct = prevEx !== null && prevEx > 0 ? Math.round(((curEx - prevEx) / prevEx) * 100) : null;
-    return { name: ex.name, curEx, prevEx, pct, doneSets: (ex.sets||[]).filter(s=>s.done).length, totalSets: (ex.sets||[]).length };
+    return { name: ex.name, curEx, prevEx, pct, doneSets: doneSetsArr.length, totalSets: (ex.sets||[]).length, sets: doneSetsArr };
   });
 
   // Overall: compare vs last session of same type
@@ -857,28 +859,53 @@ function SGSessionSummary({ exercises, sessionName, startedAt, sessions, onConfi
         </Glass>
 
         <div style={{ fontSize: 11, color: SG.inkSoft, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', margin: '0 4px 10px' }}>Par exercice</div>
-        {exComparisons.map((ex, i) => (
-          <Glass key={i} radius={18} tint="rgba(255,255,255,0.5)" style={{ marginBottom: 8 }}>
-            <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: SG.serif, fontSize: 16, fontWeight: 500, color: SG.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ex.name}</div>
-                <div style={{ fontSize: 11, color: SG.inkSoft, marginTop: 2 }}>
-                  {(ex.curEx/1000).toFixed(2)} t · {ex.doneSets}/{ex.totalSets} séries
-                  {ex.prevEx !== null && <> · préc. {(ex.prevEx/1000).toFixed(2)} t</>}
+        {exComparisons.map((ex, i) => {
+          const open = expandedEx === i;
+          return (
+            <Glass key={i} radius={18} tint="rgba(255,255,255,0.5)" style={{ marginBottom: 8 }}
+              onClick={() => setExpandedEx(open ? null : i)}>
+              <div style={{ padding: '12px 16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontFamily: SG.serif, fontSize: 16, fontWeight: 500, color: SG.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ex.name}</div>
+                    <div style={{ fontSize: 11, color: SG.inkSoft, marginTop: 2 }}>
+                      {(ex.curEx/1000).toFixed(2)} t · {ex.doneSets}/{ex.totalSets} séries
+                      {ex.prevEx !== null && <> · préc. {(ex.prevEx/1000).toFixed(2)} t</>}
+                    </div>
+                  </div>
+                  {ex.pct !== null ? (
+                    <div style={{ flexShrink: 0, padding: '6px 12px', borderRadius: 12, background: ex.pct >= 0 ? 'rgba(45,122,58,0.12)' : 'rgba(178,58,58,0.10)', color: ex.pct >= 0 ? '#2D7A3A' : '#B23A3A', fontFamily: SG.serif, fontSize: 18, fontWeight: 500 }}>
+                      {ex.pct >= 0 ? '+' : ''}{ex.pct}%
+                    </div>
+                  ) : (
+                    <div style={{ flexShrink: 0, padding: '6px 10px', borderRadius: 12, background: 'rgba(31,26,20,0.06)', color: SG.inkSoft, fontSize: 11, fontWeight: 700, letterSpacing: 0.3 }}>
+                      1ÈRE FOIS
+                    </div>
+                  )}
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={SG.inkFaint} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, transition: 'transform 200ms', transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}><path d="M6 9l6 6 6-6"/></svg>
                 </div>
+                {open && ex.sets.length > 0 && (
+                  <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 5 }}>
+                    {ex.sets.map((s, si) => (
+                      <div key={si} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 12, background: 'rgba(255,255,255,0.5)' }}>
+                        <div style={{ width: 24, height: 24, borderRadius: 12, background: SG.accent2, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: '#fff', flexShrink: 0 }}>
+                          {si + 1}
+                        </div>
+                        <div style={{ fontFamily: SG.serif, fontSize: 15, fontWeight: 500, color: SG.ink }}>{s.reps} reps</div>
+                        <div style={{ fontSize: 12, color: SG.inkSoft }}>×</div>
+                        <div style={{ fontFamily: SG.serif, fontSize: 15, fontWeight: 500, color: SG.ink }}>{s.weight} kg</div>
+                        <div style={{ flex: 1, textAlign: 'right', fontSize: 11, color: SG.inkFaint }}>{((s.reps * s.weight)/1000).toFixed(2)} t</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {open && ex.sets.length === 0 && (
+                  <div style={{ marginTop: 8, fontSize: 12, color: SG.inkFaint, textAlign: 'center' }}>Aucune série validée</div>
+                )}
               </div>
-              {ex.pct !== null ? (
-                <div style={{ flexShrink: 0, padding: '6px 12px', borderRadius: 12, background: ex.pct >= 0 ? 'rgba(45,122,58,0.12)' : 'rgba(178,58,58,0.10)', color: ex.pct >= 0 ? '#2D7A3A' : '#B23A3A', fontFamily: SG.serif, fontSize: 18, fontWeight: 500 }}>
-                  {ex.pct >= 0 ? '+' : ''}{ex.pct}%
-                </div>
-              ) : (
-                <div style={{ flexShrink: 0, padding: '6px 10px', borderRadius: 12, background: 'rgba(31,26,20,0.06)', color: SG.inkSoft, fontSize: 11, fontWeight: 700, letterSpacing: 0.3 }}>
-                  1ÈRE FOIS
-                </div>
-              )}
-            </div>
-          </Glass>
-        ))}
+            </Glass>
+          );
+        })}
 
         <button onClick={onConfirm} style={{ width: '100%', padding: 16, borderRadius: 22, marginTop: 20, border: 'none', background: SG.ink, color: '#fff', cursor: 'pointer', fontSize: 15, fontWeight: 700, boxShadow: '0 8px 20px rgba(0,0,0,0.15)' }}>
           Enregistrer la séance
