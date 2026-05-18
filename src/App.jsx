@@ -643,13 +643,23 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, known
           {(ex.sets || []).map((s, si) => {
             const isCur = isCurrent && si === curSetIdx;
             return (
-              <div key={si} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 16, background: isCur ? SG.ink : (s.done ? 'rgba(139,154,107,0.12)' : 'rgba(255,255,255,0.4)'), color: isCur ? '#fff' : SG.ink, transition: 'all 200ms' }}>
+              <div key={si}
+                onClick={s.done ? () => {
+                  setExercises(exs => exs.map((ex2, ei) => ei !== exIdx ? ex2 : { ...ex2, sets: ex2.sets.map((s2, idx) => idx === si ? { ...s2, done: false } : s2) }));
+                  setCurExIdx(exIdx);
+                  setCurSetIdx(si);
+                  setReps(s.reps);
+                  setKg(s.weight);
+                  setExpandedIdx(null);
+                } : undefined}
+                style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 16, background: isCur ? SG.ink : (s.done ? 'rgba(139,154,107,0.12)' : 'rgba(255,255,255,0.4)'), color: isCur ? '#fff' : SG.ink, transition: 'all 200ms', cursor: s.done ? 'pointer' : 'default' }}>
                 <div style={{ width: 28, height: 28, borderRadius: 14, background: s.done ? SG.accent2 : (isCur ? SG.accent : 'transparent'), border: !s.done && !isCur ? `1.5px solid rgba(31,26,20,0.20)` : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 12, fontWeight: 800, flexShrink: 0 }}>
                   {s.done ? iconCheck : (si + 1)}
                 </div>
                 <div style={{ flex: 1, fontFamily: SG.serif, fontSize: 17, fontWeight: 500 }}>
                   {s.done ? `${s.reps} reps · ${s.weight} kg` : (isCur ? `${reps} reps · ${kg} kg` : (s.reps ? `${s.reps} reps · ${s.weight} kg` : '— reps · — kg'))}
                 </div>
+                {s.done && <div style={{ fontSize: 9, fontWeight: 700, color: SG.accent2, letterSpacing: 0.4, opacity: 0.7 }}>RETOUR</div>}
                 {isCur && !s.done && <div style={{ fontSize: 10, fontWeight: 800, color: SG.accent, letterSpacing: 0.5 }}>EN COURS</div>}
               </div>
             );
@@ -1292,7 +1302,7 @@ function SGMobileSessionEdit({ session, onSave, onCancel, upsertFn }) {
   const tonnage = exercises.reduce((acc, ex) => acc + ex.sets.reduce((s, st) => s + (Number(st.reps) || 0) * (Number(st.weight) || 0), 0), 0);
 
   return (
-    <div style={{ position: 'relative', minHeight: '100vh', paddingBottom: 30 }}>
+    <div style={{ position: 'relative', minHeight: '100vh', paddingBottom: 120 }}>
       <div style={{ position: 'relative', padding: '50px 18px 0', maxWidth: 600, margin: '0 auto' }}>
 
         {/* Header — même structure que SGActiveSession */}
