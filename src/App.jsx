@@ -271,35 +271,13 @@ function SGTemplatePicker({ templates, onSelect, onClose }) {
   );
 }
 
-// ─── FrDateInput — champ texte unique DD/MM/YYYY ─────────────────────────────
-function FrDateInput({ value, onChange, style }) {
-  const toDisplay = (iso) => {
-    if (!iso) return '';
-    const [y, m, d] = iso.split('-');
-    return `${d}/${m}/${y}`;
-  };
-  const [text, setText] = useState(toDisplay(value));
-
-  useEffect(() => { setText(toDisplay(value)); }, [value]);
-
-  const handleChange = (e) => {
-    let raw = e.target.value.replace(/[^\d]/g, '').slice(0, 8);
-    let formatted = raw;
-    if (raw.length > 2) formatted = raw.slice(0,2) + '/' + raw.slice(2);
-    if (raw.length > 4) formatted = raw.slice(0,2) + '/' + raw.slice(2,4) + '/' + raw.slice(4);
-    setText(formatted);
-    if (raw.length === 8) {
-      const d = raw.slice(0,2), m = raw.slice(2,4), y = raw.slice(4,8);
-      const iso = `${y}-${m}-${d}`;
-      if (!isNaN(new Date(iso))) onChange(iso);
-    }
-  };
-
+// ─── FrDateInput — input date natif (calendrier sur mobile) ──────────────────
+function FrDateInput({ value, min, max, onChange, style }) {
   return (
     <input
-      type="text" inputMode="numeric" value={text} onChange={handleChange}
-      placeholder="JJ/MM/AAAA" maxLength={10}
-      style={{ width: '100%', padding: '10px 12px', borderRadius: 12, border: '1.5px solid rgba(31,26,20,0.12)', background: 'rgba(255,255,255,0.7)', fontSize: 13, color: '#1F1A14', outline: 'none', boxSizing: 'border-box', textAlign: 'center', ...style }}
+      type="date" value={value} min={min} max={max}
+      onChange={e => onChange(e.target.value)}
+      style={{ width: '100%', padding: '10px 12px', borderRadius: 12, border: '1.5px solid rgba(31,26,20,0.12)', background: 'rgba(255,255,255,0.7)', fontSize: 13, color: '#1F1A14', outline: 'none', boxSizing: 'border-box', ...style }}
     />
   );
 }
