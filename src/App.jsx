@@ -1447,13 +1447,13 @@ function SGMobileStats({ data, user }) {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <div>
                   <div style={{ fontSize: 10, color: SG.inkFaint, marginBottom: 4 }}>Début</div>
-                  <input type="date" value={startDate} max={endDate}
+                  <input type="date" lang="fr-FR" value={startDate} max={endDate}
                     onChange={e => setStartDate(e.target.value)}
                     style={{ width: '100%', padding: '10px 12px', borderRadius: 12, border: '1.5px solid rgba(31,26,20,0.12)', background: 'rgba(255,255,255,0.7)', fontSize: 13, color: SG.ink, boxSizing: 'border-box', outline: 'none' }} />
                 </div>
                 <div>
                   <div style={{ fontSize: 10, color: SG.inkFaint, marginBottom: 4 }}>Fin</div>
-                  <input type="date" value={endDate} min={startDate} max={todayISO}
+                  <input type="date" lang="fr-FR" value={endDate} min={startDate} max={todayISO}
                     onChange={e => setEndDate(e.target.value)}
                     style={{ width: '100%', padding: '10px 12px', borderRadius: 12, border: '1.5px solid rgba(31,26,20,0.12)', background: 'rgba(255,255,255,0.7)', fontSize: 13, color: SG.ink, boxSizing: 'border-box', outline: 'none' }} />
                 </div>
@@ -3489,7 +3489,7 @@ useEffect(() => {
         <CardContent className="space-y-4">
           <div className="grid gap-2">
             <Label>Date</Label>
-            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            <Input type="date" lang="fr-FR" value={date} onChange={(e) => setDate(e.target.value)} />
           </div>
 
           {/* Sélection template */}
@@ -3893,6 +3893,7 @@ const cardRef = React.useRef(null);
                             {/* Date */}
                             <input
                               type="date"
+                              lang="fr-FR"
                               value={local.date}
                               onChange={(e) =>
                                 setLocal((cur) => ({ ...cur, date: e.target.value }))
@@ -4507,17 +4508,19 @@ function Analytics({ sessions, sessionTemplates = [], hideCalendar = false, hide
               <Label>Date de début</Label>
               <Input
                 type="date"
+                lang="fr-FR"
                 value={startDate}
                 min={firstSessionDate || undefined}
                 max={endDate}
                 onChange={(e) => setStartDate(e.target.value)}
               />
             </div>
-          
+
             <div>
               <Label>Date de fin</Label>
               <Input
                 type="date"
+                lang="fr-FR"
                 value={endDate}
                 min={startDate}
                 max={today}
@@ -4818,6 +4821,7 @@ function Analytics({ sessions, sessionTemplates = [], hideCalendar = false, hide
                   <Label>Mois séance 1</Label>
                   <Input
                     type="month"
+                    lang="fr-FR"
                     value={typeMonthStart}
                     onChange={(e) => setTypeMonthStart(e.target.value)}
                   />
@@ -4826,6 +4830,7 @@ function Analytics({ sessions, sessionTemplates = [], hideCalendar = false, hide
                   <Label>Mois séance 2</Label>
                   <Input
                     type="month"
+                    lang="fr-FR"
                     value={typeMonthEnd}
                     onChange={(e) => setTypeMonthEnd(e.target.value)}
                   />
@@ -4957,6 +4962,7 @@ function Analytics({ sessions, sessionTemplates = [], hideCalendar = false, hide
                   <Label>Mois séance 1</Label>
                   <Input
                     type="month"
+                    lang="fr-FR"
                     value={exerciseMonthStart}
                     onChange={(e) => setExerciseMonthStart(e.target.value)}
                   />
@@ -4965,6 +4971,7 @@ function Analytics({ sessions, sessionTemplates = [], hideCalendar = false, hide
                   <Label>Mois séance 2</Label>
                   <Input
                     type="month"
+                    lang="fr-FR"
                     value={exerciseMonthEnd}
                     onChange={(e) => setExerciseMonthEnd(e.target.value)}
                   />
@@ -6127,7 +6134,7 @@ const addWeight = async () => {
 
           <div className="grid gap-2">
             <Label>Date</Label>
-            <Input type="date" value={date} onChange={e => setDate(e.target.value)} />
+            <Input type="date" lang="fr-FR" value={date} onChange={e => setDate(e.target.value)} />
           </div>
 
           <div className="grid gap-2">
@@ -6412,6 +6419,7 @@ function RankingSection() {
             <Label>Mois de début</Label>
             <Input
               type="month"
+              lang="fr-FR"
               value={monthStart}
               min={firstMonth || todayMonth}
               max={monthEnd || lastMonth || todayMonth}
@@ -6422,6 +6430,7 @@ function RankingSection() {
             <Label>Mois de fin</Label>
             <Input
               type="month"
+              lang="fr-FR"
               value={monthEnd}
               min={monthStart || firstMonth || todayMonth}
               max={lastMonth || todayMonth}
@@ -6843,6 +6852,7 @@ function StepsTracker({ user }) {
                 <Label>Date de début</Label>
                 <Input
                   type="date"
+                  lang="fr-FR"
                   value={avgStartDate}
                   min={firstDate}
                   max={avgEndDate}
@@ -6853,6 +6863,7 @@ function StepsTracker({ user }) {
                 <Label>Date de fin</Label>
                 <Input
                   type="date"
+                  lang="fr-FR"
                   value={avgEndDate}
                   min={avgStartDate}
                   max={today}
@@ -6871,6 +6882,7 @@ function StepsTracker({ user }) {
             <Label>Mois de début</Label>
             <Input
               type="month"
+              lang="fr-FR"
               value={monthStart}
               min={firstMonth}
               max={monthEnd}
@@ -6881,6 +6893,7 @@ function StepsTracker({ user }) {
             <Label>Mois de fin</Label>
             <Input
               type="month"
+              lang="fr-FR"
               value={monthEnd}
               min={monthStart}
               max={todayMonth}
