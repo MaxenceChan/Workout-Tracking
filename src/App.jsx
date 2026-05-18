@@ -759,7 +759,15 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl }) {
   const avgPerWeek = firstDate ? (sessions.length / weeksElapsed) : 0;
   const monthsElapsed = firstDate ? Math.round((Date.now() - firstDate.getTime()) / (30.44 * 24 * 3600 * 1000)) : 0;
   const sinceMonth = firstDate ? firstDate.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }) : null;
-  const suggestion = templates[0] || null;
+  const suggestion = (() => {
+    if (!templates.length) return null;
+    const lastUsed = (tpl) => {
+      const uses = sessions.filter(s => s.type === tpl.name);
+      if (!uses.length) return new Date(0);
+      return new Date(Math.max(...uses.map(s => new Date(s.date + 'T00:00:00').getTime())));
+    };
+    return [...templates].sort((a, b) => lastUsed(a) - lastUsed(b))[0];
+  })();
   const todayFR = new Date().toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }).toUpperCase();
   const firstName = (user?.email || 'Toi').split('@')[0];
   const firstLetter = firstName[0]?.toUpperCase() || 'M';
