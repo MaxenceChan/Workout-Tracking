@@ -330,10 +330,14 @@ function ExercisePicker({ knownExercises = [], onSelect, onClose }) {
   const canCreate = q.length > 0 && !exactMatch;
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 250, background: 'rgba(31,26,20,0.45)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }} onClick={onClose}>
-      <div onClick={e => e.stopPropagation()} style={{ position: 'fixed', bottom: 0, left: 0, right: 0, margin: '0 auto', width: '100%', maxWidth: 600, background: SG.bg1, borderRadius: '28px 28px 0 0', padding: '20px 20px 0', boxShadow: '0 -20px 50px rgba(0,0,0,0.18)', height: 420, display: 'flex', flexDirection: 'column' }}>
-        <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(31,26,20,0.12)', margin: '0 auto 16px', flexShrink: 0 }} />
-        <div style={{ fontFamily: SG.serif, fontSize: 22, fontWeight: 500, color: SG.ink, marginBottom: 14, textAlign: 'center', flexShrink: 0 }}>Ajouter un exercice</div>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 250, background: SG.bg1, display: 'flex', flexDirection: 'column' }}>
+      <div onClick={e => e.stopPropagation()} style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '54px 20px 0', maxWidth: 600, margin: '0 auto', width: '100%' }}>
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 20, flexShrink: 0 }}>
+          <button onClick={onClose} style={{ width: 36, height: 36, borderRadius: 12, border: 'none', background: 'rgba(31,26,20,0.07)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: 14, flexShrink: 0 }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={SG.ink} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+          </button>
+          <div style={{ fontFamily: SG.serif, fontSize: 24, fontWeight: 500, color: SG.ink }}>Ajouter un exercice</div>
+        </div>
         <input
           type="text" value={query} onChange={e => setQuery(e.target.value)}
           placeholder="Rechercher ou créer..."
