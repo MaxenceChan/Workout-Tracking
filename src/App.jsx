@@ -1471,6 +1471,7 @@ function SGMobileStats({ data, user }) {
     { k: 'evolution', label: 'Évolution' },
     { k: 'poids', label: 'Poids' },
     { k: 'pas', label: 'Pas' },
+    { k: 'run', label: 'Run' },
   ];
 
   return (
@@ -1489,7 +1490,7 @@ function SGMobileStats({ data, user }) {
         </div>
 
         {/* Date filter — hidden on Poids / Pas tabs */}
-        {subTab !== 'poids' && subTab !== 'pas' && (
+        {subTab !== 'poids' && subTab !== 'pas' && subTab !== 'run' && (
           <Glass radius={20} tint="rgba(255,255,255,0.55)" style={{ marginBottom: 14 }}>
             <div style={{ padding: '14px 16px' }}>
               <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 10 }}>Période</div>
@@ -1573,6 +1574,10 @@ function SGMobileStats({ data, user }) {
 
         {subTab === 'pas' && (
           <StepsTracker user={user} />
+        )}
+
+        {subTab === 'run' && (
+          <StravaTracker user={user} />
         )}
       </div>
     </div>
@@ -6709,6 +6714,166 @@ function TractionSection({ user }) {
                     <Line type="monotone" dataKey="count" stroke="#22c55e" strokeWidth={3} dot />
                   </LineChart>
                 </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ───────────────────────────────────────────────
+// Suivi Run (Strava)
+// ───────────────────────────────────────────────
+function StravaTracker({ user }) {
+  const { theme } = useTheme();
+  const axisColor = theme === "dark" ? "#ffffff" : "#000000";
+  const gridColor = theme === "dark" ? "#444" : "#e5e7eb";
+
+  const [activities, setActivities] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [needsReauth, setNeedsReauth] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    setLoading(true);
+    fetch(`/api/strava?uid=${user.id}`)
+      .then(r => r.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setActivities(data);
+          setNeedsReauth(false);
+        } else {
+          setActivities(data?.activities || []);
+          setNeedsReauth(Boolean(data?.needsReauth));
+        }
+      })
+      .catch(() => setError(true))
+      .finally(() => setLoading(false));
+  }, [user?.id]);
+
+  const connectStrava = () => {
+    window.location.href = `/api/auth/strava?uid=${user.id}`;
+  };
+
+  // Stats globales
+  const totalRuns = activities.length;
+  const totalDistKm = (activities.reduce((s, a) => s + (a.distance || 0), 0) / 1000).toFixed(1);
+  const totalTimeMin = Math.round(activities.reduce((s, a) => s + (a.moving_time || 0), 0) / 60);
+  const avgDistKm = totalRuns > 0 ? (parseFloat(totalDistKm) / totalRuns).toFixed(1) : '0';
+  const avgPaceStr = (function() {
+    const totalDist = activities.reduce((s, a) => s + (a.distance || 0), 0);
+    const totalTime = activities.reduce((s, a) => s + (a.moving_time || 0), 0);
+    if (!totalDist) return '—';
+    const secPKm = (totalTime / (totalDist / 1000));
+    const m = Math.floor(secPKm / 60);
+    const s = Math.round(secPKm % 60);
+    return `${m}'${String(s).padStart(2,'0')}"`;
+  })();
+
+  // Graphe distance par sortie (30 derniers)
+  const chartData = [...activities].reverse().slice(-30).map(a => ({
+    date: a.date?.slice(5),
+    km: parseFloat((a.distance / 1000).toFixed(2)),
+    name: a.name,
+  }));
+
+  // Sections connexion
+  const showConnect = !loading && (needsReauth || (!error && activities.length === 0));
+
+  return (
+    <div className="space-y-6">
+      {/* Connexion */}
+      <Card>
+        <CardContent>
+          <h3 className="font-semibold">🏃 Suivi Run – Strava</h3>
+          {loading && <p className="text-sm text-gray-500 mt-2">Chargement des activités…</p>}
+          {!loading && error && (
+            <div className="mt-2 space-y-2">
+              <p className="text-sm text-red-500">❌ Impossible de récupérer les données Strava.</p>
+              <Button variant="secondary" onClick={connectStrava}>Connecter Strava</Button>
+            </div>
+          )}
+          {!loading && needsReauth && (
+            <div className="mt-2 space-y-2">
+              <p className="text-sm text-amber-500">⚠️ Reconnexion Strava nécessaire.</p>
+              <Button variant="secondary" onClick={connectStrava}>Se reconnecter</Button>
+            </div>
+          )}
+          {!loading && !error && !needsReauth && activities.length === 0 && (
+            <div className="mt-2 space-y-2">
+              <p className="text-sm text-gray-500">Connecte ton compte Strava pour voir tes stats de course.</p>
+              <Button variant="secondary" onClick={connectStrava}>Connecter Strava</Button>
+            </div>
+          )}
+          {!loading && !error && !needsReauth && activities.length > 0 && (
+            <p className="text-sm text-green-500 mt-2">✅ Strava connecté</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {activities.length > 0 && (
+        <>
+          {/* KPIs */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              { label: 'Sorties', value: totalRuns },
+              { label: 'Distance', value: `${totalDistKm} km` },
+              { label: 'Temps total', value: `${totalTimeMin} min` },
+              { label: 'Allure moy.', value: `${avgPaceStr} /km` },
+            ].map(({ label, value }) => (
+              <Card key={label}>
+                <CardContent>
+                  <div className="text-xs text-gray-500 font-semibold uppercase tracking-wide">{label}</div>
+                  <div className="text-2xl font-bold mt-1">{value}</div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Graphe distance */}
+          <Card>
+            <CardContent>
+              <h3 className="font-semibold text-lg mb-4">📈 Distance par sortie (km)</h3>
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={chartData} margin={{ top: 10, right: 12, left: 0, bottom: 40 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+                  <XAxis dataKey="date" tick={{ fill: axisColor, fontSize: 11 }} angle={-35} textAnchor="end" interval="preserveStartEnd" />
+                  <YAxis tick={{ fill: axisColor, fontSize: 11 }} width={45} tickFormatter={v => `${v}km`} />
+                  <Tooltip content={<BlackTooltip />} formatter={(v, _, { payload }) => [`${v} km — ${payload?.name}`, 'Distance']} />
+                  <Bar dataKey="km" fill="#fc4c02" radius={[4,4,0,0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          {/* Liste des dernières sorties */}
+          <Card>
+            <CardContent>
+              <h3 className="font-semibold text-lg mb-3">🗒️ Dernières sorties</h3>
+              <div className="space-y-2 max-h-80 overflow-y-auto">
+                {[...activities].reverse().map(a => {
+                  const km = (a.distance / 1000).toFixed(2);
+                  const min = Math.floor(a.moving_time / 60);
+                  const sec = a.moving_time % 60;
+                  const paceSecPkm = a.distance > 0 ? a.moving_time / (a.distance / 1000) : 0;
+                  const pm = Math.floor(paceSecPkm / 60);
+                  const ps = Math.round(paceSecPkm % 60);
+                  return (
+                    <div key={a.id} className="flex items-center justify-between py-2 border-b last:border-0 text-sm">
+                      <div>
+                        <div className="font-medium">{a.name}</div>
+                        <div className="text-xs text-gray-500">{a.date} · {a.elevation} m D+</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-semibold">{km} km</div>
+                        <div className="text-xs text-gray-500">{min}:{String(sec).padStart(2,'0')} · {pm}'{String(ps).padStart(2,'0')}" /km</div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
