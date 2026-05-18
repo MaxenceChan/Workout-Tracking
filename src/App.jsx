@@ -323,15 +323,29 @@ function FrDateInput({ value, min, max, onChange, style }) {
 // ─── ExercisePicker ───────────────────────────────────────────────────────────
 function ExercisePicker({ knownExercises = [], onSelect, onClose }) {
   const [query, setQuery] = useState('');
+  const inputRef = useRef(null);
+  const focusedRef = useRef(false);
+
+  // Freeze body scroll so keyboard opening doesn't shift the page
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
   const q = query.trim().toLowerCase();
   const sorted = [...knownExercises].sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
   const filtered = sorted.filter(e => !q || e.toLowerCase().includes(q));
   const exactMatch = knownExercises.some(e => e.toLowerCase() === q);
   const canCreate = q.length > 0 && !exactMatch;
 
+  const handleInputClick = () => {
+    if (focusedRef.current) { inputRef.current?.blur(); focusedRef.current = false; }
+  };
+
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 250, background: SG.bg1, display: 'flex', flexDirection: 'column' }}>
-      <div onClick={e => e.stopPropagation()} style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '54px 20px 0', maxWidth: 600, margin: '0 auto', width: '100%' }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 250, background: SG.bg1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '54px 20px 0', maxWidth: 600, margin: '0 auto', width: '100%' }}>
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 20, flexShrink: 0 }}>
           <button onClick={onClose} style={{ width: 36, height: 36, borderRadius: 12, border: 'none', background: 'rgba(31,26,20,0.07)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: 14, flexShrink: 0 }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={SG.ink} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
@@ -339,8 +353,12 @@ function ExercisePicker({ knownExercises = [], onSelect, onClose }) {
           <div style={{ fontFamily: SG.serif, fontSize: 24, fontWeight: 500, color: SG.ink }}>Ajouter un exercice</div>
         </div>
         <input
+          ref={inputRef}
           type="text" value={query} onChange={e => setQuery(e.target.value)}
           placeholder="Rechercher ou créer..."
+          onClick={handleInputClick}
+          onFocus={() => { focusedRef.current = true; }}
+          onBlur={() => { focusedRef.current = false; }}
           style={{ width: '100%', padding: '12px 16px', borderRadius: 14, border: `1.5px solid rgba(31,26,20,0.14)`, background: 'rgba(255,255,255,0.7)', fontSize: 15, color: SG.ink, outline: 'none', boxSizing: 'border-box', marginBottom: 12, fontFamily: SG.sans, flexShrink: 0 }}
         />
         <div style={{ overflowY: 'auto', flex: 1, paddingBottom: 44 }}>
@@ -488,7 +506,8 @@ function useTimer(startedAt) {
 }
 
 function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, knownExercises = [] }) {
-  const { display: timerDisplay, now } = useTimer(session.startedAt);
+  const [timerStart, setTimerStart] = useState(session.startedAt);
+  const { display: timerDisplay, now } = useTimer(timerStart);
   const [exercises, setExercises] = useState(session.exercises);
   const [sessionName, setSessionName] = useState(session.name);
   const [curExIdx, setCurExIdx] = useState(0);
@@ -751,7 +770,12 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, known
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
               <div>
                 <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase' }}>Temps</div>
-                <div style={{ fontFamily: SG.serif, fontSize: 40, fontWeight: 500, letterSpacing: -1, lineHeight: 1, marginTop: 2, color: SG.ink }}>{timerDisplay}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ fontFamily: SG.serif, fontSize: 40, fontWeight: 500, letterSpacing: -1, lineHeight: 1, marginTop: 2, color: SG.ink }}>{timerDisplay}</div>
+                  <button onClick={() => setTimerStart(Date.now())} title="Réinitialiser le chrono" style={{ marginTop: 4, width: 28, height: 28, borderRadius: 9, border: 'none', background: 'rgba(31,26,20,0.07)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={SG.inkSoft} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                  </button>
+                </div>
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase' }}>Tonnage</div>
@@ -2028,7 +2052,13 @@ function App() {
   const [route, setRoute] = useState(() => window.location.pathname);
   const vw = useViewport();
   const isMobile = vw < 1024;
-  const [activeSession, setActiveSession] = useState(null);
+  const [activeSession, setActiveSession] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('wt_active_session')) || null; } catch { return null; }
+  });
+  useEffect(() => {
+    if (activeSession) localStorage.setItem('wt_active_session', JSON.stringify(activeSession));
+    else localStorage.removeItem('wt_active_session');
+  }, [activeSession]);
   const [showTplPicker, setShowTplPicker] = useState(false);
   const [showLibrePicker, setShowLibrePicker] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
