@@ -370,6 +370,7 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions }) {
   const [showAddEx, setShowAddEx] = useState(false);
   const [newExName, setNewExName] = useState('');
   const [showSummary, setShowSummary] = useState(false);
+  const [summarySessionsSnapshot, setSummarySessionsSnapshot] = useState(null);
   const longPressRef = useRef(null);
   const [renamingExIdx, setRenamingExIdx] = useState(null);
   const [renameValue, setRenameValue] = useState('');
@@ -440,6 +441,7 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions }) {
   const handleFinish = () => {
     const elapsed = Math.floor((Date.now() - session.startedAt) / 1000);
     const dur = Math.round(elapsed / 60) || 1;
+    setSummarySessionsSnapshot([...(sessions || [])]); // snapshot BEFORE save updates sessions
     onFinish({ exercises, dur, tonnage, name: sessionName }); // save immediately
     setShowSummary(true);
   };
@@ -584,7 +586,7 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions }) {
       exercises={exercises}
       sessionName={sessionName}
       startedAt={session.startedAt}
-      sessions={sessions || []}
+      sessions={summarySessionsSnapshot || sessions || []}
       onClose={onClose}
       onBack={() => setShowSummary(false)}
     />
@@ -1407,8 +1409,9 @@ function SGMobileStats({ data, user }) {
 
 // ─── SGMobileTemplateEdit ─────────────────────────────────────────────────────
 function SGMobileTemplateEdit({ tpl, onSave, onCancel }) {
-  const [name, setName] = useState(tpl.name || '');
-  const [exercises, setExercises] = useState([...(tpl.exercises || [])]);
+  const isNew = !tpl?.id;
+  const [name, setName] = useState(tpl?.name || '');
+  const [exercises, setExercises] = useState([...(tpl?.exercises || [])]);
   const [saving, setSaving] = useState(false);
 
   const addEx = () => setExercises(e => [...e, '']);
@@ -1417,7 +1420,8 @@ function SGMobileTemplateEdit({ tpl, onSave, onCancel }) {
 
   const handleSave = async () => {
     setSaving(true);
-    await onSave({ ...tpl, name, exercises: exercises.filter(e => e.trim()) });
+    const id = tpl?.id || (crypto.randomUUID ? crypto.randomUUID() : `tpl-${Date.now()}`);
+    await onSave({ ...(tpl || {}), id, name, exercises: exercises.filter(e => typeof e === 'string' ? e.trim() : e?.name?.trim()) });
     setSaving(false);
   };
 
@@ -1425,7 +1429,7 @@ function SGMobileTemplateEdit({ tpl, onSave, onCancel }) {
     <div style={{ position: 'relative', minHeight: '100vh', paddingBottom: 120 }}>
       <div style={{ position: 'relative', padding: '54px 18px 0', maxWidth: 600, margin: '0 auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 22 }}>
-          <h1 style={{ fontFamily: SG.serif, fontSize: 28, fontWeight: 500, color: SG.ink, margin: 0 }}>Modifier le modèle</h1>
+          <h1 style={{ fontFamily: SG.serif, fontSize: 28, fontWeight: 500, color: SG.ink, margin: 0 }}>{isNew ? 'Nouveau modèle' : 'Modifier le modèle'}</h1>
           <button onClick={onCancel} style={{ background: 'rgba(31,26,20,0.07)', border: 'none', borderRadius: 14, padding: '8px 14px', fontSize: 13, fontWeight: 600, color: SG.ink, cursor: 'pointer' }}>Annuler</button>
         </div>
 
@@ -1455,7 +1459,7 @@ function SGMobileTemplateEdit({ tpl, onSave, onCancel }) {
         <button onClick={addEx} style={{ width: '100%', padding: 14, borderRadius: 18, border: `1.5px dashed rgba(31,26,20,0.15)`, background: 'transparent', cursor: 'pointer', fontSize: 13, color: SG.inkSoft, fontWeight: 600, marginBottom: 20 }}>+ Ajouter un exercice</button>
 
         <button onClick={handleSave} disabled={saving || !name.trim()} style={{ width: '100%', padding: 16, borderRadius: 22, border: 'none', background: SG.ink, color: '#fff', fontWeight: 700, fontSize: 16, cursor: 'pointer', opacity: !name.trim() ? 0.5 : 1 }}>
-          {saving ? 'Enregistrement…' : 'Enregistrer le modèle'}
+          {saving ? 'Enregistrement…' : (isNew ? 'Créer le modèle' : 'Enregistrer le modèle')}
         </button>
       </div>
     </div>
@@ -1463,16 +1467,16 @@ function SGMobileTemplateEdit({ tpl, onSave, onCancel }) {
 }
 
 // ─── SGMobileTpl ──────────────────────────────────────────────────────────────
-function SGMobileTpl({ data, user, onTab, onOpenForm }) {
+function SGMobileTpl({ data, user, onTab, onOpenForm, onSaveTpl }) {
   const templates = data.sessionTemplates || [];
   const firstName = (user?.email || 'Toi').split('@')[0];
   const firstLetter = firstName[0]?.toUpperCase() || 'M';
   const [editingTpl, setEditingTpl] = useState(null);
 
-  if (editingTpl) {
+  if (editingTpl !== null) {
     return <SGMobileTemplateEdit
-      tpl={editingTpl}
-      onSave={async (updated) => { await upsertSessionTemplate(user.id, updated); setEditingTpl(null); }}
+      tpl={editingTpl || undefined}
+      onSave={async (updated) => { await (onSaveTpl ? onSaveTpl(updated) : upsertSessionTemplate(user.id, updated)); setEditingTpl(null); }}
       onCancel={() => setEditingTpl(null)}
     />;
   }
@@ -1480,16 +1484,23 @@ function SGMobileTpl({ data, user, onTab, onOpenForm }) {
   return (
     <div style={{ position: 'relative', minHeight: '100vh', paddingBottom: 40 }}>
       <div style={{ position: 'relative', padding: '54px 18px 0', maxWidth: 600, margin: '0 auto' }}>
-        <div style={{ marginBottom: 18 }}>
-          <div style={{ fontSize: 11, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase' }}>MODÈLES</div>
-          <h1 style={{ fontFamily: SG.serif, fontSize: 34, fontWeight: 500, lineHeight: 1, margin: '4px 0 0', color: SG.ink }}>Séances</h1>
+        <div style={{ marginBottom: 18, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+          <div>
+            <div style={{ fontSize: 11, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase' }}>MODÈLES</div>
+            <h1 style={{ fontFamily: SG.serif, fontSize: 34, fontWeight: 500, lineHeight: 1, margin: '4px 0 0', color: SG.ink }}>Séances</h1>
+          </div>
+          <button onClick={() => setEditingTpl({})} style={{ padding: '10px 16px', borderRadius: 18, border: 'none', background: SG.ink, color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+            Nouveau
+          </button>
         </div>
 
         {templates.length === 0 ? (
           <Glass radius={22} tint="rgba(255,255,255,0.5)" style={{ marginBottom: 12 }}>
             <div style={{ padding: 28, textAlign: 'center' }}>
               <div style={{ fontFamily: SG.serif, fontSize: 18, fontWeight: 500, color: SG.ink, marginBottom: 8 }}>Aucun modèle</div>
-              <div style={{ fontSize: 13, color: SG.inkSoft }}>Crée des séances pré-définies depuis le bureau.</div>
+              <div style={{ fontSize: 13, color: SG.inkSoft, marginBottom: 18 }}>Crée ton premier modèle de séance.</div>
+              <button onClick={() => setEditingTpl({})} style={{ padding: '12px 22px', borderRadius: 18, border: 'none', background: SG.accent, color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>Créer un modèle</button>
             </div>
           </Glass>
         ) : (
@@ -2088,7 +2099,15 @@ function App() {
           upsertFn={async (s) => { await upsertSessions(user.id, [s], user.email); setData(cur => ({ ...cur, sessions: cur.sessions.map(x => x.id === s.id ? s : x) })); }}
         />}
         {mobileView === 'analytics' && <SGMobileStats data={data} user={user} />}
-        {mobileView === 'tpl' && <SGMobileTpl data={data} user={user} onTab={handleTabChange} onOpenForm={(tpl) => launchSession(tpl)} />}
+        {mobileView === 'tpl' && <SGMobileTpl data={data} user={user} onTab={handleTabChange} onOpenForm={(tpl) => launchSession(tpl)}
+          onSaveTpl={async (tpl) => {
+            await upsertSessionTemplate(user.id, tpl);
+            setData(cur => {
+              const exists = cur.sessionTemplates.some(t => t.id === tpl.id);
+              return { ...cur, sessionTemplates: exists ? cur.sessionTemplates.map(t => t.id === tpl.id ? tpl : t) : [tpl, ...cur.sessionTemplates] };
+            });
+          }}
+        />}
         {showTplPicker && <SGTemplatePicker templates={data.sessionTemplates || []} onSelect={(tpl) => launchSession(tpl)} onClose={() => setShowTplPicker(false)} />}
         <MobileSGTabBar tab={mobileView} onTab={handleTabChange} onFAB={() => setShowTplPicker(true)} />
       </div>
