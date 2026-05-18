@@ -59,7 +59,7 @@ export default async function handler(req, res) {
     const fitness = google.fitness({ version: "v1", auth: oauth2Client });
 
     const end = Date.now();
-    const start = end - 90 * 24 * 60 * 60 * 1000; // 90 jours
+    const start = end - 5 * 365 * 24 * 60 * 60 * 1000; // 5 ans
 
     let response;
     try {
