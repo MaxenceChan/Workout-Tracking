@@ -1465,60 +1465,130 @@ function SGMobileHistory({ data, user, onDeleteSession, upsertFn, initialDetail,
     );
   }
 
+  const monthAbbrs = ['jan','fév','mar','avr','mai','jun','jui','aoû','sep','oct','nov','déc'];
+  const isRunSession = (s) => {
+    const t = (s.type || '').toLowerCase();
+    return t.includes('run') || t.includes('course') || t.includes('cardio');
+  };
+
   return (
     <div style={{ position: 'relative', minHeight: '100vh', paddingBottom: 100 }}>
       <div style={{ position: 'relative', padding: '54px 18px 0', maxWidth: 600, margin: '0 auto' }}>
-        <div style={{ marginBottom: 18 }}>
+
+        {/* Header */}
+        <div style={{ marginBottom: 20 }}>
           <div style={{ fontSize: 11, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase' }}>{sessions.length} SÉANCES</div>
           <h1 style={{ fontFamily: SG.serif, fontSize: 34, fontWeight: 500, lineHeight: 1, margin: '4px 0 0', color: SG.ink }}>Historique</h1>
         </div>
-        <Glass radius={24} tint="rgba(255,255,255,0.5)" style={{ marginBottom: 14 }}>
-          <div style={{ padding: 16 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <button onClick={prevMonth} style={{ width: 32, height: 32, borderRadius: 10, border: 'none', background: 'rgba(31,26,20,0.06)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+
+        {/* Calendar */}
+        <Glass radius={24} tint="rgba(255,255,255,0.5)" style={{ marginBottom: 16 }}>
+          <div style={{ padding: '18px 14px 16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <button onClick={prevMonth} style={{ width: 36, height: 36, borderRadius: 12, border: 'none', background: 'rgba(31,26,20,0.07)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={SG.ink} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
               </button>
-              <div style={{ fontFamily: SG.serif, fontSize: 17, fontWeight: 500, color: SG.ink }}>{monthNames[calMonth]} {calYear}</div>
-              <button onClick={nextMonth} style={{ width: 32, height: 32, borderRadius: 10, border: 'none', background: isCurrentMonth ? 'rgba(31,26,20,0.03)' : 'rgba(31,26,20,0.06)', cursor: isCurrentMonth ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: isCurrentMonth ? 0.3 : 1 }}>
+              <div style={{ fontFamily: SG.serif, fontSize: 19, fontWeight: 500, color: SG.ink }}>{monthNames[calMonth]} {calYear}</div>
+              <button onClick={nextMonth} style={{ width: 36, height: 36, borderRadius: 12, border: 'none', background: isCurrentMonth ? 'transparent' : 'rgba(31,26,20,0.07)', cursor: isCurrentMonth ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: isCurrentMonth ? 0.2 : 1 }}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={SG.ink} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg>
               </button>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, marginBottom: 4 }}>
-              {['L','M','M','J','V','S','D'].map((d,i) => <div key={i} style={{ textAlign: 'center', fontSize: 10, color: SG.inkFaint, fontWeight: 700 }}>{d}</div>)}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: 8 }}>
+              {['L','M','M','J','V','S','D'].map((d,i) => (
+                <div key={i} style={{ textAlign: 'center', fontSize: 10, color: SG.inkFaint, fontWeight: 800, letterSpacing: 0.8 }}>{d}</div>
+              ))}
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 3 }}>
               {Array(firstDay).fill(null).map((_,i) => <div key={'e'+i}/>)}
               {Array.from({ length: daysInMonth }, (_,i) => {
-                const day = i+1;
+                const day = i + 1;
                 const iso = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-                const hasSess = sessionDates.has(iso);
+                const daySessions = sessions.filter(x => x.date === iso);
+                const hasSess = daySessions.length > 0;
                 const isToday = isCurrentMonth && day === today.getDate();
-                return <div key={day} onClick={() => { const s = sessions.find(x => x.date === iso); if (s) setDetail(s); }} style={{ aspectRatio:'1', borderRadius:10, display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:600, background: hasSess ? SG.accent : (isToday ? 'rgba(31,26,20,0.08)' : 'transparent'), color: hasSess ? '#fff' : SG.ink, border: isToday && !hasSess ? `1.5px solid ${SG.ink}` : 'none', cursor: hasSess ? 'pointer' : 'default' }}>{day}</div>;
+                const hasRun = daySessions.some(s => isRunSession(s));
+                const hasMuscu = daySessions.some(s => !isRunSession(s));
+                const dotColor = hasMuscu && hasRun ? `linear-gradient(90deg, ${SG.accent}, ${SG.accent2})` : hasRun ? SG.accent2 : SG.accent;
+                const circleColor = hasMuscu && !hasRun ? SG.accent : hasRun && !hasMuscu ? SG.accent2 : hasSess ? SG.accent : 'transparent';
+                return (
+                  <div key={day} onClick={() => { if (hasSess) setDetail(daySessions[0]); }} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '3px 0', cursor: hasSess ? 'pointer' : 'default' }}>
+                    <div style={{ width: 32, height: 32, borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: hasSess || isToday ? 700 : 400, background: isToday ? SG.ink : hasSess ? circleColor : 'transparent', color: isToday || hasSess ? '#fff' : SG.ink, boxShadow: hasSess && !isToday ? `0 2px 8px ${circleColor}55` : 'none' }}>{day}</div>
+                    <div style={{ width: 5, height: 5, borderRadius: 3, marginTop: 2, background: hasSess && !isToday ? dotColor : 'transparent' }}/>
+                  </div>
+                );
               })}
             </div>
           </div>
         </Glass>
-        <div style={{ display: 'flex', gap: 6, marginBottom: 12, overflowX: 'auto', paddingBottom: 4 }}>
-          {types.map(t => <button key={t} onClick={() => setFilter(t)} style={{ padding: '8px 16px', borderRadius: 16, border: 'none', cursor: 'pointer', background: filter === t ? SG.ink : 'rgba(255,255,255,0.55)', color: filter === t ? '#fff' : SG.ink, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0 }}>{t}</button>)}
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {filtered.map(s => (
-            <Glass key={s.id} radius={20} tint="rgba(255,255,255,0.5)" onClick={() => setDetail(s)}>
-              <div style={{ padding: '16px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <div style={{ fontFamily: SG.serif, fontSize: 19, fontWeight: 500, color: SG.ink }}>
-                    {s.type || 'Séance'} <span style={{ fontFamily: SG.sans, fontSize: 13, fontWeight: 500, color: SG.inkSoft }}>· {(s.exercises||[]).length} exercices</span>
-                  </div>
-                  <div style={{ fontSize: 12, color: SG.inkSoft, marginTop: 3 }}>
-                    {sgFmt(s.date)} · {sgTonnage(s).toLocaleString('fr-FR')} kg{s.dur ? ` · ${s.dur} min` : ''}
-                  </div>
-                </div>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={SG.inkFaint} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 6l6 6-6 6"/></svg>
-              </div>
-            </Glass>
+
+        {/* Filter pills */}
+        <div style={{ display: 'flex', gap: 6, marginBottom: 18, overflowX: 'auto', paddingBottom: 2, WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
+          {types.map(t => (
+            <button key={t} onClick={() => setFilter(t)} style={{ padding: '9px 20px', borderRadius: 22, border: 'none', cursor: 'pointer', background: filter === t ? SG.ink : 'rgba(255,255,255,0.70)', color: filter === t ? '#fff' : SG.ink, fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', boxShadow: filter === t ? '0 2px 10px rgba(31,26,20,0.18)' : '0 1px 4px rgba(31,26,20,0.08)', transition: 'all 0.15s' }}>
+              {t}
+            </button>
           ))}
-          {filtered.length === 0 && <div style={{ textAlign: 'center', padding: 40, color: SG.inkSoft }}>Aucune séance pour ce filtre.</div>}
         </div>
+
+        {/* Session list grouped by month */}
+        {(() => {
+          const groups = {};
+          filtered.forEach(s => {
+            const key = s.date ? s.date.slice(0, 7) : 'unknown';
+            if (!groups[key]) groups[key] = [];
+            groups[key].push(s);
+          });
+          const sorted = Object.entries(groups).sort(([a],[b]) => b.localeCompare(a));
+          if (sorted.length === 0) return (
+            <div style={{ textAlign: 'center', padding: 52, color: SG.inkSoft }}>
+              <div style={{ fontFamily: SG.serif, fontSize: 20, marginBottom: 6, color: SG.ink }}>Aucune séance</div>
+              <div style={{ fontSize: 13 }}>Modifie le filtre ou commence à t'entraîner !</div>
+            </div>
+          );
+          return sorted.map(([key, groupSessions]) => {
+            const [y, m] = key.split('-');
+            const label = `${monthNames[parseInt(m)-1]} ${y}`;
+            return (
+              <div key={key} style={{ marginBottom: 24 }}>
+                <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1.4, color: SG.inkSoft, textTransform: 'uppercase', marginBottom: 10, paddingLeft: 2 }}>{label} · {groupSessions.length}</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {groupSessions.map(s => {
+                    const run = isRunSession(s);
+                    const accent = run ? SG.accent2 : SG.accent;
+                    const dayNum = s.date ? s.date.slice(8) : '–';
+                    const mIdx = s.date ? parseInt(s.date.slice(5,7)) - 1 : 0;
+                    const tonnage = sgTonnage(s);
+                    return (
+                      <Glass key={s.id} radius={20} tint="rgba(255,255,255,0.60)" onClick={() => setDetail(s)} style={{ overflow: 'hidden' }}>
+                        <div style={{ display: 'flex', alignItems: 'stretch' }}>
+                          {/* Colored type bar */}
+                          <div style={{ width: 5, background: accent, flexShrink: 0 }}/>
+                          {/* Date column */}
+                          <div style={{ padding: '15px 14px 15px 15px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minWidth: 50, borderRight: '1px solid rgba(31,26,20,0.07)' }}>
+                            <div style={{ fontFamily: SG.serif, fontSize: 26, fontWeight: 500, lineHeight: 1, color: SG.ink }}>{dayNum}</div>
+                            <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: SG.inkFaint, letterSpacing: 0.6, marginTop: 2 }}>{monthAbbrs[mIdx]}</div>
+                          </div>
+                          {/* Content */}
+                          <div style={{ flex: 1, padding: '15px 14px 15px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, minWidth: 0 }}>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontFamily: SG.serif, fontSize: 19, fontWeight: 500, color: SG.ink, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.type || 'Séance'}</div>
+                              <div style={{ fontSize: 12, color: SG.inkSoft, marginTop: 4, display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
+                                {(s.exercises||[]).length > 0 && <span>{(s.exercises||[]).length} exo</span>}
+                                {tonnage > 0 && <><span style={{ color: SG.inkFaint, fontSize: 10 }}>·</span><span>{tonnage.toLocaleString('fr-FR')} kg</span></>}
+                                {s.dur && <><span style={{ color: SG.inkFaint, fontSize: 10 }}>·</span><span>{s.dur} min</span></>}
+                              </div>
+                            </div>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={SG.inkFaint} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M9 6l6 6-6 6"/></svg>
+                          </div>
+                        </div>
+                      </Glass>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          });
+        })()}
       </div>
     </div>
   );
