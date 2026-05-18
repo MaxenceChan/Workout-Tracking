@@ -1189,7 +1189,7 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession }) {
               {weekDays.map((wd, i) => (
                 <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
                   <div style={{ fontSize: 10, color: SG.inkFaint, fontWeight: 700 }}>{wd.label}</div>
-                  <div style={{ width: 28, height: 28, borderRadius: 14, background: wd.done ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.55)', border: wd.today ? `1.5px solid ${SG.accent}` : '0.5px solid rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: wd.type === 'both' ? 9 : 14 }}>
+                  <div style={{ width: 28, height: 28, borderRadius: 14, background: wd.type === 'muscu' ? SG.accent : wd.type === 'run' ? SG.accent2 : wd.type === 'both' ? `linear-gradient(135deg, ${SG.accent} 0%, ${SG.accent2} 100%)` : 'rgba(255,255,255,0.55)', border: wd.today && !wd.done ? `1.5px solid ${SG.accent}` : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: wd.type === 'both' ? 9 : 14, boxShadow: wd.done ? `0 3px 10px ${wd.type === 'run' ? SG.accent2 : SG.accent}55` : 'none' }}>
                     {wd.type === 'muscu' && '🏋️'}
                     {wd.type === 'run' && '👟'}
                     {wd.type === 'both' && '🏋️👟'}
