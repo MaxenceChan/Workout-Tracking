@@ -275,7 +275,8 @@ function SGTemplatePicker({ templates, onSelect, onClose }) {
 function ExercisePicker({ knownExercises = [], onSelect, onClose }) {
   const [query, setQuery] = useState('');
   const q = query.trim().toLowerCase();
-  const filtered = knownExercises.filter(e => !q || e.toLowerCase().includes(q));
+  const sorted = [...knownExercises].sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
+  const filtered = sorted.filter(e => !q || e.toLowerCase().includes(q));
   const exactMatch = knownExercises.some(e => e.toLowerCase() === q);
   const canCreate = q.length > 0 && !exactMatch;
 
@@ -286,7 +287,7 @@ function ExercisePicker({ knownExercises = [], onSelect, onClose }) {
         <div style={{ fontFamily: SG.serif, fontSize: 22, fontWeight: 500, color: SG.ink, marginBottom: 14, textAlign: 'center', flexShrink: 0 }}>Ajouter un exercice</div>
         <input
           type="text" value={query} onChange={e => setQuery(e.target.value)}
-          placeholder="Rechercher ou créer..." autoFocus
+          placeholder="Rechercher ou créer..."
           style={{ width: '100%', padding: '12px 16px', borderRadius: 14, border: `1.5px solid rgba(31,26,20,0.14)`, background: 'rgba(255,255,255,0.7)', fontSize: 15, color: SG.ink, outline: 'none', boxSizing: 'border-box', marginBottom: 12, fontFamily: SG.sans, flexShrink: 0 }}
         />
         <div style={{ overflowY: 'auto', flex: 1, paddingBottom: 44 }}>
@@ -1591,10 +1592,7 @@ function SGMobileTemplateEdit({ tpl, onSave, onCancel, knownExercises = [] }) {
 // ─── SGMobileTpl ──────────────────────────────────────────────────────────────
 function SGMobileTpl({ data, user, onTab, onOpenForm, onSaveTpl, knownExercises = [] }) {
   const templates = data.sessionTemplates || [];
-  const firstName = (user?.displayName || user?.email || 'Toi').split(/[@\s]/)[0];
-  const firstLetter = firstName[0]?.toUpperCase() || 'M';
   const [editingTpl, setEditingTpl] = useState(null);
-  const [showProfile, setShowProfile] = useState(false);
 
   if (editingTpl !== null) {
     return <SGMobileTemplateEdit
@@ -1607,20 +1605,16 @@ function SGMobileTpl({ data, user, onTab, onOpenForm, onSaveTpl, knownExercises 
 
   return (
     <div style={{ position: 'relative', minHeight: '100vh', paddingBottom: 40 }}>
-      {showProfile && <SGMobileProfileModal user={user} onClose={() => setShowProfile(false)} />}
       <div style={{ position: 'relative', padding: '54px 18px 0', maxWidth: 600, margin: '0 auto' }}>
         <div style={{ marginBottom: 18, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
           <div>
             <div style={{ fontSize: 11, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase' }}>MODÈLES</div>
             <h1 style={{ fontFamily: SG.serif, fontSize: 34, fontWeight: 500, lineHeight: 1, margin: '4px 0 0', color: SG.ink }}>Séances</h1>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <button onClick={() => setShowProfile(true)} style={{ width: 40, height: 40, borderRadius: 20, background: `linear-gradient(135deg, ${SG.accent} 0%, ${SG.accent2} 100%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', cursor: 'pointer', fontFamily: SG.serif, fontSize: 17, fontWeight: 500, color: '#fff', boxShadow: `0 4px 12px ${SG.accent}44`, flexShrink: 0 }}>{firstLetter}</button>
-            <button onClick={() => setEditingTpl({})} style={{ padding: '10px 16px', borderRadius: 18, border: 'none', background: SG.ink, color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-              Nouveau
-            </button>
-          </div>
+          <button onClick={() => setEditingTpl({})} style={{ padding: '10px 16px', borderRadius: 18, border: 'none', background: SG.ink, color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+            Nouveau
+          </button>
         </div>
 
         {templates.length === 0 ? (
@@ -1955,6 +1949,7 @@ function App() {
   const isMobile = vw < 1024;
   const [activeSession, setActiveSession] = useState(null);
   const [showTplPicker, setShowTplPicker] = useState(false);
+  const [showOptions, setShowOptions] = useState(false);
 
   const launchSession = (tpl) => {
     try {
@@ -2189,6 +2184,13 @@ function App() {
     return (
       <div style={{ minHeight: '100vh', overflowX: 'hidden', position: 'relative', fontFamily: SG.sans, color: SG.ink }}>
         <SGMobileBackground />
+        {/* Options button — always visible */}
+        <button onClick={() => setShowOptions(true)} style={{ position: 'fixed', top: 14, right: 14, zIndex: 90, width: 40, height: 40, borderRadius: 20, border: 'none', background: 'rgba(255,255,255,0.60)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', boxShadow: '0 2px 10px rgba(15,15,30,0.10)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={SG.ink} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </button>
+        {showOptions && <SGMobileProfileModal user={user} onClose={() => setShowOptions(false)} />}
         {mobileView === 'home' && <SGMobileHome data={data} user={user} onOpenForm={() => launchSession(null)} onLaunchTpl={(tpl) => launchSession(tpl)} />}
         {mobileView === 'sessions' && <SGMobileHistory data={data} user={user}
           onDeleteSession={async (id) => { try { await deleteSession(user.id, id); setData(cur => ({ ...cur, sessions: cur.sessions.filter(s => s.id !== id) })); } catch(e) { alert('Erreur: ' + e.message); } }}
