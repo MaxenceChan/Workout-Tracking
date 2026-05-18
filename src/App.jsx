@@ -6787,30 +6787,40 @@ function StravaTracker({ user }) {
     window.location.href = `/api/auth/strava?uid=${user.id}`;
   };
 
-  // Stats globales
-  const totalRuns = activities.length;
-  const totalDistKm = (activities.reduce((s, a) => s + (a.distance || 0), 0) / 1000).toFixed(1);
-  const totalTimeMin = Math.round(activities.reduce((s, a) => s + (a.moving_time || 0), 0) / 60);
-  const avgDistKm = totalRuns > 0 ? (parseFloat(totalDistKm) / totalRuns).toFixed(1) : '0';
+  // Filtre période
+  const todayStr = new Date().toISOString().slice(0,10);
+  const firstActivity = useMemo(() => {
+    if (!activities.length) return todayStr;
+    return [...activities].sort((a,b) => a.date < b.date ? -1 : 1)[0].date;
+  }, [activities]);
+  const [startDate, setStartDate] = useState(firstActivity);
+  const [endDate, setEndDate] = useState(todayStr);
+  useEffect(() => { setStartDate(firstActivity); }, [firstActivity]);
+
+  const filtered = useMemo(() =>
+    activities.filter(a => a.date >= startDate && a.date <= endDate),
+    [activities, startDate, endDate]);
+
+  // Stats sur la période filtrée
+  const totalRuns = filtered.length;
+  const totalDistKm = (filtered.reduce((s, a) => s + (a.distance || 0), 0) / 1000).toFixed(1);
+  const totalTimeMin = Math.round(filtered.reduce((s, a) => s + (a.moving_time || 0), 0) / 60);
   const avgPaceStr = (function() {
-    const totalDist = activities.reduce((s, a) => s + (a.distance || 0), 0);
-    const totalTime = activities.reduce((s, a) => s + (a.moving_time || 0), 0);
+    const totalDist = filtered.reduce((s, a) => s + (a.distance || 0), 0);
+    const totalTime = filtered.reduce((s, a) => s + (a.moving_time || 0), 0);
     if (!totalDist) return '—';
-    const secPKm = (totalTime / (totalDist / 1000));
+    const secPKm = totalTime / (totalDist / 1000);
     const m = Math.floor(secPKm / 60);
     const s = Math.round(secPKm % 60);
     return `${m}'${String(s).padStart(2,'0')}"`;
   })();
 
-  // Graphe distance par sortie (30 derniers)
-  const chartData = [...activities].reverse().slice(-30).map(a => ({
+  // Graphe distance par sortie (période filtrée)
+  const chartData = [...filtered].sort((a,b) => a.date < b.date ? -1 : 1).map(a => ({
     date: a.date?.slice(5),
     km: parseFloat((a.distance / 1000).toFixed(2)),
     name: a.name,
   }));
-
-  // Sections connexion
-  const showConnect = !loading && (needsReauth || (!error && activities.length === 0));
 
   return (
     <div className="space-y-6">
@@ -6819,32 +6829,23 @@ function StravaTracker({ user }) {
         <CardContent>
           <h3 className="font-semibold">🏃 Suivi Run – Strava</h3>
           {loading && <p className="text-sm text-gray-500 mt-2">Chargement des activités…</p>}
-          {!loading && error && (
-            <div className="mt-2 space-y-2">
-              <p className="text-sm text-red-500">❌ Impossible de récupérer les données Strava.</p>
-              <Button variant="secondary" onClick={connectStrava}>Connecter Strava</Button>
-            </div>
-          )}
-          {!loading && needsReauth && (
-            <div className="mt-2 space-y-2">
-              <p className="text-sm text-amber-500">⚠️ Reconnexion Strava nécessaire.</p>
-              <Button variant="secondary" onClick={connectStrava}>Se reconnecter</Button>
-            </div>
-          )}
-          {!loading && !error && !needsReauth && activities.length === 0 && (
-            <div className="mt-2 space-y-2">
-              <p className="text-sm text-gray-500">Connecte ton compte Strava pour voir tes stats de course.</p>
-              <Button variant="secondary" onClick={connectStrava}>Connecter Strava</Button>
-            </div>
-          )}
-          {!loading && !error && !needsReauth && activities.length > 0 && (
-            <p className="text-sm text-green-500 mt-2">✅ Strava connecté</p>
-          )}
+          {!loading && error && <div className="mt-2 space-y-2"><p className="text-sm text-red-500">❌ Impossible de récupérer les données Strava.</p><Button variant="secondary" onClick={connectStrava}>Connecter Strava</Button></div>}
+          {!loading && needsReauth && <div className="mt-2 space-y-2"><p className="text-sm text-amber-500">⚠️ Reconnexion Strava nécessaire.</p><Button variant="secondary" onClick={connectStrava}>Se reconnecter</Button></div>}
+          {!loading && !error && !needsReauth && activities.length === 0 && <div className="mt-2 space-y-2"><p className="text-sm text-gray-500">Connecte ton compte Strava pour voir tes stats de course.</p><Button variant="secondary" onClick={connectStrava}>Connecter Strava</Button></div>}
+          {!loading && !error && !needsReauth && activities.length > 0 && <p className="text-sm text-green-500 mt-2">✅ Strava connecté</p>}
         </CardContent>
       </Card>
 
       {activities.length > 0 && (
         <>
+          {/* Filtre période */}
+          <Card>
+            <CardContent className="grid grid-cols-2 gap-4">
+              <div><Label>Début</Label><Input type="date" lang="fr-FR" value={startDate} min={firstActivity} max={endDate} onChange={e => setStartDate(e.target.value)} /></div>
+              <div><Label>Fin</Label><Input type="date" lang="fr-FR" value={endDate} min={startDate} max={todayStr} onChange={e => setEndDate(e.target.value)} /></div>
+            </CardContent>
+          </Card>
+
           {/* KPIs */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {[
@@ -6883,7 +6884,7 @@ function StravaTracker({ user }) {
             <CardContent>
               <h3 className="font-semibold text-lg mb-3">🗒️ Dernières sorties</h3>
               <div className="space-y-2 max-h-80 overflow-y-auto">
-                {[...activities].reverse().map(a => {
+                {[...filtered].reverse().map(a => {
                   const km = (a.distance / 1000).toFixed(2);
                   const min = Math.floor(a.moving_time / 60);
                   const sec = a.moving_time % 60;
@@ -6959,7 +6960,7 @@ function StepsTracker({ user }) {
   }, [user?.id]);
 
   /* ─────────────────────────────
-     FILTRE 1 — MOYENNE PAS / JOUR
+     FILTRE PÉRIODE UNIFIÉ
   ───────────────────────────── */
   const today = todayISO();
 
@@ -6968,48 +6969,19 @@ function StepsTracker({ user }) {
     return stepsData.map(d => d.date).sort()[0];
   }, [stepsData]);
 
-  const [avgStartDate, setAvgStartDate] = useState(firstDate);
-  const [avgEndDate, setAvgEndDate] = useState(today);
+  const [startDate, setStartDate] = useState(firstDate);
+  const [endDate, setEndDate] = useState(today);
 
-  useEffect(() => {
-    setAvgStartDate(firstDate);
-    setAvgEndDate(today);
-  }, [firstDate, today]);
+  useEffect(() => { setStartDate(firstDate); setEndDate(today); }, [firstDate, today]);
+
+  const graphData = useMemo(() =>
+    stepsData.filter(d => d.date >= startDate && d.date <= endDate),
+    [stepsData, startDate, endDate]);
 
   const avgSteps = useMemo(() => {
-    const filtered = stepsData.filter(
-      d => d.date >= avgStartDate && d.date <= avgEndDate
-    );
-    if (!filtered.length) return 0;
-    return Math.round(
-      filtered.reduce((sum, d) => sum + d.steps, 0) / filtered.length
-    );
-  }, [stepsData, avgStartDate, avgEndDate]);
-
-  /* ─────────────────────────────
-     FILTRE 2 — MOIS (GRAPHIQUES)
-  ───────────────────────────── */
-  const todayMonth = today.slice(0, 7);
-
-  const firstMonth = useMemo(() => {
-    if (!stepsData.length) return todayMonth;
-    return stepsData.map(d => d.date.slice(0, 7)).sort()[0];
-  }, [stepsData]);
-
-  const [monthStart, setMonthStart] = useState(firstMonth);
-  const [monthEnd, setMonthEnd] = useState(todayMonth);
-
-  useEffect(() => {
-    setMonthStart(firstMonth);
-    setMonthEnd(todayMonth);
-  }, [firstMonth, todayMonth]);
-
-  const graphData = useMemo(() => {
-    return stepsData.filter(d => {
-      const m = d.date.slice(0, 7);
-      return m >= monthStart && m <= monthEnd;
-    });
-  }, [stepsData, monthStart, monthEnd]);
+    if (!graphData.length) return 0;
+    return Math.round(graphData.reduce((s, d) => s + d.steps, 0) / graphData.length);
+  }, [graphData]);
 
   const monthlySteps = useMemo(() => {
     const map = {};
@@ -7017,17 +6989,9 @@ function StepsTracker({ user }) {
       const key = date.slice(0, 7);
       map[key] = (map[key] || 0) + steps;
     });
-
     return Object.entries(map).map(([key, total]) => {
       const [y, m] = key.split("-");
-      return {
-        month: new Date(y, m - 1).toLocaleDateString("fr-FR", {
-          month: "long",
-          year: "2-digit",
-        }),
-        total,
-        totalK: Math.round(total / 1000),
-      };
+      return { month: new Date(y, m - 1).toLocaleDateString("fr-FR", { month: "long", year: "2-digit" }), total, totalK: Math.round(total / 1000) };
     });
   }, [graphData]);
 
@@ -7037,131 +7001,31 @@ function StepsTracker({ user }) {
   return (
     <div className="space-y-6">
 
-      {/* ───── Ligne 1 */}
-      <div className="grid lg:grid-cols-2 gap-4">
-        <Card>
-          <CardContent>
-            <h3 className="font-semibold">🚶 Suivi des pas</h3>
-            {loading && (
-              <p className="text-sm text-gray-500 mt-2">
-                Chargement des pas…
-              </p>
-            )}
-            {!loading && error && (
-              <div className="mt-2 space-y-2">
-                <p className="text-sm text-red-500">
-                  ❌ Impossible de récupérer les pas pour le moment.
-                </p>
-                <Button
-                  variant="secondary"
-                  onClick={() => {
-                    window.location.href = `/api/auth/google-fit?uid=${user.id}`;
-                  }}
-                >
-                  Connecter Google Fit
-                </Button>
-              </div>
-            )}
-            {!loading && !error && !needsReauth && !stepsData.length && (
-              <div className="mt-2 space-y-2">
-                <p className="text-sm text-gray-500">
-                  ⚡ Connecte Google Fit pour commencer le suivi des pas.
-                </p>
-                <Button
-                  variant="secondary"
-                  onClick={() => {
-                    window.location.href = `/api/auth/google-fit?uid=${user.id}`;
-                  }}
-                >
-                  Connecter Google Fit
-                </Button>
-              </div>
-            )}
-            {!loading && !error && !needsReauth && stepsData.length > 0 && (
-              <p className="text-sm text-green-500 mt-2">
-                ✅ Google Fit connecté
-              </p>
-            )}
-            {!loading && !error && needsReauth && (
-              <div className="mt-2 space-y-2">
-                <p className="text-sm text-amber-500">
-                  ⚠️ Reconnexion Google Fit nécessaire pour récupérer les
-                  90 derniers jours de pas.
-                </p>
-                <Button
-                  variant="secondary"
-                  onClick={() => {
-                    window.location.href = `/api/auth/google-fit?uid=${user.id}`;
-                  }}
-                >
-                  Se reconnecter
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+      {/* ───── Connexion */}
+      <Card>
+        <CardContent>
+          <h3 className="font-semibold">🚶 Suivi des pas</h3>
+          {loading && <p className="text-sm text-gray-500 mt-2">Chargement des pas…</p>}
+          {!loading && error && <div className="mt-2 space-y-2"><p className="text-sm text-red-500">❌ Impossible de récupérer les pas.</p><Button variant="secondary" onClick={() => { window.location.href = `/api/auth/google-fit?uid=${user.id}`; }}>Connecter Google Fit</Button></div>}
+          {!loading && !error && !needsReauth && !stepsData.length && <div className="mt-2 space-y-2"><p className="text-sm text-gray-500">⚡ Connecte Google Fit pour commencer le suivi des pas.</p><Button variant="secondary" onClick={() => { window.location.href = `/api/auth/google-fit?uid=${user.id}`; }}>Connecter Google Fit</Button></div>}
+          {!loading && !error && !needsReauth && stepsData.length > 0 && <p className="text-sm text-green-500 mt-2">✅ Google Fit connecté</p>}
+          {!loading && !error && needsReauth && <div className="mt-2 space-y-2"><p className="text-sm text-amber-500">⚠️ Reconnexion Google Fit nécessaire.</p><Button variant="secondary" onClick={() => { window.location.href = `/api/auth/google-fit?uid=${user.id}`; }}>Se reconnecter</Button></div>}
+        </CardContent>
+      </Card>
 
-        <Card>
-          <CardContent className="space-y-4">
-            <h3 className="font-semibold">📊 Moyenne de pas</h3>
-
-            <div className="text-4xl font-bold">
-              {avgSteps.toLocaleString()} <span className="text-sm">/ jour</span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 pt-2">
-              <div>
-                <Label>Date de début</Label>
-                <Input
-                  type="date"
-                  lang="fr-FR"
-                  value={avgStartDate}
-                  min={firstDate}
-                  max={avgEndDate}
-                  onChange={(e) => setAvgStartDate(e.target.value)}
-                />
-              </div>
-              <div>
-                <Label>Date de fin</Label>
-                <Input
-                  type="date"
-                  lang="fr-FR"
-                  value={avgEndDate}
-                  min={avgStartDate}
-                  max={today}
-                  onChange={(e) => setAvgEndDate(e.target.value)}
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* ───── Filtre mois */}
+      {/* ───── Filtre période */}
       <Card>
         <CardContent className="grid grid-cols-2 gap-4">
-          <div>
-            <Label>Mois de début</Label>
-            <Input
-              type="month"
-              lang="fr-FR"
-              value={monthStart}
-              min={firstMonth}
-              max={monthEnd}
-              onChange={(e) => setMonthStart(e.target.value)}
-            />
-          </div>
-          <div>
-            <Label>Mois de fin</Label>
-            <Input
-              type="month"
-              lang="fr-FR"
-              value={monthEnd}
-              min={monthStart}
-              max={todayMonth}
-              onChange={(e) => setMonthEnd(e.target.value)}
-            />
-          </div>
+          <div><Label>Début</Label><Input type="date" lang="fr-FR" value={startDate} min={firstDate} max={endDate} onChange={e => setStartDate(e.target.value)} /></div>
+          <div><Label>Fin</Label><Input type="date" lang="fr-FR" value={endDate} min={startDate} max={today} onChange={e => setEndDate(e.target.value)} /></div>
+        </CardContent>
+      </Card>
+
+      {/* ───── Moyenne softglow */}
+      <Card style={{ boxShadow: '0 10px 40px -10px rgba(59,130,246,0.35)', border: '1px solid rgba(59,130,246,0.18)', background: 'linear-gradient(135deg, rgba(59,130,246,0.06) 0%, rgba(255,255,255,0) 100%)' }}>
+        <CardContent>
+          <h3 className="font-semibold">📊 Moyenne de pas</h3>
+          <div className="text-4xl font-bold mt-2">{avgSteps.toLocaleString()} <span className="text-sm font-normal text-gray-500">/ jour</span></div>
         </CardContent>
       </Card>
 
