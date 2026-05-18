@@ -1274,18 +1274,30 @@ function SGMobileSessionEdit({ session, onSave, onCancel, upsertFn }) {
   const [exercises, setExercises] = useState(
     (session.exercises || []).map(ex => ({
       name: ex.name,
-      sets: (ex.sets || []).map(s => ({ reps: String(s.reps ?? '10'), weight: String(s.weight ?? '0') }))
+      sets: (ex.sets || []).map(s => ({ reps: Number(s.reps ?? 10), weight: Number(s.weight ?? 0) }))
     }))
   );
   const [date, setDate] = useState(session.date || toLocalISO(new Date()));
   const [saving, setSaving] = useState(false);
+  const [selExIdx, setSelExIdx] = useState(0);
+  const [selSetIdx, setSelSetIdx] = useState(0);
+  const [renamingIdx, setRenamingIdx] = useState(null);
+  const [renameVal, setRenameVal] = useState('');
 
   const updEx = (i, fn) => setExercises(exs => exs.map((e, idx) => idx === i ? fn(e) : e));
   const updSet = (ei, si, field, val) => updEx(ei, ex => ({ ...ex, sets: ex.sets.map((s, idx) => idx === si ? { ...s, [field]: val } : s) }));
-  const addSet = (ei) => updEx(ei, ex => ({ ...ex, sets: [...ex.sets, { reps: '10', weight: '0' }] }));
-  const delSet = (ei, si) => updEx(ei, ex => ({ ...ex, sets: ex.sets.filter((_, idx) => idx !== si) }));
-  const delEx = (i) => setExercises(exs => exs.filter((_, idx) => idx !== i));
-  const addEx = () => setExercises(exs => [...exs, { name: 'Nouvel exercice', sets: [{ reps: '10', weight: '0' }] }]);
+  const addSet = (ei) => { updEx(ei, ex => ({ ...ex, sets: [...ex.sets, { reps: 10, weight: 0 }] })); setSelExIdx(ei); setSelSetIdx(exercises[ei].sets.length); };
+  const delSet = (ei, si) => { updEx(ei, ex => ({ ...ex, sets: ex.sets.filter((_, idx) => idx !== si) })); if (selExIdx === ei && selSetIdx >= si) setSelSetIdx(Math.max(0, selSetIdx - 1)); };
+  const delEx = (i) => { setExercises(exs => exs.filter((_, idx) => idx !== i)); if (selExIdx >= i) setSelExIdx(Math.max(0, selExIdx - 1)); };
+  const addEx = () => { setExercises(exs => [...exs, { name: 'Nouvel exercice', sets: [{ reps: 10, weight: 0 }] }]); setSelExIdx(exercises.length); setSelSetIdx(0); };
+  const renameEx = (i, name) => { if (name.trim()) updEx(i, ex => ({ ...ex, name: name.trim() })); setRenamingIdx(null); };
+
+  const selEx = exercises[selExIdx];
+  const selSet = selEx?.sets[selSetIdx];
+  const curReps = selSet?.reps ?? 10;
+  const curKg = selSet?.weight ?? 0;
+  const setReps = (fn) => { const v = typeof fn === 'function' ? fn(curReps) : fn; updSet(selExIdx, selSetIdx, 'reps', Math.max(1, v)); };
+  const setKg = (fn) => { const v = typeof fn === 'function' ? fn(curKg) : fn; updSet(selExIdx, selSetIdx, 'weight', Math.max(0, parseFloat(v.toFixed(1)))); };
 
   const handleSave = async () => {
     setSaving(true);
@@ -1305,7 +1317,7 @@ function SGMobileSessionEdit({ session, onSave, onCancel, upsertFn }) {
     <div style={{ position: 'relative', minHeight: '100vh', paddingBottom: 120 }}>
       <div style={{ position: 'relative', padding: '50px 18px 0', maxWidth: 600, margin: '0 auto' }}>
 
-        {/* Header — même structure que SGActiveSession */}
+        {/* Header identique à SGActiveSession */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
           <Glass radius={22} tint="rgba(255,255,255,0.7)" style={{ width: 44, height: 44 }} onClick={onCancel}>
             <div style={{ width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1323,7 +1335,7 @@ function SGMobileSessionEdit({ session, onSave, onCancel, upsertFn }) {
           <div style={{ width: 44, height: 44 }} />
         </div>
 
-        {/* Carte stats — même style que la carte timer/tonnage */}
+        {/* Carte stats */}
         <Glass radius={26} tint="rgba(255,255,255,0.50)" style={{ marginBottom: 12 }}>
           <div style={{ padding: '18px 22px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
@@ -1340,95 +1352,117 @@ function SGMobileSessionEdit({ session, onSave, onCancel, upsertFn }) {
             </div>
             <div style={{ display: 'flex', gap: 4, marginTop: 14 }}>
               {exercises.map((_, i) => (
-                <div key={i} style={{ flex: 1, height: 6, borderRadius: 3, background: SG.accent, opacity: 0.65 }} />
+                <div key={i} style={{ flex: 1, height: 6, borderRadius: 3, background: i === selExIdx ? SG.accent : 'rgba(200,100,58,0.25)' }} />
               ))}
             </div>
-            <div style={{ fontSize: 11, color: SG.inkFaint, marginTop: 6 }}>
-              {exercises.reduce((acc, ex) => acc + ex.sets.length, 0)} séries au total
-            </div>
+            <div style={{ fontSize: 11, color: SG.inkFaint, marginTop: 6 }}>Exercice {selExIdx + 1} / {exercises.length} · {exercises.reduce((acc, ex) => acc + ex.sets.length, 0)} séries</div>
           </div>
         </Glass>
 
-        {/* Cartes exercices — même style que renderExCard */}
-        {exercises.map((ex, ei) => (
-          <Glass key={ei} radius={26} tint="rgba(255,255,255,0.55)"
-            style={{ marginBottom: 12, border: `1.5px solid ${SG.accent}`, boxShadow: `0 8px 24px ${SG.accent}22` }}>
-            <div style={{ padding: 20 }}>
-              {/* En-tête exercice */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 11, color: SG.accent, fontWeight: 800, letterSpacing: 0.8, textTransform: 'uppercase' }}>EXERCICE {ei + 1} / {exercises.length}</div>
-                  <input value={ex.name} onChange={e => updEx(ei, ex => ({ ...ex, name: e.target.value }))}
-                    style={{ fontFamily: SG.serif, fontSize: 26, fontWeight: 500, color: SG.ink, background: 'transparent', border: 'none', borderBottom: `2px solid ${SG.accent}`, outline: 'none', width: '100%', marginTop: 3, letterSpacing: -0.4 }} />
+        {/* Cartes exercices — exactement comme renderExCard */}
+        {exercises.map((ex, ei) => {
+          const isCurEx = ei === selExIdx;
+          const exTonnage = ex.sets.reduce((s, st) => s + (Number(st.reps)||0)*(Number(st.weight)||0), 0);
+          return (
+            <Glass key={ei} radius={26} tint={isCurEx ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.45)'}
+              style={{ marginBottom: 12, border: isCurEx ? `1.5px solid ${SG.accent}` : '1px solid rgba(255,255,255,0.4)', boxShadow: isCurEx ? `0 8px 24px ${SG.accent}22` : 'none' }}>
+              <div style={{ padding: 20 }}>
+                {/* En-tête */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 11, color: isCurEx ? SG.accent : SG.inkSoft, fontWeight: 800, letterSpacing: 0.8, textTransform: 'uppercase' }}>EXERCICE {ei + 1} / {exercises.length}</div>
+                    {renamingIdx === ei ? (
+                      <input autoFocus value={renameVal} onChange={e => setRenameVal(e.target.value)}
+                        onBlur={() => renameEx(ei, renameVal)}
+                        onKeyDown={e => { if (e.key === 'Enter') renameEx(ei, renameVal); if (e.key === 'Escape') setRenamingIdx(null); }}
+                        style={{ fontFamily: SG.serif, fontSize: 26, fontWeight: 500, color: SG.ink, border: 'none', borderBottom: `2px solid ${SG.accent}`, background: 'transparent', outline: 'none', width: '100%', marginTop: 3 }} />
+                    ) : (
+                      <div style={{ fontFamily: SG.serif, fontSize: 26, fontWeight: 500, marginTop: 3, letterSpacing: -0.4, color: SG.ink }}>{ex.name}</div>
+                    )}
+                    {exTonnage > 0 && <div style={{ fontSize: 11, color: SG.inkSoft, marginTop: 2 }}>{(exTonnage/1000).toFixed(2)} t</div>}
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0, marginLeft: 8 }}>
+                    <button onClick={e => { e.stopPropagation(); setRenamingIdx(ei); setRenameVal(ex.name); }} style={{ width: 32, height: 32, borderRadius: 10, border: 'none', background: 'rgba(31,26,20,0.06)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={SG.inkSoft} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    </button>
+                    <button onClick={() => delEx(ei)} style={{ width: 32, height: 32, borderRadius: 10, border: 'none', background: 'rgba(178,58,58,0.10)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{iconTrash()}</button>
+                  </div>
                 </div>
-                <button onClick={() => delEx(ei)} style={{ width: 32, height: 32, borderRadius: 10, border: 'none', background: 'rgba(178,58,58,0.10)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginLeft: 8, marginTop: 20 }}>
-                  {iconTrash()}
-                </button>
-              </div>
 
-              {/* Séries avec steppers identiques à la saisie */}
-              <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 14 }}>
-                {ex.sets.map((s, si) => (
-                  <div key={si}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                      <div style={{ width: 28, height: 28, borderRadius: 14, background: SG.ink, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800, color: '#fff', flexShrink: 0 }}>{si + 1}</div>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: SG.inkSoft, letterSpacing: 0.3 }}>Série {si + 1}</div>
-                      <button onClick={() => delSet(ei, si)} style={{ marginLeft: 'auto', width: 28, height: 28, borderRadius: 8, border: 'none', background: 'rgba(178,58,58,0.1)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        {iconTrash('#B23A3A')}
-                      </button>
-                    </div>
-                    {/* Même grille 2 colonnes reps/kg que SGActiveSession */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                {/* Rangées de séries — même style que la saisie */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 14 }}>
+                  {ex.sets.map((s, si) => {
+                    const isCur = isCurEx && si === selSetIdx;
+                    return (
+                      <div key={si} onClick={() => { setSelExIdx(ei); setSelSetIdx(si); }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 16, background: isCur ? SG.ink : 'rgba(255,255,255,0.4)', color: isCur ? '#fff' : SG.ink, transition: 'all 200ms', cursor: 'pointer' }}>
+                        <div style={{ width: 28, height: 28, borderRadius: 14, background: isCur ? SG.accent : 'transparent', border: !isCur ? `1.5px solid rgba(31,26,20,0.20)` : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isCur ? '#fff' : SG.ink, fontSize: 12, fontWeight: 800, flexShrink: 0 }}>{si + 1}</div>
+                        <div style={{ flex: 1, fontFamily: SG.serif, fontSize: 17, fontWeight: 500 }}>
+                          {isCur ? `${curReps} reps · ${Number.isInteger(curKg) ? curKg : curKg.toFixed(1)} kg` : `${s.reps} reps · ${s.weight} kg`}
+                        </div>
+                        {isCur && <div style={{ fontSize: 10, fontWeight: 800, color: SG.accent, letterSpacing: 0.5 }}>EN COURS</div>}
+                      </div>
+                    );
+                  })}
+                  <button onClick={() => addSet(ei)} style={{ marginTop: 4, padding: '8px 14px', borderRadius: 14, border: `1.5px dashed rgba(31,26,20,0.14)`, background: 'transparent', cursor: 'pointer', fontSize: 12, color: SG.inkSoft, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                    {iconPlus(SG.inkSoft)} Ajouter une série
+                  </button>
+                </div>
+
+                {/* Steppers reps/kg — uniquement sur l'exercice sélectionné */}
+                {isCurEx && (
+                  <>
+                    <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                       <Glass radius={18} tint="rgba(255,255,255,0.6)">
                         <div style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <button onClick={() => updSet(ei, si, 'reps', String(Math.max(1, (Number(s.reps) || 0) - 1)))}
-                            style={{ width: 36, height: 36, borderRadius: 18, border: 'none', cursor: 'pointer', background: SG.ink, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{iconMinus('#fff')}</button>
+                          <button onClick={() => setReps(v => v - 1)} style={{ width: 36, height: 36, borderRadius: 18, border: 'none', cursor: 'pointer', background: SG.ink, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{iconMinus('#fff')}</button>
                           <div style={{ textAlign: 'center', flex: 1 }}>
                             <div style={{ fontSize: 9, color: SG.inkSoft, fontWeight: 800, letterSpacing: 1 }}>REPS</div>
-                            <input type="number" value={s.reps} onChange={e => updSet(ei, si, 'reps', e.target.value)}
-                              style={{ width: '100%', border: 'none', background: 'transparent', textAlign: 'center', fontFamily: SG.serif, fontSize: 26, fontWeight: 500, color: SG.ink, outline: 'none' }} />
+                            <div style={{ fontFamily: SG.serif, fontSize: 26, fontWeight: 500, lineHeight: 1.1, letterSpacing: -0.5, color: SG.ink }}>{curReps}</div>
                           </div>
-                          <button onClick={() => updSet(ei, si, 'reps', String((Number(s.reps) || 0) + 1))}
-                            style={{ width: 36, height: 36, borderRadius: 18, border: 'none', cursor: 'pointer', background: SG.accent, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 4px 10px ${SG.accent}44` }}>{iconPlus('#fff')}</button>
+                          <button onClick={() => setReps(v => v + 1)} style={{ width: 36, height: 36, borderRadius: 18, border: 'none', cursor: 'pointer', background: SG.accent, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 4px 10px ${SG.accent}44` }}>{iconPlus('#fff')}</button>
                         </div>
                       </Glass>
                       <Glass radius={18} tint="rgba(255,255,255,0.6)">
                         <div style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <button onClick={() => updSet(ei, si, 'weight', String(Math.max(0, parseFloat((parseFloat(s.weight || 0) - 2.5).toFixed(1)))))}
-                            style={{ width: 36, height: 36, borderRadius: 18, border: 'none', cursor: 'pointer', background: SG.ink, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{iconMinus('#fff')}</button>
+                          <button onClick={() => setKg(v => v - 2.5)} style={{ width: 36, height: 36, borderRadius: 18, border: 'none', cursor: 'pointer', background: SG.ink, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{iconMinus('#fff')}</button>
                           <div style={{ textAlign: 'center', flex: 1 }}>
                             <div style={{ fontSize: 9, color: SG.inkSoft, fontWeight: 800, letterSpacing: 1 }}>KG</div>
-                            <input type="number" step="0.5" value={s.weight} onChange={e => updSet(ei, si, 'weight', e.target.value)}
-                              style={{ width: '100%', border: 'none', background: 'transparent', textAlign: 'center', fontFamily: SG.serif, fontSize: 26, fontWeight: 500, color: SG.ink, outline: 'none' }} />
+                            <div style={{ fontFamily: SG.serif, fontSize: 26, fontWeight: 500, lineHeight: 1.1, letterSpacing: -0.5, color: SG.ink }}>{Number.isInteger(curKg) ? curKg : curKg.toFixed(1)}</div>
                           </div>
-                          <button onClick={() => updSet(ei, si, 'weight', String(parseFloat((parseFloat(s.weight || 0) + 2.5).toFixed(1))))}
-                            style={{ width: 36, height: 36, borderRadius: 18, border: 'none', cursor: 'pointer', background: SG.accent, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 4px 10px ${SG.accent}44` }}>{iconPlus('#fff')}</button>
+                          <button onClick={() => setKg(v => v + 2.5)} style={{ width: 36, height: 36, borderRadius: 18, border: 'none', cursor: 'pointer', background: SG.accent, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 4px 10px ${SG.accent}44` }}>{iconPlus('#fff')}</button>
                         </div>
                       </Glass>
                     </div>
-                  </div>
-                ))}
-              </div>
+                    {/* Supprimer série sélectionnée */}
+                    {ex.sets.length > 1 && (
+                      <button onClick={() => delSet(ei, selSetIdx)} style={{ marginTop: 10, width: '100%', padding: '9px 0', borderRadius: 14, border: 'none', background: 'rgba(178,58,58,0.08)', cursor: 'pointer', fontSize: 12, color: '#B23A3A', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                        {iconTrash('#B23A3A')} Supprimer cette série
+                      </button>
+                    )}
+                  </>
+                )}
 
-              {/* Ajouter une série — même style dashed */}
-              <button onClick={() => addSet(ei)} style={{ marginTop: 12, padding: '8px 14px', borderRadius: 14, border: `1.5px dashed rgba(31,26,20,0.14)`, background: 'transparent', cursor: 'pointer', fontSize: 12, color: SG.inkSoft, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, width: '100%' }}>
-                {iconPlus(SG.inkSoft)} Ajouter une série
-              </button>
-            </div>
-          </Glass>
-        ))}
+                {/* Pour les exercices non actifs */}
+                {!isCurEx && (
+                  <button onClick={() => { setSelExIdx(ei); setSelSetIdx(0); }} style={{ marginTop: 14, width: '100%', padding: 12, borderRadius: 18, border: `1.5px solid ${SG.ink}`, background: 'transparent', cursor: 'pointer', fontSize: 14, fontWeight: 700, color: SG.ink }}>
+                    Modifier cet exercice
+                  </button>
+                )}
+              </div>
+            </Glass>
+          );
+        })}
 
         {/* Ajouter un exercice */}
         <button onClick={addEx} style={{ width: '100%', padding: 14, borderRadius: 20, border: `1.5px dashed rgba(31,26,20,0.18)`, background: 'transparent', cursor: 'pointer', fontSize: 13, color: SG.inkSoft, fontWeight: 600, marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
           {iconPlus(SG.inkSoft)} Ajouter un exercice
         </button>
 
-        {/* Bouton enregistrer — même style que "Valider la série" */}
+        {/* Enregistrer — même style que "Valider la série" */}
         <button onClick={handleSave} disabled={saving}
           style={{ width: '100%', height: 58, borderRadius: 22, border: 'none', cursor: saving ? 'default' : 'pointer', background: SG.accent, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontWeight: 800, fontSize: 17, letterSpacing: 0.3, boxShadow: `0 12px 28px ${SG.accent}44, inset 0 1px 0 rgba(255,255,255,0.3)`, opacity: saving ? 0.7 : 1 }}>
-          {saving ? 'Enregistrement…' : (
-            <><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 13l4 4L19 7"/></svg> Enregistrer la séance</>
-          )}
+          {saving ? 'Enregistrement…' : <><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 13l4 4L19 7"/></svg> Enregistrer la séance</>}
         </button>
       </div>
     </div>
