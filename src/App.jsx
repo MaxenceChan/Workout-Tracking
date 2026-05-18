@@ -1533,7 +1533,7 @@ function SGMobileStats({ data, user }) {
   const avgPerWeek = filteredSessions.length > 0 ? (filteredSessions.length / weeks).toFixed(1) : '0';
 
   const subTabs = [
-    { k: 'stats', label: 'Progrès' },
+    { k: 'stats', label: 'Muscu' },
     { k: 'evolution', label: 'Évolution' },
     { k: 'poids', label: 'Poids' },
     { k: 'pas', label: 'Pas' },
