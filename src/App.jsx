@@ -751,9 +751,14 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl }) {
   const sessions = data.sessions || [];
   const templates = data.sessionTemplates || [];
   const lastSession = sessions[0];
-  const streak = sgStreak(sessions);
   const weekDone = sgWeekDone(sessions);
   const weekDays = sgWeekDays(sessions);
+  const firstSession = sessions.length > 0 ? sessions[sessions.length - 1] : null;
+  const firstDate = firstSession ? new Date(firstSession.date + 'T00:00:00') : null;
+  const weeksElapsed = firstDate ? Math.max(1, Math.round((Date.now() - firstDate.getTime()) / (7 * 24 * 3600 * 1000))) : 1;
+  const avgPerWeek = firstDate ? (sessions.length / weeksElapsed) : 0;
+  const monthsElapsed = firstDate ? Math.round((Date.now() - firstDate.getTime()) / (30.44 * 24 * 3600 * 1000)) : 0;
+  const sinceMonth = firstDate ? firstDate.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }) : null;
   const suggestion = templates[0] || null;
   const todayFR = new Date().toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }).toUpperCase();
   const firstName = (user?.email || 'Toi').split('@')[0];
@@ -780,17 +785,20 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl }) {
         <Glass radius={28} style={{ marginBottom: 12 }} tint="rgba(255,255,255,0.52)">
           <div style={{ padding: '20px 22px 22px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ fontSize: 11, color: SG.inkSoft, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase' }}>Streak</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: SG.accent }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill={SG.accent}><path d="M12 2c1 4 5 5 5 10a5 5 0 0 1-10 0c0-2 1-3 2-4-1 4 1 5 3 5s3-2 1-5c-1-2-1-4-1-6z"/></svg>
-                <span style={{ fontSize: 11, fontWeight: 700 }}>EN FEU</span>
-              </div>
+              <div style={{ fontSize: 11, color: SG.inkSoft, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase' }}>Moyenne</div>
+              {sinceMonth && (
+                <div style={{ fontSize: 11, color: SG.inkSoft, fontStyle: 'italic' }}>
+                  depuis {sinceMonth}{monthsElapsed > 0 ? ` · ${monthsElapsed} mois` : ''}
+                </div>
+              )}
             </div>
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14, marginTop: 4 }}>
-              <div style={{ fontFamily: SG.serif, fontSize: 88, lineHeight: 0.9, fontWeight: 400, letterSpacing: -2, color: SG.ink }}>{streak || sessions.length}</div>
+              <div style={{ fontFamily: SG.serif, fontSize: 88, lineHeight: 0.9, fontWeight: 400, letterSpacing: -2, color: SG.ink }}>
+                {sessions.length === 0 ? '—' : avgPerWeek < 10 ? avgPerWeek.toFixed(1) : Math.round(avgPerWeek)}
+              </div>
               <div style={{ paddingBottom: 14 }}>
-                <div style={{ fontFamily: SG.serif, fontStyle: 'italic', fontSize: 18, color: SG.ink }}>{streak > 0 ? 'semaines' : 'séances'}</div>
-                {streak > 0 && <div style={{ fontSize: 11, color: SG.inkSoft }}>≥ 3 séances / sem.</div>}
+                <div style={{ fontFamily: SG.serif, fontStyle: 'italic', fontSize: 18, color: SG.ink }}>séances</div>
+                <div style={{ fontSize: 11, color: SG.inkSoft }}>par semaine</div>
               </div>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 14 }}>
