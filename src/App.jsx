@@ -502,6 +502,7 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, known
   const [showSummary, setShowSummary] = useState(false);
   const [summarySessionsSnapshot, setSummarySessionsSnapshot] = useState(null);
   const [sessionDate, setSessionDate] = useState(toLocalISO(new Date()));
+  const hasSavedRef = useRef(false);
   const longPressRef = useRef(null);
   const [renamingExIdx, setRenamingExIdx] = useState(null);
   const [renameValue, setRenameValue] = useState('');
@@ -572,7 +573,10 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, known
     const elapsed = Math.floor((Date.now() - session.startedAt) / 1000);
     const dur = Math.round(elapsed / 60) || 1;
     setSummarySessionsSnapshot([...(sessions || [])]);
-    onFinish({ exercises, dur, tonnage, name: sessionName, date: sessionDate });
+    if (!hasSavedRef.current) {
+      hasSavedRef.current = true;
+      onFinish({ exercises, dur, tonnage, name: sessionName, date: sessionDate });
+    }
     setShowSummary(true);
   };
 
