@@ -9,7 +9,7 @@ import muscleRag from "./data/muscleRag.json";
 const ThemeCtx = createContext();
 
 function ThemeProvider({ children }) {
-  const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "light");
+  const [theme, setTheme] = useState("light");
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
@@ -6631,8 +6631,8 @@ function RankingSection() {
 // ───────────────────────────────────────────────
 function TractionSection({ user }) {
   const { theme } = useTheme();
-  const axisColor = theme === "dark" ? "#ffffff" : "#111827";
-  const gridColor = theme === "dark" ? "#374151" : "#e5e7eb";
+  const axisColor = "#111827";
+  const gridColor = "#e5e7eb";
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -6800,8 +6800,8 @@ function TractionSection({ user }) {
 // ───────────────────────────────────────────────
 function StravaTracker({ user }) {
   const { theme } = useTheme();
-  const axisColor = theme === "dark" ? "#ffffff" : "#000000";
-  const gridColor = theme === "dark" ? "#444" : "#e5e7eb";
+  const axisColor = "#1F1A14";
+  const gridColor = "#e5e7eb";
 
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -6980,8 +6980,8 @@ function StravaTracker({ user }) {
 function StepsTracker({ user }) {
   const { theme } = useTheme();
 
-  const axisColor = theme === "dark" ? "#ffffff" : "#000000";
-  const gridColor = theme === "dark" ? "#444" : "#e5e7eb";
+  const axisColor = "#1F1A14";
+  const gridColor = "#e5e7eb";
 
   // Détection iOS + mode standalone (PWA depuis écran d'accueil)
   const isIOS = useMemo(() => /iPhone|iPad|iPod/.test(navigator.userAgent), []);
