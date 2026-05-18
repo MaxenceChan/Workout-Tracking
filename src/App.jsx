@@ -6819,8 +6819,8 @@ function StravaTracker({ user }) {
   const monthsFR = ['jan','fév','mars','avr','mai','juin','juil','août','sep','oct','nov','déc'];
   const fmtDay = (iso) => {
     if (!iso) return '';
-    const [, m, d] = iso.split('-');
-    return `${parseInt(d)} ${monthsFR[parseInt(m)-1]}`;
+    const [y, m, d] = iso.split('-');
+    return `${parseInt(d)} ${monthsFR[parseInt(m)-1]} ${y}`;
   };
   const chartData = [...filtered].sort((a,b) => a.date < b.date ? -1 : 1).map(a => ({
     date: fmtDay(a.date),
