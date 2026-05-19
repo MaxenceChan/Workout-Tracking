@@ -7263,52 +7263,53 @@ function StepsTracker({ user }) {
 
   const [stepsData, setStepsData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [needsReauth, setNeedsReauth] = useState(false);
   const [connected, setConnected] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState(null);
 
   /* ─────────────────────────────
      FETCH GOOGLE FIT (tous les appareils)
   ───────────────────────────── */
-  useEffect(() => {
+  const fetchSteps = useCallback(async (forceRefresh = false) => {
     if (!user?.id) return;
-
-    const fetchSteps = async (forceRefresh = false) => {
-      const key = `wt_steps_${user.id}`;
-      if (!forceRefresh) {
-        const cached = apiCache.get(key, 2 * 60 * 60 * 1000);
-        if (cached) {
-          const isArray = Array.isArray(cached);
-          setStepsData(isArray ? cached : (cached?.steps || []));
-          setNeedsReauth(Boolean(!isArray && cached?.needsReauth));
-          setConnected(Boolean(!isArray && !cached?.needsReauth));
-          setLoading(false);
-          return;
-        }
-      }
-      try {
-        setLoading(true);
-        setError(null);
-        const res = await fetch(`/api/steps?uid=${user.id}`);
-        if (!res.ok) throw new Error("API_ERROR");
-        const data = await res.json();
-        apiCache.set(key, data);
-        if (Array.isArray(data)) {
-          setStepsData(data); setNeedsReauth(false); setConnected(true);
-        } else {
-          setStepsData(data?.steps || []);
-          setNeedsReauth(Boolean(data?.needsReauth));
-          setConnected(!data?.needsReauth);
-        }
-      } catch {
-        setError("API_ERROR");
-      } finally {
+    const key = `wt_steps_${user.id}`;
+    if (!forceRefresh) {
+      const cached = apiCache.get(key, 10 * 60 * 1000);
+      if (cached) {
+        const isArray = Array.isArray(cached);
+        setStepsData(isArray ? cached : (cached?.steps || []));
+        setNeedsReauth(Boolean(!isArray && cached?.needsReauth));
+        setConnected(Boolean(!isArray && !cached?.needsReauth));
         setLoading(false);
+        return;
       }
-    };
-
-    fetchSteps();
+    }
+    try {
+      forceRefresh ? setRefreshing(true) : setLoading(true);
+      setError(null);
+      const res = await fetch(`/api/steps?uid=${user.id}`);
+      if (!res.ok) throw new Error("API_ERROR");
+      const data = await res.json();
+      apiCache.set(key, data);
+      if (Array.isArray(data)) {
+        setStepsData(data); setNeedsReauth(false); setConnected(true);
+      } else {
+        setStepsData(data?.steps || []);
+        setNeedsReauth(Boolean(data?.needsReauth));
+        setConnected(!data?.needsReauth);
+      }
+      setLastUpdated(new Date());
+    } catch {
+      setError("API_ERROR");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, [user?.id]);
+
+  useEffect(() => { fetchSteps(); }, [fetchSteps]);
 
   /* ─────────────────────────────
      FILTRE PÉRIODE UNIFIÉ
@@ -7359,8 +7360,17 @@ function StepsTracker({ user }) {
           {loading && <p className="text-sm text-gray-500 mt-2">Chargement des pas…</p>}
           {!loading && error && <div className="mt-2 space-y-2"><p className="text-sm text-red-500">❌ Impossible de récupérer les pas.</p><Button variant="secondary" onClick={() => { window.location.href = `/api/auth/google-fit?uid=${user.id}`; }}>Connecter Google Fit</Button></div>}
           {!loading && !error && !connected && !needsReauth && <div className="mt-2 space-y-2"><p className="text-sm text-gray-500">⚡ Connecte Google Fit pour commencer le suivi des pas.</p><Button variant="secondary" onClick={() => { window.location.href = `/api/auth/google-fit?uid=${user.id}`; }}>Connecter Google Fit</Button></div>}
-          {!loading && !error && connected && stepsData.length > 0 && <p className="text-sm text-green-500 mt-2">✅ Google Fit connecté</p>}
-          {!loading && !error && connected && stepsData.length === 0 && <p className="text-sm text-green-500 mt-2">✅ Google Fit connecté — aucune donnée pour la période.</p>}
+          {!loading && !error && connected && (
+            <div className="mt-2 flex items-center gap-3 flex-wrap">
+              <p className="text-sm text-green-500">✅ Google Fit connecté{stepsData.length === 0 ? " — aucune donnée pour la période." : ""}</p>
+              <Button variant="secondary" size="sm" disabled={refreshing} onClick={() => fetchSteps(true)}>
+                {refreshing ? "Actualisation…" : "↻ Actualiser"}
+              </Button>
+              {lastUpdated && !refreshing && (
+                <span className="text-xs text-gray-400">Mis à jour {lastUpdated.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
+              )}
+            </div>
+          )}
           {!loading && !error && needsReauth && <div className="mt-2 space-y-2"><p className="text-sm text-amber-500">⚠️ Reconnexion Google Fit nécessaire.</p><Button variant="secondary" onClick={() => { window.location.href = `/api/auth/google-fit?uid=${user.id}`; }}>Se reconnecter</Button></div>}
         </CardContent>
       </Card>
