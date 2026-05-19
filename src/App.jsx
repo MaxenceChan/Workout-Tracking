@@ -7235,10 +7235,8 @@ function StepsTracker({ user }) {
   // Détection iOS + mode standalone (PWA depuis écran d'accueil)
   const isIOS = useMemo(() => /iPhone|iPad|iPod/.test(navigator.userAgent), []);
   const isStandalone = useMemo(() => window.navigator.standalone === true, []);
-  const hasHealthKit = useMemo(() => 'health' in navigator, []);
-  const useAppleHealth = isIOS && isStandalone && hasHealthKit;
+  const useAppleHealth = isIOS && isStandalone;
   const iosNeedsPWA = isIOS && !isStandalone;
-  const iosNeedsUpdate = isIOS && isStandalone && !hasHealthKit;
 
   const [stepsData, setStepsData] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -7254,6 +7252,12 @@ function StepsTracker({ user }) {
       setLoading(true);
       setError(null);
       setAppleStatus('requesting');
+
+      if (!('health' in navigator)) {
+        setAppleStatus('unsupported');
+        setLoading(false);
+        return;
+      }
 
       await navigator.health.requestPermission({ read: ['stepCount'] });
       setAppleStatus('granted');
@@ -7379,14 +7383,6 @@ function StepsTracker({ user }) {
             </div>
           )}
 
-          {/* iOS PWA – iOS < 18.2, pas de HealthKit Web */}
-          {iosNeedsUpdate && (
-            <div className="mt-2 space-y-2">
-              <p className="text-sm text-amber-600">🍎 Apple Santé nécessite iOS 18.2 ou supérieur.</p>
-              <p className="text-xs text-gray-500">Va dans Réglages → Général → Mise à jour logicielle pour mettre à jour ton iPhone.</p>
-            </div>
-          )}
-
           {/* iOS PWA – Apple Health */}
           {useAppleHealth && (
             <>
@@ -7409,6 +7405,12 @@ function StepsTracker({ user }) {
                 <div className="mt-2 space-y-2">
                   <p className="text-sm text-red-500">❌ Permission refusée. Va dans Réglages → Confidentialité → Santé pour autoriser l'app.</p>
                   <Button variant="secondary" onClick={fetchAppleHealth}>Réessayer</Button>
+                </div>
+              )}
+              {!loading && appleStatus === 'unsupported' && (
+                <div className="mt-2 space-y-2">
+                  <p className="text-sm text-amber-600">⚠️ Apple Santé n'est pas disponible sur cet appareil ou dans ce contexte.</p>
+                  <p className="text-xs text-gray-500">Assure-toi d'utiliser Safari et d'avoir ouvert l'app depuis l'écran d'accueil.</p>
                 </div>
               )}
               {!loading && appleStatus === 'error' && (
