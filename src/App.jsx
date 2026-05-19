@@ -1117,7 +1117,7 @@ function SGSessionSummary({ exercises, sessionName, startedAt, sessions, onClose
 }
 
 // ─── Score de forme ───────────────────────────────────────────────────────────
-function calcFormScore(sessions, stepsArray) {
+function calcFormScore(sessions, stepsArray, runActivities = []) {
   const now = Date.now();
   const DAY = 86400000;
   const today = new Date().toISOString().slice(0, 10);
@@ -1166,8 +1166,10 @@ function calcFormScore(sessions, stepsArray) {
   const avgSteps = recent30.length > 0 ? recent30.reduce((a, b) => a + (b.steps || 0), 0) / 30 : 0;
   const scoreSteps = Math.min(avgSteps / 10000, 1) * 30;
 
-  // Régularité séances (35 pts)
-  const count30 = sessions.filter(s => s.date >= day30ago && s.date <= today).length;
+  // Régularité séances (35 pts) — muscu + run
+  const muscuDates = new Set(sessions.filter(s => s.date >= day30ago && s.date <= today).map(s => s.date));
+  const runDates = new Set(runActivities.filter(a => a.date >= day30ago && a.date <= today).map(a => a.date));
+  const count30 = new Set([...muscuDates, ...runDates]).size;
   const scoreReg = Math.min(count30 / 12, 1) * 35;
 
   const total = Math.max(0, Math.min(100, Math.round(score1RM + scoreSteps + scoreReg)));
@@ -1207,7 +1209,7 @@ function calcDayCalories(date, poids, stepsArray, runActivities, sessions) {
   };
 }
 
-function CaloriesModal({ todayCal, avgCal, poids, onClose }) {
+function CaloriesModal({ todayCal, avgCal, last7Cal = [], poids, onClose }) {
   const bar = (value, max) => {
     const pct = Math.max(0, Math.min(100, (value / max) * 100));
     return (
@@ -1245,17 +1247,34 @@ function CaloriesModal({ todayCal, avgCal, poids, onClose }) {
           </div>
         </div>
 
-        {/* Moyenne semaine */}
+        {/* Moyenne + détail 7 jours */}
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
             <div style={{ fontFamily: SG.serif, fontSize: 18, fontWeight: 500, color: SG.ink }}>Moy. 7 derniers jours</div>
             <div style={{ fontFamily: SG.serif, fontSize: 32, fontWeight: 500, color: SG.ink }}>
-              {avgCal === null ? '—' : avgCal.toLocaleString('fr-FR')}
-              {avgCal !== null && <span style={{ fontSize: 13, color: SG.inkSoft, fontFamily: 'sans-serif', fontWeight: 400 }}> kcal</span>}
+              {avgCal.toLocaleString('fr-FR')}
+              <span style={{ fontSize: 13, color: SG.inkSoft, fontFamily: 'sans-serif', fontWeight: 400 }}> kcal</span>
             </div>
           </div>
-          {avgCal !== null && bar(avgCal, 3500)}
-          <div style={{ fontSize: 11, color: SG.inkSoft, marginTop: 6 }}>Moyenne hier → J-7 · poids du jour utilisé pour chaque journée</div>
+          {bar(avgCal, 3500)}
+          <div style={{ fontSize: 11, color: SG.inkSoft, marginTop: 6, marginBottom: 14 }}>Poids du jour utilisé pour chaque journée</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {last7Cal.map(({ date, total, bmr, steps, run, muscu }) => {
+              const label = new Date(date + 'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+              const icons = [run > 0 && '👟', muscu > 0 && '🏋️'].filter(Boolean).join(' ');
+              return (
+                <div key={date} style={{ background: 'rgba(255,255,255,0.55)', borderRadius: 12, padding: '10px 14px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: SG.ink, textTransform: 'capitalize' }}>{label} {icons}</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: SG.ink }}>{total.toLocaleString('fr-FR')} kcal</div>
+                  </div>
+                  <div style={{ fontSize: 10, color: SG.inkSoft, marginTop: 3 }}>
+                    🛌 {bmr} · 🚶 {steps} · 👟 {run} · 🏋️ {muscu}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>
@@ -1358,6 +1377,7 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession, onNa
   const [stepsArray, setStepsArray] = useState([]);
   const [weekRunKm, setWeekRunKm] = useState(null);
   const [weekRunActivities, setWeekRunActivities] = useState([]);
+  const [allRunActivities, setAllRunActivities] = useState([]);
   const [lastWeight, setLastWeight] = useState(null);
   const [lastWeightDate, setLastWeightDate] = useState(null);
   const [weightHistory, setWeightHistory] = useState([]);
@@ -1393,6 +1413,7 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession, onNa
       const dist = weekActs.reduce((a,b) => a + (b.distance||0), 0);
       setWeekRunKm(parseFloat((dist/1000).toFixed(1)));
       setWeekRunActivities(weekActs);
+      setAllRunActivities(acts);
     };
 
     const cachedStrava = apiCache.get(stravaKey, STRAVA_TTL);
@@ -1415,29 +1436,27 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession, onNa
   }, [user?.id]);
   const weekDone = sgWeekDone(sessions, weekRunActivities);
   const weekDays = sgWeekDays(sessions, weekRunActivities);
-  const formScore = useMemo(() => calcFormScore(sessions, stepsArray), [sessions, stepsArray]);
+  const formScore = useMemo(() => calcFormScore(sessions, stepsArray, allRunActivities), [sessions, stepsArray, allRunActivities]);
   const formScoreInfo = formScoreLabel(formScore.total);
   const [showScoreModal, setShowScoreModal] = useState(false);
   const [showCalModal, setShowCalModal] = useState(false);
 
-  const { todayCal, avgCal } = useMemo(() => {
+  const { todayCal, avgCal, last7Cal } = useMemo(() => {
     const today = toLocalISO(new Date());
-    const allRuns = [...weekRunActivities];
-    // Retourne le poids enregistré le plus proche à ou avant une date donnée
     const weightAt = (date) => {
       const entry = [...weightHistory].reverse().find(w => w.date <= date);
       return entry?.weight || lastWeight || 70;
     };
-    const todayCal = calcDayCalories(today, weightAt(today), stepsArray, allRuns, sessions);
-    // Moyenne sur les 7 derniers jours (hier → J-7), avec le poids de chaque jour
+    const todayCal = calcDayCalories(today, weightAt(today), stepsArray, allRunActivities, sessions);
     const days = [];
     for (let i = 1; i <= 7; i++) {
       const d = new Date(); d.setDate(d.getDate() - i); d.setHours(0,0,0,0);
       days.push(toLocalISO(d));
     }
-    const avgCal = Math.round(days.reduce((sum, date) => sum + calcDayCalories(date, weightAt(date), stepsArray, allRuns, sessions).total, 0) / days.length);
-    return { todayCal, avgCal };
-  }, [lastWeight, weightHistory, stepsArray, weekRunActivities, sessions]);
+    const last7Cal = days.map(date => ({ date, ...calcDayCalories(date, weightAt(date), stepsArray, allRunActivities, sessions) }));
+    const avgCal = Math.round(last7Cal.reduce((sum, d) => sum + d.total, 0) / last7Cal.length);
+    return { todayCal, avgCal, last7Cal };
+  }, [lastWeight, weightHistory, stepsArray, allRunActivities, sessions]);
   const firstSession = sessions.length > 0 ? sessions[sessions.length - 1] : null;
   const firstDate = firstSession ? new Date(firstSession.date + 'T00:00:00') : null;
   const now = Date.now();
@@ -1594,7 +1613,7 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession, onNa
             </div>
           </div>
         </Glass>
-        {showCalModal && <CaloriesModal todayCal={todayCal} avgCal={avgCal} poids={lastWeight} onClose={() => setShowCalModal(false)} />}
+        {showCalModal && <CaloriesModal todayCal={todayCal} avgCal={avgCal} last7Cal={last7Cal} poids={lastWeight} onClose={() => setShowCalModal(false)} />}
 
         {suggestion && (
           <>
