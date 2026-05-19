@@ -439,6 +439,7 @@ function Glass({ children, style = {}, radius = 24, tint = 'rgba(255,255,255,0.5
 }
 
 // ─── SG utility functions ─────────────────────────────────────────────────────
+const displayType = (type) => type === 'Libre' ? 'Séance libre' : (type || 'Séance libre');
 const sgFmt = (iso) => {
   if (!iso) return '';
   const d = new Date(iso + 'T00:00:00');
@@ -1397,7 +1398,7 @@ function SGMobileSessionEdit({ session, onSave, onCancel, upsertFn }) {
             <div style={{ fontSize: 10, color: SG.accent, fontWeight: 800, letterSpacing: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
               <div style={{ width: 6, height: 6, borderRadius: 3, background: SG.accent }} /> ÉDITION
             </div>
-            <div style={{ fontFamily: SG.serif, fontSize: 16, fontStyle: 'italic', color: SG.ink }}>{session.type || 'Séance'}</div>
+            <div style={{ fontFamily: SG.serif, fontSize: 16, fontStyle: 'italic', color: SG.ink }}>{displayType(session.type)}</div>
             <input type="date" value={date} max={toLocalISO(new Date())} onChange={e => setDate(e.target.value)}
               style={{ marginTop: 4, fontSize: 11, color: SG.inkSoft, background: 'transparent', border: 'none', outline: 'none', textAlign: 'center', cursor: 'pointer', width: '100%' }} />
           </div>
@@ -4218,7 +4219,7 @@ function FilterBar({ filter, setFilter, total, types }) {
               variant={filter === t ? "default" : "secondary"}
               onClick={() => setFilter(t)}
             >
-              {t === "ALL" ? "Tout" : t}
+              {t === "ALL" ? "Tout" : displayType(t)}
             </Button>
           ))}
         </div>
@@ -4331,7 +4332,7 @@ const cardRef = React.useRef(null);
                               }
                               className="border rounded px-2 py-1 text-xs"
                             >
-                              <option value="Libre">Libre</option>
+                              <option value="Libre">Séance libre</option>
                               {allTypes
                                 .filter((t) => t !== "Libre")
                                 .map((t) => (
@@ -4343,7 +4344,7 @@ const cardRef = React.useRef(null);
                           </div>
                         ) : (
                           <>
-                            {prettyDate(local.date)} • {local.type}
+                            {prettyDate(local.date)} • {displayType(local.type)}
                           </>
                         )}
             </div>
@@ -5867,7 +5868,7 @@ const exportLastSession = async () => {
     <Card ref={cardRef}>
         <CardContent className="space-y-3 sm:space-y-4">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
-            <h3 className="font-semibold text-sm sm:text-lg">Dernière séance – {t}</h3>
+            <h3 className="font-semibold text-sm sm:text-lg">Dernière séance – {displayType(t)}</h3>
             <div className="flex gap-2 flex-wrap">
               {allTypes.map(tp => (
                 <Button
@@ -5876,7 +5877,7 @@ const exportLastSession = async () => {
                   onClick={() => setT(tp)}
                   className="text-xs sm:text-sm"
                 >
-                  {tp}
+                  {displayType(tp)}
                 </Button>
               ))}
             </div>
