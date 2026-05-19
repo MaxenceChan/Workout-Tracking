@@ -1144,14 +1144,18 @@ function calcFormScore(sessions, stepsArray) {
   let totalWeight = 0, weightedProg = 0;
   const exoDetails = [];
   exoMap.forEach((entries, name) => {
-    if (entries.length < 2) return;
     const sorted = [...entries].sort((a, b) => a.date < b.date ? -1 : 1);
     const first = sorted[0].orm;
     const last = sorted[sorted.length - 1].orm;
-    const prog = (last - first) / first * 100;
-    weightedProg += prog * entries.length;
-    totalWeight += entries.length;
-    exoDetails.push({ name, prog: Math.round(prog * 10) / 10, ormFirst: Math.round(first), ormLast: Math.round(last), count: entries.length });
+    if (entries.length >= 2) {
+      const prog = (last - first) / first * 100;
+      weightedProg += prog * entries.length;
+      totalWeight += entries.length;
+      exoDetails.push({ name, prog: Math.round(prog * 10) / 10, ormFirst: Math.round(first), ormLast: Math.round(last), count: entries.length, single: false });
+    } else {
+      // 1 seule séance : affiché dans le modal mais ne contribue pas au score
+      exoDetails.push({ name, prog: null, ormFirst: Math.round(first), ormLast: Math.round(last), count: 1, single: true });
+    }
   });
   exoDetails.sort((a, b) => b.count - a.count);
   const avgProg = totalWeight > 0 ? weightedProg / totalWeight : 0;
@@ -1183,6 +1187,83 @@ function formScoreLabel(score) {
   return { label: 'Inactif', color: 'rgba(31,26,20,0.30)' };
 }
 
+// ─── Calories ─────────────────────────────────────────────────────────────────
+function calcDayCalories(date, poids, stepsArray, runActivities, sessions) {
+  const kg = poids || 70;
+  const bmr = kg * 24;
+  const steps = (stepsArray.find(d => d.date === date)?.steps || 0);
+  const calSteps = steps * 0.04;
+  const runs = runActivities.filter(a => a.date === date);
+  const calRun = runs.reduce((sum, r) => sum + (r.distance / 1000) * kg, 0);
+  const daySessions = sessions.filter(s => s.date === date);
+  const tonnage = daySessions.reduce((sum, s) => sum + sgTonnage(s), 0);
+  const calMuscu = tonnage * 0.03;
+  return {
+    total: Math.round(bmr + calSteps + calRun + calMuscu),
+    bmr: Math.round(bmr),
+    steps: Math.round(calSteps),
+    run: Math.round(calRun),
+    muscu: Math.round(calMuscu),
+  };
+}
+
+function CaloriesModal({ todayCal, avgCal, poids, onClose }) {
+  const bar = (value, max) => {
+    const pct = Math.max(0, Math.min(100, (value / max) * 100));
+    return (
+      <div style={{ height: 6, borderRadius: 3, background: 'rgba(31,26,20,0.08)', marginTop: 6, overflow: 'hidden' }}>
+        <div style={{ height: '100%', width: `${pct}%`, borderRadius: 3, background: SG.accent, transition: 'width 0.5s ease' }} />
+      </div>
+    );
+  };
+  const Row = ({ label, value, note }) => (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 10, borderBottom: '1px solid rgba(31,26,20,0.06)' }}>
+      <div>
+        <div style={{ fontSize: 13, fontWeight: 600, color: SG.ink }}>{label}</div>
+        {note && <div style={{ fontSize: 10, color: SG.inkSoft, marginTop: 1 }}>{note}</div>}
+      </div>
+      <div style={{ fontSize: 14, fontWeight: 700, color: SG.ink }}>{value.toLocaleString('fr-FR')} kcal</div>
+    </div>
+  );
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(31,26,20,0.45)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }} onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 600, background: SG.bg1, borderRadius: '28px 28px 0 0', padding: '20px 24px 52px', boxShadow: '0 -20px 50px rgba(0,0,0,0.18)', maxHeight: '85vh', overflowY: 'auto' }}>
+        <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(31,26,20,0.12)', margin: '0 auto 22px' }} />
+
+        {/* Aujourd'hui */}
+        <div style={{ marginBottom: 28 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+            <div style={{ fontFamily: SG.serif, fontSize: 18, fontWeight: 500, color: SG.ink }}>Aujourd'hui</div>
+            <div style={{ fontFamily: SG.serif, fontSize: 32, fontWeight: 500, color: SG.ink }}>{todayCal.total.toLocaleString('fr-FR')} <span style={{ fontSize: 13, color: SG.inkSoft, fontFamily: 'sans-serif', fontWeight: 400 }}>kcal</span></div>
+          </div>
+          {bar(todayCal.total, 3500)}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 16 }}>
+            <Row label="🛌 Métabolisme de base" value={todayCal.bmr} note={`${poids || 70} kg × 24`} />
+            <Row label="🚶 Pas" value={todayCal.steps} note="pas × 0.04" />
+            <Row label="👟 Run" value={todayCal.run} note="km × poids × 1.0" />
+            <Row label="🏋️ Muscu" value={todayCal.muscu} note="tonnage × 0.03" />
+          </div>
+        </div>
+
+        {/* Moyenne semaine */}
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+            <div style={{ fontFamily: SG.serif, fontSize: 18, fontWeight: 500, color: SG.ink }}>Moyenne sem.</div>
+            <div style={{ fontFamily: SG.serif, fontSize: 32, fontWeight: 500, color: SG.ink }}>
+              {avgCal === null ? '—' : avgCal.toLocaleString('fr-FR')}
+              {avgCal !== null && <span style={{ fontSize: 13, color: SG.inkSoft, fontFamily: 'sans-serif', fontWeight: 400 }}> kcal</span>}
+            </div>
+          </div>
+          {avgCal !== null && bar(avgCal, 3500)}
+          <div style={{ fontSize: 11, color: SG.inkSoft, marginTop: 6 }}>
+            {avgCal === null ? "Pas encore assez de jours cette semaine" : "Moyenne lundi → hier (hors aujourd'hui)"}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── FormScoreModal ───────────────────────────────────────────────────────────
 function FormScoreModal({ score, onClose }) {
   const bar = (value, max) => {
@@ -1212,22 +1293,25 @@ function FormScoreModal({ score, onClose }) {
           </div>
           {bar(score.orm.score, 35)}
           <div style={{ fontSize: 11, color: SG.inkSoft, marginTop: 6 }}>
-            {score.orm.exos.length === 0
-              ? 'Pas assez de données (besoin de 2 séances minimum par exercice)'
+            {score.orm.exos.filter(e => !e.single).length === 0
+              ? 'Refais tes exercices une 2ème fois pour débloquer le calcul de progression'
               : `Progression moyenne pondérée : ${score.orm.avgProg > 0 ? '+' : ''}${score.orm.avgProg}%`}
           </div>
           {score.orm.exos.length > 0 && (
             <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {score.orm.exos.slice(0, 5).map(ex => (
-                <div key={ex.name} style={{ background: 'rgba(255,255,255,0.55)', borderRadius: 12, padding: '10px 14px' }}>
+              {score.orm.exos.slice(0, 8).map(ex => (
+                <div key={ex.name} style={{ background: ex.single ? 'rgba(31,26,20,0.04)' : 'rgba(255,255,255,0.55)', borderRadius: 12, padding: '10px 14px', opacity: ex.single ? 0.7 : 1 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: SG.ink }}>{ex.name}</div>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: ex.prog >= 0 ? '#8B9A6B' : '#C8643A' }}>
-                      {ex.prog > 0 ? '+' : ''}{ex.prog}%
-                    </div>
+                    {ex.single
+                      ? <div style={{ fontSize: 10, color: SG.inkSoft }}>1 séance</div>
+                      : <div style={{ fontSize: 12, fontWeight: 700, color: ex.prog >= 0 ? '#8B9A6B' : '#C8643A' }}>{ex.prog > 0 ? '+' : ''}{ex.prog}%</div>
+                    }
                   </div>
                   <div style={{ fontSize: 10, color: SG.inkSoft, marginTop: 2 }}>
-                    {ex.ormFirst} kg → {ex.ormLast} kg · {ex.count} séances
+                    {ex.single
+                      ? `1RM estimé : ${ex.ormFirst} kg · progression non calculable`
+                      : `${ex.ormFirst} kg → ${ex.ormLast} kg · ${ex.count} séances`}
                   </div>
                 </div>
               ))}
@@ -1333,6 +1417,21 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession }) {
   const formScore = useMemo(() => calcFormScore(sessions, stepsArray), [sessions, stepsArray]);
   const formScoreInfo = formScoreLabel(formScore.total);
   const [showScoreModal, setShowScoreModal] = useState(false);
+  const [showCalModal, setShowCalModal] = useState(false);
+
+  const { todayCal, avgCal } = useMemo(() => {
+    const today = toLocalISO(new Date());
+    const allRuns = [...weekRunActivities];
+    const todayCal = calcDayCalories(today, lastWeight, stepsArray, allRuns, sessions);
+    // Moyenne lundi → hier
+    const monday = (() => { const d = new Date(); const day = d.getDay(); d.setDate(d.getDate() - (day === 0 ? 6 : day - 1)); d.setHours(0,0,0,0); return toLocalISO(d); })();
+    const days = [];
+    for (let d = new Date(monday + 'T00:00:00'); toLocalISO(d) < today; d.setDate(d.getDate() + 1)) {
+      days.push(toLocalISO(new Date(d)));
+    }
+    const avgCal = days.length === 0 ? null : Math.round(days.reduce((sum, date) => sum + calcDayCalories(date, lastWeight, stepsArray, allRuns, sessions).total, 0) / days.length);
+    return { todayCal, avgCal };
+  }, [lastWeight, stepsArray, weekRunActivities, sessions]);
   const firstSession = sessions.length > 0 ? sessions[sessions.length - 1] : null;
   const firstDate = firstSession ? new Date(firstSession.date + 'T00:00:00') : null;
   const now = Date.now();
@@ -1420,8 +1519,11 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession }) {
             </div>
           </Glass>
           <Glass radius={20} tint="rgba(255,255,255,0.5)" style={{ cursor: 'pointer' }} onClick={() => setShowScoreModal(true)}>
-            <div style={{ padding: 14 }}>
-              <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase' }}>Score de forme</div>
+            <div style={{ padding: 14, position: 'relative' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase' }}>Score de forme</div>
+                <div style={{ fontSize: 11, color: SG.inkFaint }}>›</div>
+              </div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 6 }}>
                 <div style={{ fontFamily: SG.serif, fontSize: 32, fontWeight: 500, lineHeight: 1, color: SG.ink }}>{formScore.total}</div>
                 <div style={{ fontSize: 11, color: SG.inkSoft }}>/100</div>
@@ -1458,6 +1560,32 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession }) {
             </div>
           </Glass>
         </div>
+
+        <Glass radius={20} tint="rgba(255,255,255,0.5)" style={{ cursor: 'pointer', marginBottom: 12 }} onClick={() => setShowCalModal(true)}>
+          <div style={{ padding: 14 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase' }}>🔥 Calories</div>
+              <div style={{ fontSize: 11, color: SG.inkFaint }}>›</div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+              <div>
+                <div style={{ fontSize: 10, color: SG.inkSoft, marginBottom: 2 }}>Aujourd'hui</div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
+                  <div style={{ fontFamily: SG.serif, fontSize: 32, fontWeight: 500, lineHeight: 1, color: SG.ink }}>{todayCal.total.toLocaleString('fr-FR')}</div>
+                  <div style={{ fontSize: 11, color: SG.inkSoft }}>kcal</div>
+                </div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 10, color: SG.inkSoft, marginBottom: 2 }}>Moy. semaine</div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 3, justifyContent: 'flex-end' }}>
+                  <div style={{ fontFamily: SG.serif, fontSize: 24, fontWeight: 500, lineHeight: 1, color: SG.inkSoft }}>{avgCal === null ? '—' : avgCal.toLocaleString('fr-FR')}</div>
+                  {avgCal !== null && <div style={{ fontSize: 11, color: SG.inkSoft }}>kcal</div>}
+                </div>
+              </div>
+            </div>
+          </div>
+        </Glass>
+        {showCalModal && <CaloriesModal todayCal={todayCal} avgCal={avgCal} poids={lastWeight} onClose={() => setShowCalModal(false)} />}
 
         {suggestion && (
           <>
