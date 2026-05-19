@@ -7238,6 +7238,7 @@ function StepsTracker({ user }) {
   const hasHealthKit = useMemo(() => 'health' in navigator, []);
   const useAppleHealth = isIOS && isStandalone && hasHealthKit;
   const iosNeedsPWA = isIOS && !isStandalone;
+  const iosNeedsUpdate = isIOS && isStandalone && !hasHealthKit;
 
   const [stepsData, setStepsData] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -7285,9 +7286,7 @@ function StepsTracker({ user }) {
     }
   };
 
-  useEffect(() => {
-    if (useAppleHealth) fetchAppleHealth();
-  }, [useAppleHealth]);
+  // Ne pas appeler automatiquement — requestPermission nécessite un geste utilisateur sur iOS
 
   /* ─────────────────────────────
      FETCH GOOGLE FIT (non-iOS)
@@ -7380,15 +7379,44 @@ function StepsTracker({ user }) {
             </div>
           )}
 
+          {/* iOS PWA – iOS < 18.2, pas de HealthKit Web */}
+          {iosNeedsUpdate && (
+            <div className="mt-2 space-y-2">
+              <p className="text-sm text-amber-600">🍎 Apple Santé nécessite iOS 18.2 ou supérieur.</p>
+              <p className="text-xs text-gray-500">Va dans Réglages → Général → Mise à jour logicielle pour mettre à jour ton iPhone.</p>
+            </div>
+          )}
+
           {/* iOS PWA – Apple Health */}
           {useAppleHealth && (
             <>
               {loading && <p className="text-sm text-gray-500 mt-2">Chargement Apple Santé…</p>}
-              {!loading && appleStatus === 'idle' && <p className="text-sm text-gray-500 mt-2">Connexion à Apple Santé…</p>}
+              {!loading && appleStatus === 'idle' && (
+                <div className="mt-2 space-y-2">
+                  <p className="text-sm text-gray-500">🍎 Connecte Apple Santé pour importer tes pas.</p>
+                  <Button variant="secondary" onClick={fetchAppleHealth}>Connecter Apple Santé</Button>
+                </div>
+              )}
+              {!loading && appleStatus === 'requesting' && <p className="text-sm text-gray-500 mt-2">En attente de permission…</p>}
               {!loading && appleStatus === 'granted' && stepsData.length > 0 && <p className="text-sm text-green-500 mt-2">✅ Apple Santé connecté</p>}
-              {!loading && appleStatus === 'denied' && <div className="mt-2 space-y-2"><p className="text-sm text-red-500">❌ Permission refusée. Va dans Réglages → Confidentialité → Santé pour autoriser l'app.</p><Button variant="secondary" onClick={fetchAppleHealth}>Réessayer</Button></div>}
-              {!loading && appleStatus === 'error' && <div className="mt-2 space-y-2"><p className="text-sm text-red-500">❌ Erreur Apple Santé. iOS 18+ requis.</p><Button variant="secondary" onClick={fetchAppleHealth}>Réessayer</Button></div>}
-              {!loading && appleStatus === 'granted' && !stepsData.length && <p className="text-sm text-gray-500 mt-2">Aucun pas trouvé dans Apple Santé.</p>}
+              {!loading && appleStatus === 'granted' && !stepsData.length && (
+                <div className="mt-2 space-y-2">
+                  <p className="text-sm text-gray-500">Aucun pas trouvé dans Apple Santé.</p>
+                  <Button variant="secondary" onClick={fetchAppleHealth}>Réessayer</Button>
+                </div>
+              )}
+              {!loading && appleStatus === 'denied' && (
+                <div className="mt-2 space-y-2">
+                  <p className="text-sm text-red-500">❌ Permission refusée. Va dans Réglages → Confidentialité → Santé pour autoriser l'app.</p>
+                  <Button variant="secondary" onClick={fetchAppleHealth}>Réessayer</Button>
+                </div>
+              )}
+              {!loading && appleStatus === 'error' && (
+                <div className="mt-2 space-y-2">
+                  <p className="text-sm text-red-500">❌ Erreur Apple Santé.</p>
+                  <Button variant="secondary" onClick={fetchAppleHealth}>Réessayer</Button>
+                </div>
+              )}
             </>
           )}
 
