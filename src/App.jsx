@@ -1570,8 +1570,8 @@ function SGMobileHistory({ data, user, onDeleteSession, upsertFn, initialDetail,
       if (/iPad|iPhone|iPod/.test(navigator.userAgent)) alert('📲 Image enregistrée. Tu peux maintenant la partager depuis Photos.');
     } catch (e) { console.error('Export error:', e); alert("Impossible d'exporter la séance."); }
   };
-  const types = ['Tout', ...Array.from(new Set(sessions.map(s => s.type).filter(Boolean)))];
-  const filtered = filter === 'Tout' ? sessions : sessions.filter(s => s.type === filter);
+  const types = ['Tout', ...Array.from(new Set(sessions.map(s => displayType(s.type)).filter(Boolean)))];
+  const filtered = filter === 'Tout' ? sessions : sessions.filter(s => displayType(s.type) === filter);
   const today = new Date();
   const [calMonth, setCalMonth] = useState(today.getMonth());
   const [calYear, setCalYear] = useState(today.getFullYear());
@@ -1769,7 +1769,7 @@ function SGMobileHistory({ data, user, onDeleteSession, upsertFn, initialDetail,
                           {/* Content */}
                           <div style={{ flex: 1, padding: '15px 14px 15px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, minWidth: 0 }}>
                             <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontFamily: SG.serif, fontSize: 19, fontWeight: 500, color: SG.ink, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.type || 'Séance'}</div>
+                              <div style={{ fontFamily: SG.serif, fontSize: 19, fontWeight: 500, color: SG.ink, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{displayType(s.type)}</div>
                               <div style={{ fontSize: 12, color: SG.inkSoft, marginTop: 4, display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
                                 {(s.exercises||[]).length > 0 && <span>{(s.exercises||[]).length} exo</span>}
                                 {tonnage > 0 && <><span style={{ color: SG.inkFaint, fontSize: 10 }}>·</span><span>{tonnage.toLocaleString('fr-FR')} kg</span></>}
