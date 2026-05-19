@@ -1154,8 +1154,8 @@ function calcFormScore(sessions, stepsArray) {
   const score1RM = Math.tanh(avgProg / 10) * 35;
 
   // Pas quotidiens (30 pts)
-  const recent7 = stepsArray.filter(d => d.date >= day7ago && d.date <= today);
-  const avgSteps = recent7.length > 0 ? recent7.reduce((a, b) => a + (b.steps || 0), 0) / 7 : 0;
+  const recent30 = stepsArray.filter(d => d.date >= day30ago && d.date <= today);
+  const avgSteps = recent30.length > 0 ? recent30.reduce((a, b) => a + (b.steps || 0), 0) / 30 : 0;
   const scoreSteps = Math.min(avgSteps / 10000, 1) * 30;
 
   // Régularité séances (35 pts)
