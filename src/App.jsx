@@ -7285,7 +7285,7 @@ function StepsTracker({ user }) {
         const isArray = Array.isArray(cached);
         setStepsData(isArray ? cached : (cached?.steps || []));
         setNeedsReauth(Boolean(!isArray && cached?.needsReauth));
-        setConnected(Boolean(!isArray && cached?.connected));
+        setConnected(Boolean(!isArray && (cached?.connected ?? !cached?.needsReauth)));
         setLoading(false);
         return;
       }
@@ -7302,7 +7302,7 @@ function StepsTracker({ user }) {
       } else {
         setStepsData(data?.steps || []);
         setNeedsReauth(Boolean(data?.needsReauth));
-        setConnected(Boolean(data?.connected));
+        setConnected(Boolean(data?.connected ?? !data?.needsReauth));
       }
       setLastUpdated(new Date());
     } catch {
