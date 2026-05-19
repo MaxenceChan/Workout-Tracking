@@ -7262,9 +7262,10 @@ function StepsTracker({ user }) {
   const gridColor = "#e5e7eb";
 
   const [stepsData, setStepsData] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [needsReauth, setNeedsReauth] = useState(false);
+  const [connected, setConnected] = useState(false);
 
   /* ─────────────────────────────
      FETCH GOOGLE FIT (tous les appareils)
@@ -7277,8 +7278,10 @@ function StepsTracker({ user }) {
       if (!forceRefresh) {
         const cached = apiCache.get(key, 2 * 60 * 60 * 1000);
         if (cached) {
-          setStepsData(Array.isArray(cached) ? cached : (cached?.steps || []));
-          setNeedsReauth(Boolean(!Array.isArray(cached) && cached?.needsReauth));
+          const isArray = Array.isArray(cached);
+          setStepsData(isArray ? cached : (cached?.steps || []));
+          setNeedsReauth(Boolean(!isArray && cached?.needsReauth));
+          setConnected(Boolean(!isArray && !cached?.needsReauth));
           setLoading(false);
           return;
         }
@@ -7290,8 +7293,13 @@ function StepsTracker({ user }) {
         if (!res.ok) throw new Error("API_ERROR");
         const data = await res.json();
         apiCache.set(key, data);
-        if (Array.isArray(data)) { setStepsData(data); setNeedsReauth(false); }
-        else { setStepsData(data?.steps || []); setNeedsReauth(Boolean(data?.needsReauth)); }
+        if (Array.isArray(data)) {
+          setStepsData(data); setNeedsReauth(false); setConnected(true);
+        } else {
+          setStepsData(data?.steps || []);
+          setNeedsReauth(Boolean(data?.needsReauth));
+          setConnected(!data?.needsReauth);
+        }
       } catch {
         setError("API_ERROR");
       } finally {
@@ -7350,8 +7358,9 @@ function StepsTracker({ user }) {
           <h3 className="font-semibold">🚶 Suivi des pas</h3>
           {loading && <p className="text-sm text-gray-500 mt-2">Chargement des pas…</p>}
           {!loading && error && <div className="mt-2 space-y-2"><p className="text-sm text-red-500">❌ Impossible de récupérer les pas.</p><Button variant="secondary" onClick={() => { window.location.href = `/api/auth/google-fit?uid=${user.id}`; }}>Connecter Google Fit</Button></div>}
-          {!loading && !error && !needsReauth && !stepsData.length && <div className="mt-2 space-y-2"><p className="text-sm text-gray-500">⚡ Connecte Google Fit pour commencer le suivi des pas.</p><Button variant="secondary" onClick={() => { window.location.href = `/api/auth/google-fit?uid=${user.id}`; }}>Connecter Google Fit</Button></div>}
-          {!loading && !error && !needsReauth && stepsData.length > 0 && <p className="text-sm text-green-500 mt-2">✅ Google Fit connecté</p>}
+          {!loading && !error && !connected && !needsReauth && <div className="mt-2 space-y-2"><p className="text-sm text-gray-500">⚡ Connecte Google Fit pour commencer le suivi des pas.</p><Button variant="secondary" onClick={() => { window.location.href = `/api/auth/google-fit?uid=${user.id}`; }}>Connecter Google Fit</Button></div>}
+          {!loading && !error && connected && stepsData.length > 0 && <p className="text-sm text-green-500 mt-2">✅ Google Fit connecté</p>}
+          {!loading && !error && connected && stepsData.length === 0 && <p className="text-sm text-green-500 mt-2">✅ Google Fit connecté — aucune donnée pour la période.</p>}
           {!loading && !error && needsReauth && <div className="mt-2 space-y-2"><p className="text-sm text-amber-500">⚠️ Reconnexion Google Fit nécessaire.</p><Button variant="secondary" onClick={() => { window.location.href = `/api/auth/google-fit?uid=${user.id}`; }}>Se reconnecter</Button></div>}
         </CardContent>
       </Card>
