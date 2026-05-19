@@ -1,5 +1,5 @@
 // App.jsx (Bloc 1)
-import React, { useMemo, useState, useEffect, useContext, createContext, useRef } from "react";
+import React, { useMemo, useState, useEffect, useContext, createContext, useRef, useCallback } from "react";
 import html2canvas from "html2canvas";
 import StepsMonthlyBubbleChart from "./components/StepsMonthlyBubbleChart";
 import muscleRag from "./data/muscleRag.json";
