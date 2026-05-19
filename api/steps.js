@@ -7,12 +7,6 @@ const HISTORY_DAYS = 730;
 const toParisDate = (ms) =>
   new Date(ms).toLocaleDateString("fr-CA", { timeZone: "Europe/Paris" });
 
-const parisMidnight = (dateStr) => {
-  const d = new Date(dateStr + "T00:00:00");
-  const paris = new Date(d.toLocaleString("en-US", { timeZone: "Europe/Paris" }));
-  return paris.getTime();
-};
-
 async function fetchFromGoogleFit(fitness, startMs, endMs) {
   try {
     return await fitness.users.dataset.aggregate({
@@ -94,9 +88,9 @@ export default async function handler(req, res) {
     oauth2Client.setCredentials({ refresh_token });
     const fitness = google.fitness({ version: "v1", auth: oauth2Client });
 
-    // Toujours fetcher les 730 derniers jours depuis Google Fit
-    const startMs = parisMidnight(toParisDate(Date.now() - HISTORY_DAYS * DAY_MS)) - DAY_MS;
-    const endMs   = parisMidnight(toParisDate(Date.now() + DAY_MS));
+    // Timestamps simples et fiables — buffer +1 jour pour couvrir le fuseau horaire
+    const startMs = Date.now() - (HISTORY_DAYS + 1) * DAY_MS;
+    const endMs   = Date.now() + DAY_MS;
 
     let freshSteps;
     try {
@@ -115,7 +109,7 @@ export default async function handler(req, res) {
 
     const allSteps = fillGaps(freshSteps);
 
-    // Écriture Firestore sautée si aucune donnée nouvelle
+    // Écriture sautée si aucune donnée nouvelle
     const cachedMap  = new Map(cachedSteps.map(d => [d.date, d.steps]));
     const hasChanges = freshSteps.some(f => cachedMap.get(f.date) !== f.steps);
 
