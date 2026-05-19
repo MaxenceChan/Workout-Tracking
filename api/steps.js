@@ -73,19 +73,24 @@ export default async function handler(req, res) {
       steps: b.dataset?.[0]?.point?.reduce((sum, p) => sum + (p.value?.[0]?.intVal || 0), 0) || 0,
     })).filter(d => d.steps > 0);
 
-    // Sauvegarder les nouvelles données dans Firestore
-    if (freshSteps.length > 0) {
+    // Sauvegarder dans Firestore uniquement si la valeur fraîche est supérieure à ce qui est stocké
+    const stepsToSave = freshSteps.filter(d => {
+      const stored = storedSteps.find(s => s.date === d.date);
+      return !stored || d.steps > stored.steps;
+    });
+    if (stepsToSave.length > 0) {
       const batch = db.batch();
-      freshSteps.forEach(d => {
+      stepsToSave.forEach(d => {
         batch.set(userRef.collection("steps").doc(d.date), { ...d, updated_at: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
       });
       await batch.commit();
     }
 
-    // Fusionner cache Firestore + données fraîches (les fraîches écrasent les anciennes)
+    // Fusionner cache Firestore + données fraîches
+    // On garde le MAX pour éviter qu'une sync partielle de Google Fit écrase des données complètes
     const merged = new Map();
     storedSteps.forEach(d => merged.set(d.date, d.steps));
-    freshSteps.forEach(d => merged.set(d.date, d.steps));
+    freshSteps.forEach(d => merged.set(d.date, Math.max(d.steps, merged.get(d.date) || 0)));
     const allSteps = [...merged.entries()]
       .sort(([a], [b]) => a < b ? -1 : 1)
       .map(([date, steps]) => ({ date, steps }));
