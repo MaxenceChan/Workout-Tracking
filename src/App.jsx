@@ -7274,25 +7274,12 @@ function StepsTracker({ user }) {
   ───────────────────────────── */
   const fetchSteps = useCallback(async (forceRefresh = false) => {
     if (!user?.id) return;
-    const key = `wt_steps_${user.id}`;
-    if (!forceRefresh) {
-      const cached = apiCache.get(key, 10 * 60 * 1000);
-      if (cached) {
-        const isArray = Array.isArray(cached);
-        setStepsData(isArray ? cached : (cached?.steps || []));
-        setNeedsReauth(Boolean(!isArray && cached?.needsReauth));
-        setConnected(Boolean(!isArray && !cached?.needsReauth));
-        setLoading(false);
-        return;
-      }
-    }
     try {
       forceRefresh ? setRefreshing(true) : setLoading(true);
       setError(null);
       const res = await fetch(`/api/steps?uid=${user.id}`);
       if (!res.ok) throw new Error("API_ERROR");
       const data = await res.json();
-      apiCache.set(key, data);
       if (Array.isArray(data)) {
         setStepsData(data); setNeedsReauth(false); setConnected(true);
       } else {

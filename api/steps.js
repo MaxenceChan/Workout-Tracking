@@ -1,4 +1,4 @@
-﻿import admin from "./lib/firebaseAdmin.js";
+import admin from "./lib/firebaseAdmin.js";
 import { google } from "googleapis";
 
 const DAY_MS = 86400000;
