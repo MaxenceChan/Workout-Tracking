@@ -1093,8 +1093,12 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession }) {
 
   useEffect(() => {
     if (!user?.id) return;
-    const q = query(collection(db, "weights"), where("user_id", "==", user.id), orderBy("date", "desc"), limit(1));
-    return onSnapshot(q, snap => setLastWeight(snap.empty ? null : snap.docs[0].data().weight));
+    const q = query(collection(db, "weights"), where("user_id", "==", user.id));
+    return onSnapshot(q, snap => {
+      if (snap.empty) { setLastWeight(null); return; }
+      const sorted = snap.docs.map(d => d.data()).sort((a, b) => a.date > b.date ? -1 : 1);
+      setLastWeight(sorted[0].weight);
+    });
   }, [user?.id]);
 
   useEffect(() => {
