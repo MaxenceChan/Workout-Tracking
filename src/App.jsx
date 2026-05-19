@@ -1164,12 +1164,18 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession }) {
     if (cachedStrava) { processStrava(cachedStrava); }
     else { fetch(`/api/strava?uid=${user.id}`).then(r => r.json()).then(d => { apiCache.set(stravaKey, d); processStrava(d); }).catch(() => {}); }
 
-    // Pas de la semaine lus depuis stepsCache (déjà dans le doc user, 0 lecture supplémentaire)
-    const storedSteps = Array.isArray(data.stepsCache?.steps) ? data.stepsCache.steps : [];
-    const weekTotal = storedSteps
-      .filter(s => s.date >= monday && s.date <= today)
-      .reduce((a, b) => a + (b.steps || 0), 0);
-    setWeekSteps(weekTotal);
+    // Appel /api/steps à chaque ouverture d'app, résultat mis en cache 5 min
+    // → l'onglet Pas réutilise ce cache s'il est encore frais (pas de double appel)
+    const stepsKey = `wt_steps_${user.id}`;
+    const STEPS_TTL = 5 * 60 * 1000;
+    const processSteps = (d) => {
+      const steps = Array.isArray(d) ? d : (d?.steps || []);
+      const total = steps.filter(s => s.date >= monday && s.date <= today).reduce((a, b) => a + (b.steps || 0), 0);
+      setWeekSteps(total);
+    };
+    const cachedSteps = apiCache.get(stepsKey, STEPS_TTL);
+    if (cachedSteps) { processSteps(cachedSteps); }
+    else { fetch(`/api/steps?uid=${user.id}`).then(r => r.json()).then(d => { apiCache.set(stepsKey, d); processSteps(d); }).catch(() => {}); }
   }, [user?.id]);
   const weekDone = sgWeekDone(sessions, weekRunActivities);
   const weekDays = sgWeekDays(sessions, weekRunActivities);
@@ -7270,12 +7276,27 @@ function StepsTracker({ user }) {
   ───────────────────────────── */
   const fetchSteps = useCallback(async (forceRefresh = false) => {
     if (!user?.id) return;
+    const key = `wt_steps_${user.id}`;
+    const STEPS_TTL = 5 * 60 * 1000;
+    // Si cache frais dispo (appel déjà fait au login) → on réutilise, pas de double appel
+    if (!forceRefresh) {
+      const cached = apiCache.get(key, STEPS_TTL);
+      if (cached) {
+        const isArray = Array.isArray(cached);
+        setStepsData(isArray ? cached : (cached?.steps || []));
+        setNeedsReauth(Boolean(!isArray && cached?.needsReauth));
+        setConnected(Boolean(!isArray && cached?.connected));
+        setLoading(false);
+        return;
+      }
+    }
     try {
       forceRefresh ? setRefreshing(true) : setLoading(true);
       setError(null);
       const res = await fetch(`/api/steps?uid=${user.id}`);
       if (!res.ok) throw new Error("API_ERROR");
       const data = await res.json();
+      apiCache.set(key, data);
       if (Array.isArray(data)) {
         setStepsData(data); setNeedsReauth(false); setConnected(true);
       } else {
