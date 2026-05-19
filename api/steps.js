@@ -61,8 +61,9 @@ export default async function handler(req, res) {
 
     const now = Date.now();
     // Première connexion : 365 jours. Sinon : 30 jours (delta récent)
-    const FETCH_DAYS = cachedSteps.length === 0 ? 365 : 30;
-    const startMs = now - FETCH_DAYS * DAY_MS;
+    const oldestCached = cachedSteps.length > 0 ? cachedSteps[0].date : null;
+    const cacheAgeMs = oldestCached ? now - new Date(oldestCached + "T00:00:00Z").getTime() : Infinity;
+    const FETCH_DAYS = cacheAgeMs < 300 * DAY_MS ? 365 : 30;    const startMs = now - FETCH_DAYS * DAY_MS;
     const endMs = now + DAY_MS;
 
     let freshSteps;
