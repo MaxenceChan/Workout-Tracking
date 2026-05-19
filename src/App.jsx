@@ -1348,7 +1348,7 @@ function FormScoreModal({ score, onClose }) {
 }
 
 // ─── SGMobileHome ─────────────────────────────────────────────────────────────
-function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession }) {
+function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession, onNav }) {
   const sessions = data.sessions || [];
   const templates = data.sessionTemplates || [];
   const lastSession = sessions[0];
@@ -1514,9 +1514,12 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession }) {
         </Glass>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
-          <Glass radius={20} tint="rgba(255,255,255,0.5)">
+          <Glass radius={20} tint="rgba(255,255,255,0.5)" style={{ cursor: 'pointer' }} onClick={() => onNav?.('steps')}>
             <div style={{ padding: 14 }}>
-              <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase' }}>Cette sem. · Pas</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase' }}>Cette sem. · Pas</div>
+                <div style={{ fontSize: 11, color: SG.inkFaint }}>›</div>
+              </div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 6 }}>
                 <div style={{ fontFamily: SG.serif, fontSize: 32, fontWeight: 500, lineHeight: 1, color: SG.ink }}>
                   {weekSteps === null ? '—' : weekSteps >= 1000 ? `${(weekSteps / 1000).toFixed(1)}k` : weekSteps}
@@ -2086,8 +2089,8 @@ function SGMobileHistory({ data, user, onDeleteSession, upsertFn, initialDetail,
 }
 
 // ─── SGMobileStats ────────────────────────────────────────────────────────────
-function SGMobileStats({ data, user }) {
-  const [subTab, setSubTab] = useState('stats');
+function SGMobileStats({ data, user, initialSubTab = 'stats' }) {
+  const [subTab, setSubTab] = useState(initialSubTab);
   const sessions = data.sessions || [];
   const todayISO = new Date().toISOString().slice(0, 10);
   const firstSessionDate = sessions.length > 0 ? sessions[sessions.length - 1].date : todayISO;
@@ -2936,6 +2939,7 @@ function App() {
         {showOptions && <SGMobileProfileModal user={user} onClose={() => setShowOptions(false)} />}
         {mobileView === 'home' && <SGMobileHome data={data} user={user} onOpenForm={() => launchSession(null)} onLaunchTpl={(tpl) => launchSession(tpl)}
           onViewSession={(s) => { setPendingDetail(s); handleTabChange('sessions'); }}
+          onNav={(dest) => handleTabChange(dest)}
         />}
         {mobileView === 'sessions' && <SGMobileHistory data={data} user={user}
           initialDetail={pendingDetail}
@@ -2943,7 +2947,7 @@ function App() {
           onDeleteSession={async (id) => { try { await deleteSession(user.id, id); setData(cur => ({ ...cur, sessions: cur.sessions.filter(s => s.id !== id) })); } catch(e) { alert('Erreur: ' + e.message); } }}
           upsertFn={async (s) => { await upsertSessions(user.id, [s], user.email); setData(cur => ({ ...cur, sessions: cur.sessions.map(x => x.id === s.id ? s : x) })); }}
         />}
-        {mobileView === 'analytics' && <SGMobileStats data={data} user={user} />}
+        {mobileView === 'analytics' && <SGMobileStats data={data} user={user} initialSubTab={tab === 'steps' ? 'pas' : 'stats'} />}
         {mobileView === 'tpl' && <SGMobileTpl data={data} user={user} onTab={handleTabChange} onOpenForm={(tpl) => launchSession(tpl)}
           knownExercises={getUserExercises(data)}
           onSaveTpl={async (tpl) => {
