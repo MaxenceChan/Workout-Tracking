@@ -1104,18 +1104,22 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession }) {
   const sessions = data.sessions || [];
   const templates = data.sessionTemplates || [];
   const lastSession = sessions[0];
+  const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
 
+  const [weekSteps, setWeekSteps] = useState(null);
   const [weekRunKm, setWeekRunKm] = useState(null);
   const [weekRunActivities, setWeekRunActivities] = useState([]);
   const [lastWeight, setLastWeight] = useState(null);
+  const [lastWeightDate, setLastWeightDate] = useState(null);
 
   useEffect(() => {
     if (!user?.id) return;
     const q = query(collection(db, "weights"), where("user_id", "==", user.id));
     return onSnapshot(q, snap => {
-      if (snap.empty) { setLastWeight(null); return; }
+      if (snap.empty) { setLastWeight(null); setLastWeightDate(null); return; }
       const sorted = snap.docs.map(d => d.data()).sort((a, b) => a.date > b.date ? -1 : 1);
       setLastWeight(sorted[0].weight);
+      setLastWeightDate(sorted[0].date || null);
     });
   }, [user?.id]);
 
@@ -1129,7 +1133,7 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession }) {
     const today = toLocalISO(new Date());
 
     const stravaKey = `wt_strava_${user.id}`;
-    const STRAVA_TTL = 30 * 60 * 1000;       // 30min
+    const STRAVA_TTL = 30 * 60 * 1000;
 
     const processStrava = (d) => {
       const acts = Array.isArray(d) ? d : (d?.activities || []);
@@ -1142,6 +1146,19 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession }) {
     const cachedStrava = apiCache.get(stravaKey, STRAVA_TTL);
     if (cachedStrava) { processStrava(cachedStrava); }
     else { fetch(`/api/strava?uid=${user.id}`).then(r => r.json()).then(d => { apiCache.set(stravaKey, d); processStrava(d); }).catch(() => {}); }
+
+    if (!isIOS) {
+      const stepsKey = `wt_steps_${user.id}`;
+      const STEPS_TTL = 2 * 60 * 60 * 1000;
+      const processSteps = (d) => {
+        const steps = Array.isArray(d) ? d : (d?.steps || []);
+        const total = steps.filter(s => s.date >= monday && s.date <= today).reduce((a, b) => a + (b.steps || 0), 0);
+        setWeekSteps(total);
+      };
+      const cachedSteps = apiCache.get(stepsKey, STEPS_TTL);
+      if (cachedSteps) { processSteps(cachedSteps); }
+      else { fetch(`/api/steps?uid=${user.id}`).then(r => r.json()).then(d => { apiCache.set(stepsKey, d); processSteps(d); }).catch(() => {}); }
+    }
   }, [user?.id]);
   const weekDone = sgWeekDone(sessions, weekRunActivities);
   const weekDays = sgWeekDays(sessions, weekRunActivities);
@@ -1219,12 +1236,23 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession }) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
           <Glass radius={20} tint="rgba(255,255,255,0.5)">
             <div style={{ padding: 14 }}>
-              <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase' }}>Séances · Total</div>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 6 }}>
-                <div style={{ fontFamily: SG.serif, fontSize: 32, fontWeight: 500, lineHeight: 1, color: SG.ink }}>
-                  {sessions.length}
-                </div>
-              </div>
+              {isIOS ? (
+                <>
+                  <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase' }}>Séances · Total</div>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 6 }}>
+                    <div style={{ fontFamily: SG.serif, fontSize: 32, fontWeight: 500, lineHeight: 1, color: SG.ink }}>{sessions.length}</div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase' }}>Cette sem. · Pas</div>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 6 }}>
+                    <div style={{ fontFamily: SG.serif, fontSize: 32, fontWeight: 500, lineHeight: 1, color: SG.ink }}>
+                      {weekSteps === null ? '—' : weekSteps >= 1000 ? `${(weekSteps / 1000).toFixed(1)}k` : weekSteps}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </Glass>
           <Glass radius={20} tint="rgba(255,255,255,0.5)">
@@ -1244,6 +1272,11 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession }) {
                 </div>
                 {lastWeight !== null && <div style={{ fontSize: 11, color: SG.inkSoft }}>kg</div>}
               </div>
+              {lastWeightDate && (
+                <div style={{ fontSize: 10, color: SG.inkFaint, marginTop: 4 }}>
+                  {new Date(lastWeightDate + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                </div>
+              )}
             </div>
           </Glass>
           <Glass radius={20} tint="rgba(255,255,255,0.5)">
