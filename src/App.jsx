@@ -1802,11 +1802,12 @@ function SGMobileStats({ data, user }) {
   const weeks = Math.max(1, Math.ceil((new Date(endDate) - new Date(startDate+'T00:00:00'))/(7*24*3600*1000)));
   const avgPerWeek = filteredSessions.length > 0 ? (filteredSessions.length / weeks).toFixed(1) : '0';
 
+  const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
   const subTabs = [
     { k: 'stats', label: 'Muscu' },
     { k: 'evolution', label: 'Évolution' },
     { k: 'poids', label: 'Poids' },
-    { k: 'pas', label: 'Pas' },
+    ...(!isIOS ? [{ k: 'pas', label: 'Pas' }] : []),
     { k: 'run', label: 'Run' },
   ];
 
