@@ -60,15 +60,24 @@ export default async function handler(req, res) {
     const fitness = google.fitness({ version: "v1", auth: oauth2Client });
 
     const now = Date.now();
-    // Première connexion : 365 jours. Sinon : 30 jours (delta récent)
     const oldestCached = cachedSteps.length > 0 ? cachedSteps[0].date : null;
-    const cacheAgeMs = oldestCached ? now - new Date(oldestCached + "T00:00:00Z").getTime() : Infinity;
-    const FETCH_DAYS = cacheAgeMs < 300 * DAY_MS ? 365 : 30;    const startMs = now - FETCH_DAYS * DAY_MS;
-    const endMs = now + DAY_MS;
+    const cacheAgeMs = oldestCached
+      ? now - new Date(oldestCached + "T00:00:00Z").getTime()
+      : Infinity;
+
+    // Cache couvre moins de 300 jours → fetch 4×90j en parallèle (≈3s total)
+    // Cache déjà complet → juste les 30 derniers jours
+    const CHUNK = 90 * DAY_MS;
+    const chunks = cacheAgeMs < 300 * DAY_MS
+      ? [0, 1, 2, 3].map(i => ({ startMs: now - (i + 1) * CHUNK, endMs: now - i * CHUNK }))
+      : [{ startMs: now - 30 * DAY_MS, endMs: now + DAY_MS }];
 
     let freshSteps;
     try {
-      freshSteps = await fetchRange(fitness, startMs, endMs);
+      const results = await Promise.all(chunks.map(c => fetchRange(fitness, c.startMs, c.endMs)));
+      const dayMap = new Map();
+      results.flat().forEach(d => dayMap.set(d.date, Math.max(d.steps, dayMap.get(d.date) || 0)));
+      freshSteps = [...dayMap.entries()].map(([date, steps]) => ({ date, steps }));
     } catch (error) {
       const msg = String(error?.message || "").toLowerCase();
       const apiErr = error?.response?.data?.error;
@@ -80,14 +89,13 @@ export default async function handler(req, res) {
       throw error;
     }
 
-    // Fusionner : cache (historique) + données fraîches (prend le max par jour)
+    // Merge : prend toujours le MAX, ne supprime jamais une donnée existante
     const merged = new Map(cachedSteps.map(d => [d.date, d.steps]));
     freshSteps.forEach(d => merged.set(d.date, Math.max(d.steps, merged.get(d.date) || 0)));
     const allSteps = [...merged.entries()]
       .sort(([a], [b]) => (a < b ? -1 : 1))
       .map(([date, steps]) => ({ date, steps }));
 
-    // Écrire en Firestore seulement si changement
     const cachedMap = new Map(cachedSteps.map(d => [d.date, d.steps]));
     const hasChanges = freshSteps.some(f => cachedMap.get(f.date) !== f.steps);
     if (hasChanges) {
