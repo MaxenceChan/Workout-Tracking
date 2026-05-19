@@ -1271,12 +1271,12 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession }) {
                   {lastWeight === null ? '—' : lastWeight}
                 </div>
                 {lastWeight !== null && <div style={{ fontSize: 11, color: SG.inkSoft }}>kg</div>}
+                {lastWeightDate && (
+                  <div style={{ fontSize: 10, color: SG.inkFaint, marginLeft: 2 }}>
+                    · {new Date(lastWeightDate + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                  </div>
+                )}
               </div>
-              {lastWeightDate && (
-                <div style={{ fontSize: 10, color: SG.inkFaint, marginTop: 4 }}>
-                  {new Date(lastWeightDate + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
-                </div>
-              )}
             </div>
           </Glass>
           <Glass radius={20} tint="rgba(255,255,255,0.5)">
