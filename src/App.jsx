@@ -566,7 +566,18 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, known
   };
 
   const addExercise = (name) => {
-    setExercises(exs => [...exs, { name, sets: Array(3).fill(null).map(() => ({ reps: 10, weight: 0, done: false })) }]);
+    const defaultSets = () => Array(3).fill(null).map(() => ({ reps: 10, weight: 0, done: false }));
+    let prefillSets = null;
+    for (const s of sessions) {
+      const match = (s.exercises || []).find(e =>
+        typeof e === 'object' && e !== null && (e.name || '').toLowerCase().trim() === name.toLowerCase().trim()
+      );
+      if (match?.sets?.length) {
+        prefillSets = match.sets.map(st => ({ reps: Number(st?.reps) || 10, weight: Number(st?.weight) || 0, done: false }));
+        break;
+      }
+    }
+    setExercises(exs => [...exs, { name, sets: prefillSets || defaultSets() }]);
     setSessionName('Séance libre');
     setNewExName('');
     setShowAddEx(false);
