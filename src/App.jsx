@@ -97,6 +97,25 @@ const SG = {
   serif: '"Fraunces", Georgia, serif',
 };
 
+// Cache localStorage pour éviter de relire Firestore à chaque navigation
+const apiCache = {
+  get(key, ttlMs) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return null;
+      const { data, ts } = JSON.parse(raw);
+      if (Date.now() - ts > ttlMs) return null;
+      return data;
+    } catch { return null; }
+  },
+  set(key, data) {
+    try { localStorage.setItem(key, JSON.stringify({ data, ts: Date.now() })); } catch {}
+  },
+  clear(key) {
+    try { localStorage.removeItem(key); } catch {}
+  },
+};
+
 function useViewport() {
   const [w, setW] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
   useEffect(() => {
@@ -1110,23 +1129,31 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession }) {
     })();
     const today = toLocalISO(new Date());
 
-    fetch(`/api/steps?uid=${user.id}`)
-      .then(r => r.json())
-      .then(d => {
-        const steps = Array.isArray(d) ? d : (d?.steps || []);
-        const total = steps.filter(s => s.date >= monday && s.date <= today).reduce((a,b) => a + (b.steps||0), 0);
-        setWeekSteps(total);
-      }).catch(() => {});
+    const stepsKey = `wt_steps_${user.id}`;
+    const stravaKey = `wt_strava_${user.id}`;
+    const STEPS_TTL = 2 * 60 * 60 * 1000;   // 2h
+    const STRAVA_TTL = 30 * 60 * 1000;       // 30min
 
-    fetch(`/api/strava?uid=${user.id}`)
-      .then(r => r.json())
-      .then(d => {
-        const acts = Array.isArray(d) ? d : (d?.activities || []);
-        const weekActs = acts.filter(a => a.date >= monday && a.date <= today);
-        const dist = weekActs.reduce((a,b) => a + (b.distance||0), 0);
-        setWeekRunKm(parseFloat((dist/1000).toFixed(1)));
-        setWeekRunActivities(weekActs);
-      }).catch(() => {});
+    const processSteps = (d) => {
+      const steps = Array.isArray(d) ? d : (d?.steps || []);
+      const total = steps.filter(s => s.date >= monday && s.date <= today).reduce((a,b) => a + (b.steps||0), 0);
+      setWeekSteps(total);
+    };
+    const processStrava = (d) => {
+      const acts = Array.isArray(d) ? d : (d?.activities || []);
+      const weekActs = acts.filter(a => a.date >= monday && a.date <= today);
+      const dist = weekActs.reduce((a,b) => a + (b.distance||0), 0);
+      setWeekRunKm(parseFloat((dist/1000).toFixed(1)));
+      setWeekRunActivities(weekActs);
+    };
+
+    const cachedSteps = apiCache.get(stepsKey, STEPS_TTL);
+    if (cachedSteps) { processSteps(cachedSteps); }
+    else { fetch(`/api/steps?uid=${user.id}`).then(r => r.json()).then(d => { apiCache.set(stepsKey, d); processSteps(d); }).catch(() => {}); }
+
+    const cachedStrava = apiCache.get(stravaKey, STRAVA_TTL);
+    if (cachedStrava) { processStrava(cachedStrava); }
+    else { fetch(`/api/strava?uid=${user.id}`).then(r => r.json()).then(d => { apiCache.set(stravaKey, d); processStrava(d); }).catch(() => {}); }
   }, [user?.id]);
   const weekDone = sgWeekDone(sessions, weekRunActivities);
   const weekDays = sgWeekDays(sessions, weekRunActivities);
@@ -7032,20 +7059,20 @@ function StravaTracker({ user }) {
 
   useEffect(() => {
     if (!user?.id) return;
-    setLoading(true);
-    fetch(`/api/strava?uid=${user.id}`)
-      .then(r => r.json())
-      .then(data => {
-        if (Array.isArray(data)) {
-          setActivities(data);
-          setNeedsReauth(false);
-        } else {
-          setActivities(data?.activities || []);
-          setNeedsReauth(Boolean(data?.needsReauth));
-        }
-      })
-      .catch(() => setError(true))
-      .finally(() => setLoading(false));
+    const key = `wt_strava_${user.id}`;
+    const cached = apiCache.get(key, 30 * 60 * 1000);
+    if (cached) {
+      setActivities(Array.isArray(cached) ? cached : (cached?.activities || []));
+      setNeedsReauth(Boolean(!Array.isArray(cached) && cached?.needsReauth));
+      setLoading(false);
+    } else {
+      setLoading(true);
+      fetch(`/api/strava?uid=${user.id}`)
+        .then(r => r.json())
+        .then(data => { apiCache.set(key, data); if (Array.isArray(data)) { setActivities(data); setNeedsReauth(false); } else { setActivities(data?.activities || []); setNeedsReauth(Boolean(data?.needsReauth)); } })
+        .catch(() => setError(true))
+        .finally(() => setLoading(false));
+    }
   }, [user?.id]);
 
   const connectStrava = () => {
@@ -7268,22 +7295,26 @@ function StepsTracker({ user }) {
   useEffect(() => {
     if (isIOS || !user?.id) return;
 
-    const fetchSteps = async () => {
+    const fetchSteps = async (forceRefresh = false) => {
+      const key = `wt_steps_${user.id}`;
+      if (!forceRefresh) {
+        const cached = apiCache.get(key, 2 * 60 * 60 * 1000);
+        if (cached) {
+          setStepsData(Array.isArray(cached) ? cached : (cached?.steps || []));
+          setNeedsReauth(Boolean(!Array.isArray(cached) && cached?.needsReauth));
+          setLoading(false);
+          return;
+        }
+      }
       try {
         setLoading(true);
         setError(null);
-
         const res = await fetch(`/api/steps?uid=${user.id}`);
         if (!res.ok) throw new Error("API_ERROR");
-
         const data = await res.json();
-        if (Array.isArray(data)) {
-          setStepsData(data);
-          setNeedsReauth(false);
-        } else {
-          setStepsData(data?.steps || []);
-          setNeedsReauth(Boolean(data?.needsReauth));
-        }
+        apiCache.set(key, data);
+        if (Array.isArray(data)) { setStepsData(data); setNeedsReauth(false); }
+        else { setStepsData(data?.steps || []); setNeedsReauth(Boolean(data?.needsReauth)); }
       } catch {
         setError("API_ERROR");
       } finally {
