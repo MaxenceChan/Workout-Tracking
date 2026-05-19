@@ -332,8 +332,8 @@ function ExercisePicker({ knownExercises = [], onSelect, onClose }) {
   const handleClick = () => { if (wasFocusedRef.current) inputRef.current?.blur(); };
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 250, background: SG.bg1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '54px 20px 0', maxWidth: 600, margin: '0 auto', width: '100%' }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 250, background: SG.bg1, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '54px 20px 0', maxWidth: 600, margin: '0 auto', width: '100%', minHeight: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 20, flexShrink: 0 }}>
           <button onClick={onClose} style={{ width: 36, height: 36, borderRadius: 12, border: 'none', background: 'rgba(31,26,20,0.07)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: 14, flexShrink: 0 }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={SG.ink} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
@@ -349,7 +349,7 @@ function ExercisePicker({ knownExercises = [], onSelect, onClose }) {
           onClick={handleClick}
           style={{ width: '100%', padding: '12px 16px', borderRadius: 14, border: `1.5px solid rgba(31,26,20,0.14)`, background: 'rgba(255,255,255,0.7)', fontSize: 15, color: SG.ink, outline: 'none', boxSizing: 'border-box', marginBottom: 12, fontFamily: SG.sans, flexShrink: 0 }}
         />
-        <div style={{ overflowY: 'auto', flex: 1, paddingBottom: 44 }}>
+        <div style={{ overflowY: 'auto', flex: 1, paddingBottom: 44, WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', minHeight: 0 }}>
           {canCreate && (
             <button onClick={() => onSelect(query.trim())} style={{ width: '100%', padding: '13px 16px', borderRadius: 14, border: `1.5px dashed rgba(31,26,20,0.18)`, background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, textAlign: 'left' }}>
               <div style={{ width: 32, height: 32, borderRadius: 10, background: SG.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -548,7 +548,7 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, known
       return { ...ex, sets: ex.sets.map((s, si) => si === curSetIdx ? { ...s, reps, weight: kg, done: true } : s) };
     });
     setExercises(updatedExercises);
-    setRestEnd(Date.now() + 90000);
+    setRestEnd(Date.now() + 180000);
     const ex = updatedExercises[curExIdx];
     const nextSetIdx = curSetIdx + 1;
     if (nextSetIdx < ex.sets.length) {
@@ -972,21 +972,26 @@ function SGSessionSummary({ exercises, sessionName, startedAt, sessions, onClose
     ? Math.round(((curTonnage - prevOverall) / prevOverall) * 100) : null;
 
   const isFirst = overallPct === null;
+  const isVeryFirst = isFirst && sessions.length === 0;
   const isPositive = isFirst || overallPct >= 0;
 
-  const title = isFirst
+  const title = isVeryFirst
     ? "C'est parti, première séance enregistrée !"
-    : overallPct > 0
-      ? `Bravo ! Tu as progressé de +${overallPct}% 💪`
-      : overallPct === 0
-        ? 'Même tonnage que la dernière fois — régulier !'
-        : `Continue, le progrès n'est pas linéaire 🔥`;
+    : isFirst
+      ? 'Séance enregistrée 💪'
+      : overallPct > 0
+        ? `Bravo ! Tu as progressé de +${overallPct}% 💪`
+        : overallPct === 0
+          ? 'Même tonnage que la dernière fois — régulier !'
+          : `Continue, le progrès n'est pas linéaire 🔥`;
 
-  const subtitle = isFirst
+  const subtitle = isVeryFirst
     ? 'Tu as posé la première pierre. Reviens régulièrement.'
-    : isPositive
-      ? 'Tu surpasses ta dernière performance. Keep going.'
-      : 'Chaque séance compte, même les jours difficiles.';
+    : isFirst
+      ? 'Continue sur cette lancée, chaque séance compte.'
+      : isPositive
+        ? 'Tu surpasses ta dernière performance. Keep going.'
+        : 'Chaque séance compte, même les jours difficiles.';
 
   return (
     <div style={{ position: 'relative', minHeight: '100vh', paddingBottom: 50 }}>
@@ -1147,26 +1152,28 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession }) {
     if (cachedStrava) { processStrava(cachedStrava); }
     else { fetch(`/api/strava?uid=${user.id}`).then(r => r.json()).then(d => { apiCache.set(stravaKey, d); processStrava(d); }).catch(() => {}); }
 
-    if (!isIOS) {
-      const stepsKey = `wt_steps_${user.id}`;
-      const STEPS_TTL = 2 * 60 * 60 * 1000;
-      const processSteps = (d) => {
-        const steps = Array.isArray(d) ? d : (d?.steps || []);
-        const total = steps.filter(s => s.date >= monday && s.date <= today).reduce((a, b) => a + (b.steps || 0), 0);
-        setWeekSteps(total);
-      };
-      const cachedSteps = apiCache.get(stepsKey, STEPS_TTL);
-      if (cachedSteps) { processSteps(cachedSteps); }
-      else { fetch(`/api/steps?uid=${user.id}`).then(r => r.json()).then(d => { apiCache.set(stepsKey, d); processSteps(d); }).catch(() => {}); }
-    }
+    const stepsKey = `wt_steps_${user.id}`;
+    const STEPS_TTL = 2 * 60 * 60 * 1000;
+    const processSteps = (d) => {
+      const steps = Array.isArray(d) ? d : (d?.steps || []);
+      const total = steps.filter(s => s.date >= monday && s.date <= today).reduce((a, b) => a + (b.steps || 0), 0);
+      setWeekSteps(total);
+    };
+    const cachedSteps = apiCache.get(stepsKey, STEPS_TTL);
+    if (cachedSteps) { processSteps(cachedSteps); }
+    else { fetch(`/api/steps?uid=${user.id}`).then(r => r.json()).then(d => { apiCache.set(stepsKey, d); processSteps(d); }).catch(() => {}); }
   }, [user?.id]);
   const weekDone = sgWeekDone(sessions, weekRunActivities);
   const weekDays = sgWeekDays(sessions, weekRunActivities);
   const firstSession = sessions.length > 0 ? sessions[sessions.length - 1] : null;
   const firstDate = firstSession ? new Date(firstSession.date + 'T00:00:00') : null;
-  const weeksElapsed = firstDate ? Math.max(1, Math.round((Date.now() - firstDate.getTime()) / (7 * 24 * 3600 * 1000))) : 1;
-  const avgPerWeek = firstDate ? (sessions.length / weeksElapsed) : 0;
-  const monthsElapsed = firstDate ? Math.round((Date.now() - firstDate.getTime()) / (30.44 * 24 * 3600 * 1000)) : 0;
+  const now = Date.now();
+  const ninetyDaysAgo = now - 90 * 24 * 3600 * 1000;
+  const windowStart = firstDate ? Math.max(firstDate.getTime(), ninetyDaysAgo) : now;
+  const weeksElapsed = Math.max(1, (now - windowStart) / (7 * 24 * 3600 * 1000));
+  const windowSessions = sessions.filter(s => new Date(s.date + 'T00:00:00').getTime() >= windowStart);
+  const avgPerWeek = firstDate ? (windowSessions.length / weeksElapsed) : 0;
+  const monthsElapsed = firstDate ? Math.round((now - firstDate.getTime()) / (30.44 * 24 * 3600 * 1000)) : 0;
   const sinceMonth = firstDate ? firstDate.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }) : null;
   const suggestion = (() => {
     if (!templates.length) return null;
@@ -1236,23 +1243,12 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession }) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
           <Glass radius={20} tint="rgba(255,255,255,0.5)">
             <div style={{ padding: 14 }}>
-              {isIOS ? (
-                <>
-                  <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase' }}>Séances · Total</div>
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 6 }}>
-                    <div style={{ fontFamily: SG.serif, fontSize: 32, fontWeight: 500, lineHeight: 1, color: SG.ink }}>{sessions.length}</div>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase' }}>Cette sem. · Pas</div>
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 6 }}>
-                    <div style={{ fontFamily: SG.serif, fontSize: 32, fontWeight: 500, lineHeight: 1, color: SG.ink }}>
-                      {weekSteps === null ? '—' : weekSteps >= 1000 ? `${(weekSteps / 1000).toFixed(1)}k` : weekSteps}
-                    </div>
-                  </div>
-                </>
-              )}
+              <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase' }}>Cette sem. · Pas</div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 6 }}>
+                <div style={{ fontFamily: SG.serif, fontSize: 32, fontWeight: 500, lineHeight: 1, color: SG.ink }}>
+                  {weekSteps === null ? '—' : weekSteps >= 1000 ? `${(weekSteps / 1000).toFixed(1)}k` : weekSteps}
+                </div>
+              </div>
             </div>
           </Glass>
           <Glass radius={20} tint="rgba(255,255,255,0.5)">
@@ -1802,12 +1798,11 @@ function SGMobileStats({ data, user }) {
   const weeks = Math.max(1, Math.ceil((new Date(endDate) - new Date(startDate+'T00:00:00'))/(7*24*3600*1000)));
   const avgPerWeek = filteredSessions.length > 0 ? (filteredSessions.length / weeks).toFixed(1) : '0';
 
-  const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
   const subTabs = [
     { k: 'stats', label: 'Muscu' },
     { k: 'evolution', label: 'Évolution' },
     { k: 'poids', label: 'Poids' },
-    ...(!isIOS ? [{ k: 'pas', label: 'Pas' }] : []),
+    { k: 'pas', label: 'Pas' },
     { k: 'run', label: 'Run' },
   ];
 
@@ -7254,71 +7249,16 @@ function StepsTracker({ user }) {
   const axisColor = "#1F1A14";
   const gridColor = "#e5e7eb";
 
-  // Détection iOS — section pas masquée sur iOS
-  const isIOS = useMemo(() => /iPhone|iPad|iPod/.test(navigator.userAgent), []);
-  const isStandalone = useMemo(() => window.navigator.standalone === true, []);
-  const useAppleHealth = isIOS && isStandalone;
-  const iosNeedsPWA = isIOS && !isStandalone;
-
   const [stepsData, setStepsData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [needsReauth, setNeedsReauth] = useState(false);
-  const [appleStatus, setAppleStatus] = useState('idle'); // idle | requesting | granted | denied | error
 
   /* ─────────────────────────────
-     FETCH APPLE HEALTH (iOS PWA)
-  ───────────────────────────── */
-  const fetchAppleHealth = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      setAppleStatus('requesting');
-
-      if (!('health' in navigator)) {
-        setAppleStatus('unsupported');
-        setLoading(false);
-        return;
-      }
-
-      await navigator.health.requestPermission({ read: ['stepCount'] });
-      setAppleStatus('granted');
-
-      const end = new Date();
-      const start = new Date();
-      start.setFullYear(start.getFullYear() - 2); // 2 ans d'historique
-
-      const samples = await navigator.health.queryStatistics({
-        type: 'stepCount',
-        startDate: start,
-        endDate: end,
-        interval: 'day',
-      });
-
-      const formatted = (samples || [])
-        .map(s => ({
-          date: new Date(s.startDate).toLocaleDateString('fr-CA'),
-          steps: Math.round(s.sumQuantity?.doubleValue ?? s.value ?? 0),
-        }))
-        .filter(d => d.steps > 0)
-        .sort((a, b) => a.date.localeCompare(b.date));
-
-      setStepsData(formatted);
-    } catch (e) {
-      setAppleStatus(e.name === 'NotAllowedError' ? 'denied' : 'error');
-      setError('APPLE_HEALTH_ERROR');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Ne pas appeler automatiquement — requestPermission nécessite un geste utilisateur sur iOS
-
-  /* ─────────────────────────────
-     FETCH GOOGLE FIT (non-iOS)
+     FETCH GOOGLE FIT (tous les appareils)
   ───────────────────────────── */
   useEffect(() => {
-    if (isIOS || !user?.id) return;
+    if (!user?.id) return;
 
     const fetchSteps = async (forceRefresh = false) => {
       const key = `wt_steps_${user.id}`;
@@ -7348,7 +7288,7 @@ function StepsTracker({ user }) {
     };
 
     fetchSteps();
-  }, [user?.id, isIOS]);
+  }, [user?.id]);
 
   /* ─────────────────────────────
      FILTRE PÉRIODE UNIFIÉ
@@ -7389,73 +7329,18 @@ function StepsTracker({ user }) {
   /* ─────────────────────────────
      RENDER
   ───────────────────────────── */
-  if (isIOS) return null;
-
   return (
     <div className="space-y-6">
 
-      {/* ───── Connexion */}
+      {/* ───── Connexion Google Fit */}
       <Card>
         <CardContent>
           <h3 className="font-semibold">🚶 Suivi des pas</h3>
-
-          {/* iOS – pas en mode PWA */}
-          {iosNeedsPWA && (
-            <div className="mt-2 space-y-2">
-              <p className="text-sm text-amber-600">📲 Pour accéder à Apple Santé, ouvre l'app depuis ton écran d'accueil (pas depuis Safari).</p>
-              <p className="text-xs text-gray-500">Safari → bouton partage → "Ajouter à l'écran d'accueil"</p>
-            </div>
-          )}
-
-          {/* iOS PWA – Apple Health */}
-          {useAppleHealth && (
-            <>
-              {loading && <p className="text-sm text-gray-500 mt-2">Chargement Apple Santé…</p>}
-              {!loading && appleStatus === 'idle' && (
-                <div className="mt-2 space-y-2">
-                  <p className="text-sm text-gray-500">🍎 Connecte Apple Santé pour importer tes pas.</p>
-                  <Button variant="secondary" onClick={fetchAppleHealth}>Connecter Apple Santé</Button>
-                </div>
-              )}
-              {!loading && appleStatus === 'requesting' && <p className="text-sm text-gray-500 mt-2">En attente de permission…</p>}
-              {!loading && appleStatus === 'granted' && stepsData.length > 0 && <p className="text-sm text-green-500 mt-2">✅ Apple Santé connecté</p>}
-              {!loading && appleStatus === 'granted' && !stepsData.length && (
-                <div className="mt-2 space-y-2">
-                  <p className="text-sm text-gray-500">Aucun pas trouvé dans Apple Santé.</p>
-                  <Button variant="secondary" onClick={fetchAppleHealth}>Réessayer</Button>
-                </div>
-              )}
-              {!loading && appleStatus === 'denied' && (
-                <div className="mt-2 space-y-2">
-                  <p className="text-sm text-red-500">❌ Permission refusée. Va dans Réglages → Confidentialité → Santé pour autoriser l'app.</p>
-                  <Button variant="secondary" onClick={fetchAppleHealth}>Réessayer</Button>
-                </div>
-              )}
-              {!loading && appleStatus === 'unsupported' && (
-                <div className="mt-2 space-y-2">
-                  <p className="text-sm text-amber-600">⚠️ Apple Santé n'est pas disponible sur cet appareil ou dans ce contexte.</p>
-                  <p className="text-xs text-gray-500">Assure-toi d'utiliser Safari et d'avoir ouvert l'app depuis l'écran d'accueil.</p>
-                </div>
-              )}
-              {!loading && appleStatus === 'error' && (
-                <div className="mt-2 space-y-2">
-                  <p className="text-sm text-red-500">❌ Erreur Apple Santé.</p>
-                  <Button variant="secondary" onClick={fetchAppleHealth}>Réessayer</Button>
-                </div>
-              )}
-            </>
-          )}
-
-          {/* Android / desktop – Google Fit */}
-          {!isIOS && (
-            <>
-              {loading && <p className="text-sm text-gray-500 mt-2">Chargement des pas…</p>}
-              {!loading && error && <div className="mt-2 space-y-2"><p className="text-sm text-red-500">❌ Impossible de récupérer les pas.</p><Button variant="secondary" onClick={() => { window.location.href = `/api/auth/google-fit?uid=${user.id}`; }}>Connecter Google Fit</Button></div>}
-              {!loading && !error && !needsReauth && !stepsData.length && <div className="mt-2 space-y-2"><p className="text-sm text-gray-500">⚡ Connecte Google Fit pour commencer le suivi des pas.</p><Button variant="secondary" onClick={() => { window.location.href = `/api/auth/google-fit?uid=${user.id}`; }}>Connecter Google Fit</Button></div>}
-              {!loading && !error && !needsReauth && stepsData.length > 0 && <p className="text-sm text-green-500 mt-2">✅ Google Fit connecté</p>}
-              {!loading && !error && needsReauth && <div className="mt-2 space-y-2"><p className="text-sm text-amber-500">⚠️ Reconnexion Google Fit nécessaire.</p><Button variant="secondary" onClick={() => { window.location.href = `/api/auth/google-fit?uid=${user.id}`; }}>Se reconnecter</Button></div>}
-            </>
-          )}
+          {loading && <p className="text-sm text-gray-500 mt-2">Chargement des pas…</p>}
+          {!loading && error && <div className="mt-2 space-y-2"><p className="text-sm text-red-500">❌ Impossible de récupérer les pas.</p><Button variant="secondary" onClick={() => { window.location.href = `/api/auth/google-fit?uid=${user.id}`; }}>Connecter Google Fit</Button></div>}
+          {!loading && !error && !needsReauth && !stepsData.length && <div className="mt-2 space-y-2"><p className="text-sm text-gray-500">⚡ Connecte Google Fit pour commencer le suivi des pas.</p><Button variant="secondary" onClick={() => { window.location.href = `/api/auth/google-fit?uid=${user.id}`; }}>Connecter Google Fit</Button></div>}
+          {!loading && !error && !needsReauth && stepsData.length > 0 && <p className="text-sm text-green-500 mt-2">✅ Google Fit connecté</p>}
+          {!loading && !error && needsReauth && <div className="mt-2 space-y-2"><p className="text-sm text-amber-500">⚠️ Reconnexion Google Fit nécessaire.</p><Button variant="secondary" onClick={() => { window.location.href = `/api/auth/google-fit?uid=${user.id}`; }}>Se reconnecter</Button></div>}
         </CardContent>
       </Card>
 
