@@ -1164,16 +1164,12 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession }) {
     if (cachedStrava) { processStrava(cachedStrava); }
     else { fetch(`/api/strava?uid=${user.id}`).then(r => r.json()).then(d => { apiCache.set(stravaKey, d); processStrava(d); }).catch(() => {}); }
 
-    const stepsKey = `wt_steps_${user.id}`;
-    const STEPS_TTL = 2 * 60 * 60 * 1000;
-    const processSteps = (d) => {
-      const steps = Array.isArray(d) ? d : (d?.steps || []);
-      const total = steps.filter(s => s.date >= monday && s.date <= today).reduce((a, b) => a + (b.steps || 0), 0);
-      setWeekSteps(total);
-    };
-    const cachedSteps = apiCache.get(stepsKey, STEPS_TTL);
-    if (cachedSteps) { processSteps(cachedSteps); }
-    else { fetch(`/api/steps?uid=${user.id}`).then(r => r.json()).then(d => { apiCache.set(stepsKey, d); processSteps(d); }).catch(() => {}); }
+    // Pas de la semaine lus depuis stepsCache (déjà dans le doc user, 0 lecture supplémentaire)
+    const storedSteps = Array.isArray(data.stepsCache?.steps) ? data.stepsCache.steps : [];
+    const weekTotal = storedSteps
+      .filter(s => s.date >= monday && s.date <= today)
+      .reduce((a, b) => a + (b.steps || 0), 0);
+    setWeekSteps(weekTotal);
   }, [user?.id]);
   const weekDone = sgWeekDone(sessions, weekRunActivities);
   const weekDays = sgWeekDays(sessions, weekRunActivities);
