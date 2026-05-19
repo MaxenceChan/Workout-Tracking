@@ -1122,7 +1122,6 @@ function calcFormScore(sessions, stepsArray) {
   const DAY = 86400000;
   const today = new Date().toISOString().slice(0, 10);
   const day30ago = new Date(now - 30 * DAY).toISOString().slice(0, 10);
-  const day7ago = new Date(now - 7 * DAY).toISOString().slice(0, 10);
 
   // 1RM Progression (35 pts)
   const recentSessions = sessions.filter(s => s.date >= day30ago && s.date <= today && s.exercises?.length);
@@ -1143,13 +1142,18 @@ function calcFormScore(sessions, stepsArray) {
     });
   });
   let totalWeight = 0, weightedProg = 0;
-  exoMap.forEach(entries => {
+  const exoDetails = [];
+  exoMap.forEach((entries, name) => {
     if (entries.length < 2) return;
     const sorted = [...entries].sort((a, b) => a.date < b.date ? -1 : 1);
-    const prog = (sorted[sorted.length - 1].orm - sorted[0].orm) / sorted[0].orm * 100;
+    const first = sorted[0].orm;
+    const last = sorted[sorted.length - 1].orm;
+    const prog = (last - first) / first * 100;
     weightedProg += prog * entries.length;
     totalWeight += entries.length;
+    exoDetails.push({ name, prog: Math.round(prog * 10) / 10, ormFirst: Math.round(first), ormLast: Math.round(last), count: entries.length });
   });
+  exoDetails.sort((a, b) => b.count - a.count);
   const avgProg = totalWeight > 0 ? weightedProg / totalWeight : 0;
   const score1RM = Math.tanh(avgProg / 10) * 35;
 
@@ -1162,7 +1166,13 @@ function calcFormScore(sessions, stepsArray) {
   const count30 = sessions.filter(s => s.date >= day30ago && s.date <= today).length;
   const scoreReg = Math.min(count30 / 12, 1) * 35;
 
-  return Math.max(0, Math.min(100, Math.round(score1RM + scoreSteps + scoreReg)));
+  const total = Math.max(0, Math.min(100, Math.round(score1RM + scoreSteps + scoreReg)));
+  return {
+    total,
+    orm:        { score: Math.max(0, Math.round(score1RM)), max: 35, avgProg: Math.round(avgProg * 10) / 10, exos: exoDetails },
+    steps:      { score: Math.round(scoreSteps), max: 30, avg: Math.round(avgSteps) },
+    regularity: { score: Math.round(scoreReg), max: 35, count: count30 },
+  };
 }
 
 function formScoreLabel(score) {
@@ -1171,6 +1181,88 @@ function formScoreLabel(score) {
   if (score >= 40) return { label: 'Correct', color: '#C8643A' };
   if (score >= 20) return { label: 'Faible', color: 'rgba(31,26,20,0.45)' };
   return { label: 'Inactif', color: 'rgba(31,26,20,0.30)' };
+}
+
+// ─── FormScoreModal ───────────────────────────────────────────────────────────
+function FormScoreModal({ score, onClose }) {
+  const bar = (value, max) => {
+    const pct = Math.max(0, Math.min(100, (value / max) * 100));
+    const color = pct >= 80 ? '#8B9A6B' : pct >= 50 ? '#C8643A' : 'rgba(31,26,20,0.30)';
+    return (
+      <div style={{ height: 6, borderRadius: 3, background: 'rgba(31,26,20,0.08)', marginTop: 6, overflow: 'hidden' }}>
+        <div style={{ height: '100%', width: `${pct}%`, borderRadius: 3, background: color, transition: 'width 0.5s ease' }} />
+      </div>
+    );
+  };
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(31,26,20,0.45)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }} onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 600, background: SG.bg1, borderRadius: '28px 28px 0 0', padding: '20px 24px 52px', boxShadow: '0 -20px 50px rgba(0,0,0,0.18)', maxHeight: '85vh', overflowY: 'auto' }}>
+        <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(31,26,20,0.12)', margin: '0 auto 22px' }} />
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>
+          <div style={{ fontFamily: SG.serif, fontSize: 42, fontWeight: 500, color: SG.ink, lineHeight: 1 }}>{score.total}</div>
+          <div style={{ fontSize: 16, color: SG.inkSoft }}>/100</div>
+        </div>
+        <div style={{ fontSize: 12, color: SG.inkSoft, marginBottom: 28 }}>Basé sur tes 30 derniers jours</div>
+
+        {/* 1RM Progression */}
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: SG.ink }}>💪 Progression force (1RM)</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: SG.ink }}>{score.orm.score}<span style={{ fontSize: 11, color: SG.inkSoft, fontWeight: 400 }}>/35</span></div>
+          </div>
+          {bar(score.orm.score, 35)}
+          <div style={{ fontSize: 11, color: SG.inkSoft, marginTop: 6 }}>
+            {score.orm.exos.length === 0
+              ? 'Pas assez de données (besoin de 2 séances minimum par exercice)'
+              : `Progression moyenne pondérée : ${score.orm.avgProg > 0 ? '+' : ''}${score.orm.avgProg}%`}
+          </div>
+          {score.orm.exos.length > 0 && (
+            <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {score.orm.exos.slice(0, 5).map(ex => (
+                <div key={ex.name} style={{ background: 'rgba(255,255,255,0.55)', borderRadius: 12, padding: '10px 14px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: SG.ink }}>{ex.name}</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: ex.prog >= 0 ? '#8B9A6B' : '#C8643A' }}>
+                      {ex.prog > 0 ? '+' : ''}{ex.prog}%
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 10, color: SG.inkSoft, marginTop: 2 }}>
+                    {ex.ormFirst} kg → {ex.ormLast} kg · {ex.count} séances
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Pas */}
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: SG.ink }}>🚶 Pas quotidiens</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: SG.ink }}>{score.steps.score}<span style={{ fontSize: 11, color: SG.inkSoft, fontWeight: 400 }}>/30</span></div>
+          </div>
+          {bar(score.steps.score, 30)}
+          <div style={{ fontSize: 11, color: SG.inkSoft, marginTop: 6 }}>
+            {score.steps.avg === 0
+              ? 'Google Fit non connecté ou aucune donnée'
+              : `Moyenne sur 30j : ${score.steps.avg.toLocaleString('fr-FR')} pas/jour (objectif 10 000)`}
+          </div>
+        </div>
+
+        {/* Régularité */}
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: SG.ink }}>📅 Régularité</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: SG.ink }}>{score.regularity.score}<span style={{ fontSize: 11, color: SG.inkSoft, fontWeight: 400 }}>/35</span></div>
+          </div>
+          {bar(score.regularity.score, 35)}
+          <div style={{ fontSize: 11, color: SG.inkSoft, marginTop: 6 }}>
+            {score.regularity.count} séance{score.regularity.count > 1 ? 's' : ''} sur 30j (objectif : 12 soit 3/semaine)
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ─── SGMobileHome ─────────────────────────────────────────────────────────────
@@ -1239,7 +1331,8 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession }) {
   const weekDone = sgWeekDone(sessions, weekRunActivities);
   const weekDays = sgWeekDays(sessions, weekRunActivities);
   const formScore = useMemo(() => calcFormScore(sessions, stepsArray), [sessions, stepsArray]);
-  const formScoreInfo = formScoreLabel(formScore);
+  const formScoreInfo = formScoreLabel(formScore.total);
+  const [showScoreModal, setShowScoreModal] = useState(false);
   const firstSession = sessions.length > 0 ? sessions[sessions.length - 1] : null;
   const firstDate = firstSession ? new Date(firstSession.date + 'T00:00:00') : null;
   const now = Date.now();
@@ -1326,16 +1419,17 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession }) {
               </div>
             </div>
           </Glass>
-          <Glass radius={20} tint="rgba(255,255,255,0.5)">
+          <Glass radius={20} tint="rgba(255,255,255,0.5)" style={{ cursor: 'pointer' }} onClick={() => setShowScoreModal(true)}>
             <div style={{ padding: 14 }}>
               <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase' }}>Score de forme</div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 6 }}>
-                <div style={{ fontFamily: SG.serif, fontSize: 32, fontWeight: 500, lineHeight: 1, color: SG.ink }}>{formScore}</div>
+                <div style={{ fontFamily: SG.serif, fontSize: 32, fontWeight: 500, lineHeight: 1, color: SG.ink }}>{formScore.total}</div>
                 <div style={{ fontSize: 11, color: SG.inkSoft }}>/100</div>
               </div>
               <div style={{ fontSize: 10, fontWeight: 700, marginTop: 3, color: formScoreInfo.color }}>{formScoreInfo.label}</div>
             </div>
           </Glass>
+          {showScoreModal && <FormScoreModal score={formScore} onClose={() => setShowScoreModal(false)} />}
           <Glass radius={20} tint="rgba(255,255,255,0.5)">
             <div style={{ padding: 14 }}>
               <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase' }}>Dernier poids</div>
