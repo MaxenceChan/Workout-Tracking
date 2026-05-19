@@ -1,29 +1,73 @@
-import admin from "./lib/firebaseAdmin.js";
+﻿import admin from "./lib/firebaseAdmin.js";
 import { google } from "googleapis";
+
+const DAY_MS = 86400000;
+const CACHE_DAYS = 7;
+
+const toParisDate = (ms) =>
+  new Date(ms).toLocaleDateString("fr-CA", { timeZone: "Europe/Paris" });
+
+const parisMidnight = (dateStr) => {
+  const d = new Date(dateStr + "T00:00:00");
+  const paris = new Date(d.toLocaleString("en-US", { timeZone: "Europe/Paris" }));
+  return paris.getTime();
+};
+
+async function fetchFromGoogleFit(fitness, startMs, endMs) {
+  try {
+    return await fitness.users.dataset.aggregate({
+      userId: "me",
+      requestBody: {
+        aggregateBy: [{ dataSourceId: "derived:com.google.step_count.delta:com.google.android.gms:estimated_steps" }],
+        bucketByTime: { durationMillis: DAY_MS },
+        startTimeMillis: startMs,
+        endTimeMillis: endMs,
+      },
+    });
+  } catch (e) {
+    if (!String(e?.message || "").includes("DataSourceId")) throw e;
+  }
+  return fitness.users.dataset.aggregate({
+    userId: "me",
+    requestBody: {
+      aggregateBy: [{ dataTypeName: "com.google.step_count.delta" }],
+      bucketByTime: { durationMillis: DAY_MS },
+      startTimeMillis: startMs,
+      endTimeMillis: endMs,
+    },
+  });
+}
+
+function parseBuckets(response) {
+  const dayMap = new Map();
+  for (const bucket of response.data.bucket || []) {
+    for (const dataset of bucket.dataset || []) {
+      for (const point of dataset.point || []) {
+        const ms = Number(point.startTimeNanos) / 1e6 || Number(bucket.startTimeMillis);
+        const date = toParisDate(ms);
+        dayMap.set(date, (dayMap.get(date) || 0) + (point.value?.[0]?.intVal || 0));
+      }
+    }
+  }
+  return [...dayMap.entries()].filter(([, s]) => s > 0).map(([date, steps]) => ({ date, steps }));
+}
 
 export default async function handler(req, res) {
   try {
     const { uid } = req.query;
-    if (!uid) return res.status(400).json({ error: "Missing uid" });
+    if (!uid) return res.status(200).json({ ok: true });
 
     const db = admin.firestore();
     const userRef = db.collection("users").doc(uid);
     const userSnap = await userRef.get();
-
     if (!userSnap.exists) return res.status(404).json({ error: "User not found" });
 
-    const { refresh_token } = userSnap.data().googleFit || {};
-
-    // Toujours charger l'historique Firestore (toutes les données déjà stockées)
-    const loadStoredSteps = async () => {
-      const snap = await userRef.collection("steps").orderBy("date", "asc").get();
-      return snap.docs.map(doc => ({ date: doc.data().date, steps: doc.data().steps || 0 }));
-    };
+    const userData = userSnap.data();
+    const { refresh_token } = userData.googleFit || {};
+    const cachedSteps = Array.isArray(userData.stepsCache?.steps) ? userData.stepsCache.steps : [];
 
     if (!refresh_token) {
-      const storedSteps = await loadStoredSteps();
-      await userRef.set({ "googleFit.needs_reauth": true, "googleFit.updated_at": admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
-      return res.status(200).json({ needsReauth: true, steps: storedSteps });
+      return res.status(200).json({ connected: false, needsReauth: false, steps: cachedSteps });
     }
 
     const oauth2Client = new google.auth.OAuth2(
@@ -33,69 +77,41 @@ export default async function handler(req, res) {
     oauth2Client.setCredentials({ refresh_token });
     const fitness = google.fitness({ version: "v1", auth: oauth2Client });
 
-    // Chercher la date du dernier jour stocké pour ne fetcher que le delta
-    const storedSteps = await loadStoredSteps();
-    const lastStoredDate = storedSteps.length > 0 ? storedSteps[storedSteps.length - 1].date : null;
+    const windowStart = toParisDate(Date.now() - CACHE_DAYS * DAY_MS);
+    const startMs = parisMidnight(windowStart) - DAY_MS;
+    const endMs = parisMidnight(toParisDate(Date.now() + DAY_MS));
 
-    // Fetcher depuis le lendemain du dernier stocké, ou 60 jours si rien en cache
-    const end = Date.now();
-    const startDate = lastStoredDate
-      ? new Date(lastStoredDate + "T00:00:00Z").getTime() // commence au dernier jour stocké (pour le mettre à jour)
-      : end - 60 * 24 * 60 * 60 * 1000;
-    const start = Math.min(startDate, end - 60 * 24 * 60 * 60 * 1000); // au moins 60 jours
-
-    let response;
+    let freshSteps;
     try {
-      response = await fitness.users.dataset.aggregate({
-        userId: "me",
-        requestBody: {
-          aggregateBy: [{ dataTypeName: "com.google.step_count.delta" }],
-          bucketByTime: { durationMillis: 24 * 60 * 60 * 1000 },
-          startTimeMillis: start,
-          endTimeMillis: end,
-        },
-      });
+      const response = await fetchFromGoogleFit(fitness, startMs, endMs);
+      freshSteps = parseBuckets(response);
     } catch (error) {
-      const errorMessage = String(error?.message || "").toLowerCase();
-      const apiError = error?.response?.data?.error;
+      const msg = String(error?.message || "").toLowerCase();
+      const apiErr = error?.response?.data?.error;
       const status = error?.response?.status || error?.code;
-      const invalidGrant = apiError === "invalid_grant" || errorMessage.includes("invalid_grant") || status === 401;
-
-      if (invalidGrant) {
-        await userRef.set({ "googleFit.needs_reauth": true, "googleFit.last_error": { code: apiError || status || "invalid_grant", message: error?.message || "invalid_grant" }, "googleFit.updated_at": admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
-        return res.status(200).json({ needsReauth: true, steps: storedSteps });
+      if (apiErr === "invalid_grant" || msg.includes("invalid_grant") || status === 401) {
+        await userRef.set({ googleFit: { needs_reauth: true } }, { merge: true });
+        return res.status(200).json({ needsReauth: true, steps: cachedSteps });
       }
       throw error;
     }
 
-    const freshSteps = (response.data.bucket || []).map((b) => ({
-      date: new Date(Number(b.startTimeMillis)).toLocaleDateString("fr-CA", { timeZone: "Europe/Paris" }),
-      steps: b.dataset?.[0]?.point?.reduce((sum, p) => sum + (p.value?.[0]?.intVal || 0), 0) || 0,
-    })).filter(d => d.steps > 0);
-
-    // Sauvegarder dans Firestore uniquement si la valeur fraîche est supérieure à ce qui est stocké
-    const stepsToSave = freshSteps.filter(d => {
-      const stored = storedSteps.find(s => s.date === d.date);
-      return !stored || d.steps > stored.steps;
-    });
-    if (stepsToSave.length > 0) {
-      const batch = db.batch();
-      stepsToSave.forEach(d => {
-        batch.set(userRef.collection("steps").doc(d.date), { ...d, updated_at: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
-      });
-      await batch.commit();
-    }
-
-    // Fusionner cache Firestore + données fraîches
-    // On garde le MAX pour éviter qu'une sync partielle de Google Fit écrase des données complètes
+    const recentDates = new Set(freshSteps.map(d => d.date));
     const merged = new Map();
-    storedSteps.forEach(d => merged.set(d.date, d.steps));
-    freshSteps.forEach(d => merged.set(d.date, Math.max(d.steps, merged.get(d.date) || 0)));
+    cachedSteps.forEach(d => { if (!recentDates.has(d.date)) merged.set(d.date, d.steps); });
+    freshSteps.forEach(d => merged.set(d.date, d.steps));
+
     const allSteps = [...merged.entries()]
-      .sort(([a], [b]) => a < b ? -1 : 1)
+      .filter(([, s]) => s > 0)
+      .sort(([a], [b]) => (a < b ? -1 : 1))
       .map(([date, steps]) => ({ date, steps }));
 
-    return res.status(200).json({ needsReauth: false, steps: allSteps });
+    await userRef.set(
+      { stepsCache: { steps: allSteps, updatedAt: admin.firestore.FieldValue.serverTimestamp() } },
+      { merge: true }
+    );
+
+    return res.status(200).json({ connected: true, needsReauth: false, steps: allSteps });
   } catch (e) {
     console.error("Steps error:", e);
     return res.status(500).json({ error: "Failed to fetch steps" });
