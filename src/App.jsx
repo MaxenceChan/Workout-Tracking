@@ -1248,16 +1248,14 @@ function CaloriesModal({ todayCal, avgCal, poids, onClose }) {
         {/* Moyenne semaine */}
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
-            <div style={{ fontFamily: SG.serif, fontSize: 18, fontWeight: 500, color: SG.ink }}>Moyenne sem.</div>
+            <div style={{ fontFamily: SG.serif, fontSize: 18, fontWeight: 500, color: SG.ink }}>Moy. 7 derniers jours</div>
             <div style={{ fontFamily: SG.serif, fontSize: 32, fontWeight: 500, color: SG.ink }}>
               {avgCal === null ? '—' : avgCal.toLocaleString('fr-FR')}
               {avgCal !== null && <span style={{ fontSize: 13, color: SG.inkSoft, fontFamily: 'sans-serif', fontWeight: 400 }}> kcal</span>}
             </div>
           </div>
           {avgCal !== null && bar(avgCal, 3500)}
-          <div style={{ fontSize: 11, color: SG.inkSoft, marginTop: 6 }}>
-            {avgCal === null ? "Pas encore assez de jours cette semaine" : "Moyenne lundi → hier (hors aujourd'hui)"}
-          </div>
+          <div style={{ fontSize: 11, color: SG.inkSoft, marginTop: 6 }}>Moyenne hier → J-7 · poids du jour utilisé pour chaque journée</div>
         </div>
       </div>
     </div>
@@ -1362,15 +1360,18 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession }) {
   const [weekRunActivities, setWeekRunActivities] = useState([]);
   const [lastWeight, setLastWeight] = useState(null);
   const [lastWeightDate, setLastWeightDate] = useState(null);
+  const [weightHistory, setWeightHistory] = useState([]);
 
   useEffect(() => {
     if (!user?.id) return;
     const q = query(collection(db, "weights"), where("user_id", "==", user.id));
     return onSnapshot(q, snap => {
-      if (snap.empty) { setLastWeight(null); setLastWeightDate(null); return; }
+      if (snap.empty) { setLastWeight(null); setLastWeightDate(null); setWeightHistory([]); return; }
       const sorted = snap.docs.map(d => d.data()).sort((a, b) => a.date > b.date ? -1 : 1);
       setLastWeight(sorted[0].weight);
       setLastWeightDate(sorted[0].date || null);
+      // Historique trié par date asc pour retrouver le poids à une date donnée
+      setWeightHistory([...sorted].reverse());
     });
   }, [user?.id]);
 
@@ -1422,16 +1423,21 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession }) {
   const { todayCal, avgCal } = useMemo(() => {
     const today = toLocalISO(new Date());
     const allRuns = [...weekRunActivities];
-    const todayCal = calcDayCalories(today, lastWeight, stepsArray, allRuns, sessions);
-    // Moyenne lundi → hier
-    const monday = (() => { const d = new Date(); const day = d.getDay(); d.setDate(d.getDate() - (day === 0 ? 6 : day - 1)); d.setHours(0,0,0,0); return toLocalISO(d); })();
+    // Retourne le poids enregistré le plus proche à ou avant une date donnée
+    const weightAt = (date) => {
+      const entry = [...weightHistory].reverse().find(w => w.date <= date);
+      return entry?.weight || lastWeight || 70;
+    };
+    const todayCal = calcDayCalories(today, weightAt(today), stepsArray, allRuns, sessions);
+    // Moyenne sur les 7 derniers jours (hier → J-7), avec le poids de chaque jour
     const days = [];
-    for (let d = new Date(monday + 'T00:00:00'); toLocalISO(d) < today; d.setDate(d.getDate() + 1)) {
-      days.push(toLocalISO(new Date(d)));
+    for (let i = 1; i <= 7; i++) {
+      const d = new Date(); d.setDate(d.getDate() - i); d.setHours(0,0,0,0);
+      days.push(toLocalISO(d));
     }
-    const avgCal = days.length === 0 ? null : Math.round(days.reduce((sum, date) => sum + calcDayCalories(date, lastWeight, stepsArray, allRuns, sessions).total, 0) / days.length);
+    const avgCal = Math.round(days.reduce((sum, date) => sum + calcDayCalories(date, weightAt(date), stepsArray, allRuns, sessions).total, 0) / days.length);
     return { todayCal, avgCal };
-  }, [lastWeight, stepsArray, weekRunActivities, sessions]);
+  }, [lastWeight, weightHistory, stepsArray, weekRunActivities, sessions]);
   const firstSession = sessions.length > 0 ? sessions[sessions.length - 1] : null;
   const firstDate = firstSession ? new Date(firstSession.date + 'T00:00:00') : null;
   const now = Date.now();
@@ -1564,7 +1570,7 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession }) {
         <Glass radius={20} tint="rgba(255,255,255,0.5)" style={{ cursor: 'pointer', marginBottom: 12 }} onClick={() => setShowCalModal(true)}>
           <div style={{ padding: 14 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase' }}>🔥 Calories</div>
+              <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase' }}>🔥 Calories brûlées</div>
               <div style={{ fontSize: 11, color: SG.inkFaint }}>›</div>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
@@ -1576,7 +1582,7 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession }) {
                 </div>
               </div>
               <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: 10, color: SG.inkSoft, marginBottom: 2 }}>Moy. semaine</div>
+                <div style={{ fontSize: 10, color: SG.inkSoft, marginBottom: 2 }}>Moy. 7 derniers j.</div>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 3, justifyContent: 'flex-end' }}>
                   <div style={{ fontFamily: SG.serif, fontSize: 24, fontWeight: 500, lineHeight: 1, color: SG.inkSoft }}>{avgCal === null ? '—' : avgCal.toLocaleString('fr-FR')}</div>
                   {avgCal !== null && <div style={{ fontSize: 11, color: SG.inkSoft }}>kcal</div>}
