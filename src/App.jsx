@@ -1105,7 +1105,6 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession }) {
   const templates = data.sessionTemplates || [];
   const lastSession = sessions[0];
 
-  const [weekSteps, setWeekSteps] = useState(null);
   const [weekRunKm, setWeekRunKm] = useState(null);
   const [weekRunActivities, setWeekRunActivities] = useState([]);
   const [lastWeight, setLastWeight] = useState(null);
@@ -1129,16 +1128,9 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession }) {
     })();
     const today = toLocalISO(new Date());
 
-    const stepsKey = `wt_steps_${user.id}`;
     const stravaKey = `wt_strava_${user.id}`;
-    const STEPS_TTL = 2 * 60 * 60 * 1000;   // 2h
     const STRAVA_TTL = 30 * 60 * 1000;       // 30min
 
-    const processSteps = (d) => {
-      const steps = Array.isArray(d) ? d : (d?.steps || []);
-      const total = steps.filter(s => s.date >= monday && s.date <= today).reduce((a,b) => a + (b.steps||0), 0);
-      setWeekSteps(total);
-    };
     const processStrava = (d) => {
       const acts = Array.isArray(d) ? d : (d?.activities || []);
       const weekActs = acts.filter(a => a.date >= monday && a.date <= today);
@@ -1146,10 +1138,6 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession }) {
       setWeekRunKm(parseFloat((dist/1000).toFixed(1)));
       setWeekRunActivities(weekActs);
     };
-
-    const cachedSteps = apiCache.get(stepsKey, STEPS_TTL);
-    if (cachedSteps) { processSteps(cachedSteps); }
-    else { fetch(`/api/steps?uid=${user.id}`).then(r => r.json()).then(d => { apiCache.set(stepsKey, d); processSteps(d); }).catch(() => {}); }
 
     const cachedStrava = apiCache.get(stravaKey, STRAVA_TTL);
     if (cachedStrava) { processStrava(cachedStrava); }
@@ -1231,10 +1219,10 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession }) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
           <Glass radius={20} tint="rgba(255,255,255,0.5)">
             <div style={{ padding: 14 }}>
-              <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase' }}>Cette sem. · Pas</div>
+              <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase' }}>Séances · Total</div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 6 }}>
                 <div style={{ fontFamily: SG.serif, fontSize: 32, fontWeight: 500, lineHeight: 1, color: SG.ink }}>
-                  {weekSteps === null ? '—' : weekSteps >= 1000 ? `${(weekSteps/1000).toFixed(1)}k` : weekSteps}
+                  {sessions.length}
                 </div>
               </div>
             </div>
@@ -7232,7 +7220,7 @@ function StepsTracker({ user }) {
   const axisColor = "#1F1A14";
   const gridColor = "#e5e7eb";
 
-  // Détection iOS + mode standalone (PWA depuis écran d'accueil)
+  // Détection iOS — section pas masquée sur iOS
   const isIOS = useMemo(() => /iPhone|iPad|iPod/.test(navigator.userAgent), []);
   const isStandalone = useMemo(() => window.navigator.standalone === true, []);
   const useAppleHealth = isIOS && isStandalone;
@@ -7367,6 +7355,8 @@ function StepsTracker({ user }) {
   /* ─────────────────────────────
      RENDER
   ───────────────────────────── */
+  if (isIOS) return null;
+
   return (
     <div className="space-y-6">
 
