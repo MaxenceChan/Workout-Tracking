@@ -1116,6 +1116,63 @@ function SGSessionSummary({ exercises, sessionName, startedAt, sessions, onClose
   );
 }
 
+// ─── Score de forme ───────────────────────────────────────────────────────────
+function calcFormScore(sessions, stepsArray) {
+  const now = Date.now();
+  const DAY = 86400000;
+  const today = new Date().toISOString().slice(0, 10);
+  const day30ago = new Date(now - 30 * DAY).toISOString().slice(0, 10);
+  const day7ago = new Date(now - 7 * DAY).toISOString().slice(0, 10);
+
+  // 1RM Progression (35 pts)
+  const recentSessions = sessions.filter(s => s.date >= day30ago && s.date <= today && s.exercises?.length);
+  const exoMap = new Map();
+  recentSessions.forEach(session => {
+    (session.exercises || []).forEach(ex => {
+      if (!ex.name) return;
+      let best = 0;
+      (ex.sets || []).forEach(set => {
+        const w = Number(set.weight || 0);
+        const r = Number(set.reps || 0);
+        if (w > 0 && r > 0) best = Math.max(best, w * (1 + r / 30));
+      });
+      if (best > 0) {
+        if (!exoMap.has(ex.name)) exoMap.set(ex.name, []);
+        exoMap.get(ex.name).push({ date: session.date, orm: best });
+      }
+    });
+  });
+  let totalWeight = 0, weightedProg = 0;
+  exoMap.forEach(entries => {
+    if (entries.length < 2) return;
+    const sorted = [...entries].sort((a, b) => a.date < b.date ? -1 : 1);
+    const prog = (sorted[sorted.length - 1].orm - sorted[0].orm) / sorted[0].orm * 100;
+    weightedProg += prog * entries.length;
+    totalWeight += entries.length;
+  });
+  const avgProg = totalWeight > 0 ? weightedProg / totalWeight : 0;
+  const score1RM = Math.tanh(avgProg / 10) * 35;
+
+  // Pas quotidiens (30 pts)
+  const recent7 = stepsArray.filter(d => d.date >= day7ago && d.date <= today);
+  const avgSteps = recent7.length > 0 ? recent7.reduce((a, b) => a + (b.steps || 0), 0) / 7 : 0;
+  const scoreSteps = Math.min(avgSteps / 10000, 1) * 30;
+
+  // Régularité séances (35 pts)
+  const count30 = sessions.filter(s => s.date >= day30ago && s.date <= today).length;
+  const scoreReg = Math.min(count30 / 12, 1) * 35;
+
+  return Math.max(0, Math.min(100, Math.round(score1RM + scoreSteps + scoreReg)));
+}
+
+function formScoreLabel(score) {
+  if (score >= 80) return { label: 'Excellent', color: '#8B9A6B' };
+  if (score >= 60) return { label: 'Bon', color: '#C8643A' };
+  if (score >= 40) return { label: 'Correct', color: '#C8643A' };
+  if (score >= 20) return { label: 'Faible', color: 'rgba(31,26,20,0.45)' };
+  return { label: 'Inactif', color: 'rgba(31,26,20,0.30)' };
+}
+
 // ─── SGMobileHome ─────────────────────────────────────────────────────────────
 function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession }) {
   const sessions = data.sessions || [];
@@ -1124,6 +1181,7 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession }) {
   const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
 
   const [weekSteps, setWeekSteps] = useState(null);
+  const [stepsArray, setStepsArray] = useState([]);
   const [weekRunKm, setWeekRunKm] = useState(null);
   const [weekRunActivities, setWeekRunActivities] = useState([]);
   const [lastWeight, setLastWeight] = useState(null);
@@ -1172,6 +1230,7 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession }) {
       const steps = Array.isArray(d) ? d : (d?.steps || []);
       const total = steps.filter(s => s.date >= monday && s.date <= today).reduce((a, b) => a + (b.steps || 0), 0);
       setWeekSteps(total);
+      setStepsArray(steps);
     };
     const cachedSteps = apiCache.get(stepsKey, STEPS_TTL);
     if (cachedSteps) { processSteps(cachedSteps); }
@@ -1179,6 +1238,8 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession }) {
   }, [user?.id]);
   const weekDone = sgWeekDone(sessions, weekRunActivities);
   const weekDays = sgWeekDays(sessions, weekRunActivities);
+  const formScore = useMemo(() => calcFormScore(sessions, stepsArray), [sessions, stepsArray]);
+  const formScoreInfo = formScoreLabel(formScore);
   const firstSession = sessions.length > 0 ? sessions[sessions.length - 1] : null;
   const firstDate = firstSession ? new Date(firstSession.date + 'T00:00:00') : null;
   const now = Date.now();
@@ -1267,10 +1328,12 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession }) {
           </Glass>
           <Glass radius={20} tint="rgba(255,255,255,0.5)">
             <div style={{ padding: 14 }}>
-              <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase' }}>Total sem. · Séances</div>
+              <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase' }}>Score de forme</div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 6 }}>
-                <div style={{ fontFamily: SG.serif, fontSize: 32, fontWeight: 500, lineHeight: 1, color: SG.ink }}>{weekDone}</div>
+                <div style={{ fontFamily: SG.serif, fontSize: 32, fontWeight: 500, lineHeight: 1, color: SG.ink }}>{formScore}</div>
+                <div style={{ fontSize: 11, color: SG.inkSoft }}>/100</div>
               </div>
+              <div style={{ fontSize: 10, fontWeight: 700, marginTop: 3, color: formScoreInfo.color }}>{formScoreInfo.label}</div>
             </div>
           </Glass>
           <Glass radius={20} tint="rgba(255,255,255,0.5)">
