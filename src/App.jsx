@@ -7281,7 +7281,7 @@ function StepsTracker({ user }) {
       } else {
         setStepsData(data?.steps || []);
         setNeedsReauth(Boolean(data?.needsReauth));
-        setConnected(!data?.needsReauth);
+        setConnected(Boolean(data?.connected));
       }
       setLastUpdated(new Date());
     } catch {
