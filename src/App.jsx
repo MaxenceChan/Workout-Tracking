@@ -1457,16 +1457,10 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession, onNa
     const avgCal = Math.round(last7Cal.reduce((sum, d) => sum + d.total, 0) / last7Cal.length);
     return { todayCal, avgCal, last7Cal };
   }, [lastWeight, weightHistory, stepsArray, allRunActivities, sessions]);
-  const firstSession = sessions.length > 0 ? sessions[sessions.length - 1] : null;
-  const firstDate = firstSession ? new Date(firstSession.date + 'T00:00:00') : null;
   const now = Date.now();
-  const ninetyDaysAgo = now - 90 * 24 * 3600 * 1000;
-  const windowStart = firstDate ? Math.max(firstDate.getTime(), ninetyDaysAgo) : now;
-  const weeksElapsed = Math.max(1, (now - windowStart) / (7 * 24 * 3600 * 1000));
-  const windowSessions = sessions.filter(s => new Date(s.date + 'T00:00:00').getTime() >= windowStart);
-  const avgPerWeek = firstDate ? (windowSessions.length / weeksElapsed) : 0;
-  const monthsElapsed = firstDate ? Math.round((now - firstDate.getTime()) / (30.44 * 24 * 3600 * 1000)) : 0;
-  const sinceMonth = firstDate ? firstDate.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }) : null;
+  const thirtyDaysAgo = now - 30 * 24 * 3600 * 1000;
+  const windowSessions = sessions.filter(s => new Date(s.date + 'T00:00:00').getTime() >= thirtyDaysAgo);
+  const avgPerWeek = windowSessions.length / (30 / 7);
   const suggestion = (() => {
     if (!templates.length) return null;
     const lastUsed = (tpl) => {
@@ -1502,11 +1496,7 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession, onNa
           <div style={{ padding: '20px 22px 22px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ fontSize: 11, color: SG.inkSoft, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase' }}>Moyenne</div>
-              {sinceMonth && (
-                <div style={{ fontSize: 11, color: SG.inkSoft, fontStyle: 'italic' }}>
-                  depuis {sinceMonth}{monthsElapsed > 0 ? ` · ${monthsElapsed} mois` : ''}
-                </div>
-              )}
+              <div style={{ fontSize: 11, color: SG.inkSoft, fontStyle: 'italic' }}>sur les 30 derniers jours</div>
             </div>
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14, marginTop: 4 }}>
               <div style={{ fontFamily: SG.serif, fontSize: 88, lineHeight: 0.9, fontWeight: 400, letterSpacing: -2, color: SG.ink }}>
@@ -1861,6 +1851,20 @@ function SGMobileHistory({ data, user, onDeleteSession, upsertFn, initialDetail,
   const [detail, setDetail] = useState(null);
   const [editing, setEditing] = useState(false);
   const detailRef = useRef(null);
+  const [runActivities, setRunActivities] = useState([]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const key = `wt_strava_${user.id}`;
+    const TTL = 30 * 60 * 1000;
+    const process = (d) => {
+      const acts = Array.isArray(d) ? d : (d?.activities || []);
+      setRunActivities(acts);
+    };
+    const cached = apiCache.get(key, TTL);
+    if (cached) { process(cached); return; }
+    fetch(`/api/strava?uid=${user.id}`).then(r => r.json()).then(d => { apiCache.set(key, d); process(d); }).catch(() => {});
+  }, [user?.id]);
 
   useEffect(() => {
     if (initialDetail) { setDetail(initialDetail); onClearInitialDetail?.(); }
@@ -1885,8 +1889,15 @@ function SGMobileHistory({ data, user, onDeleteSession, upsertFn, initialDetail,
       if (/iPad|iPhone|iPod/.test(navigator.userAgent)) alert('📲 Image enregistrée. Tu peux maintenant la partager depuis Photos.');
     } catch (e) { console.error('Export error:', e); alert("Impossible d'exporter la séance."); }
   };
-  const types = ['Tout', ...Array.from(new Set(sessions.map(s => displayType(s.type)).filter(Boolean)))];
-  const filtered = filter === 'Tout' ? sessions : sessions.filter(s => displayType(s.type) === filter);
+  const muscuTypes = Array.from(new Set(sessions.map(s => displayType(s.type)).filter(Boolean)));
+  const types = ['Tout', ...muscuTypes, ...(runActivities.length > 0 ? ['Course'] : [])];
+  const allItems = [
+    ...sessions.map(s => ({ ...s, _isRun: false })),
+    ...runActivities.map(a => ({ ...a, _isRun: true, id: `strava_${a.id}`, type: 'Course' })),
+  ];
+  const filteredItems = filter === 'Tout' ? allItems
+    : filter === 'Course' ? allItems.filter(x => x._isRun)
+    : allItems.filter(x => !x._isRun && displayType(x.type) === filter);
   const today = new Date();
   const [calMonth, setCalMonth] = useState(today.getMonth());
   const [calYear, setCalYear] = useState(today.getFullYear());
@@ -1909,6 +1920,68 @@ function SGMobileHistory({ data, user, onDeleteSession, upsertFn, initialDetail,
       onCancel={() => setEditing(false)}
       upsertFn={upsertFn}
     />;
+  }
+
+  if (detail && detail._isRun) {
+    const distKm = (detail.distance / 1000);
+    const paceS = detail.distance > 0 ? detail.moving_time / distKm : 0;
+    const paceMin = Math.floor(paceS / 60);
+    const paceSec = Math.round(paceS % 60);
+    const movMin = Math.floor(detail.moving_time / 60);
+    const movSec = detail.moving_time % 60;
+    return (
+      <div style={{ position: 'relative', minHeight: '100vh', paddingBottom: 100 }}>
+        <div style={{ position: 'relative', padding: '54px 18px 0', maxWidth: 600, margin: '0 auto' }}>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 18 }}>
+            <Glass radius={22} tint="rgba(255,255,255,0.7)" style={{ width: 44, height: 44 }} onClick={() => setDetail(null)}>
+              <div style={{ width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={SG.ink} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+              </div>
+            </Glass>
+            <div>
+              <div style={{ fontSize: 11, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase' }}>{sgFmt(detail.date).toUpperCase()}</div>
+              <h1 style={{ fontFamily: SG.serif, fontSize: 28, fontWeight: 500, lineHeight: 1, margin: '4px 0 0', color: SG.ink }}>{detail.name || 'Course'}</h1>
+            </div>
+          </div>
+          <Glass radius={24} tint="rgba(255,255,255,0.55)" style={{ marginBottom: 14 }}>
+            <div style={{ padding: 18, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+              <div>
+                <div style={{ fontSize: 10, color: SG.inkFaint, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase' }}>Distance</div>
+                <div style={{ fontFamily: SG.serif, fontSize: 24, fontWeight: 500, lineHeight: 1, marginTop: 2, color: SG.ink }}>{distKm.toFixed(2)}<span style={{ fontSize: 11, color: SG.inkSoft }}>km</span></div>
+              </div>
+              <div>
+                <div style={{ fontSize: 10, color: SG.inkFaint, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase' }}>Durée</div>
+                <div style={{ fontFamily: SG.serif, fontSize: 24, fontWeight: 500, lineHeight: 1, marginTop: 2, color: SG.ink }}>{movMin}<span style={{ fontSize: 11, color: SG.inkSoft }}>min</span>{movSec > 0 && <span style={{ fontSize: 14 }}>{String(movSec).padStart(2,'0')}</span>}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 10, color: SG.inkFaint, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase' }}>Allure</div>
+                <div style={{ fontFamily: SG.serif, fontSize: 24, fontWeight: 500, lineHeight: 1, marginTop: 2, color: SG.ink }}>{paceMin}:{String(paceSec).padStart(2,'0')}<span style={{ fontSize: 11, color: SG.inkSoft }}>/km</span></div>
+              </div>
+            </div>
+          </Glass>
+          <Glass radius={24} tint="rgba(255,255,255,0.55)" style={{ marginBottom: 14 }}>
+            <div style={{ padding: 18, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+              <div>
+                <div style={{ fontSize: 10, color: SG.inkFaint, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase' }}>Dénivelé</div>
+                <div style={{ fontFamily: SG.serif, fontSize: 24, fontWeight: 500, lineHeight: 1, marginTop: 2, color: SG.ink }}>{detail.elevation ?? '—'}<span style={{ fontSize: 11, color: SG.inkSoft }}>m</span></div>
+              </div>
+              <div>
+                <div style={{ fontSize: 10, color: SG.inkFaint, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase' }}>FC moy.</div>
+                <div style={{ fontFamily: SG.serif, fontSize: 24, fontWeight: 500, lineHeight: 1, marginTop: 2, color: SG.ink }}>{detail.avg_hr ? Math.round(detail.avg_hr) : '—'}<span style={{ fontSize: 11, color: SG.inkSoft }}>bpm</span></div>
+              </div>
+              <div>
+                <div style={{ fontSize: 10, color: SG.inkFaint, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase' }}>FC max.</div>
+                <div style={{ fontFamily: SG.serif, fontSize: 24, fontWeight: 500, lineHeight: 1, marginTop: 2, color: SG.ink }}>{detail.max_hr ? Math.round(detail.max_hr) : '—'}<span style={{ fontSize: 11, color: SG.inkSoft }}>bpm</span></div>
+              </div>
+            </div>
+          </Glass>
+          <div style={{ padding: '10px 14px', borderRadius: 16, background: `${SG.accent2}18`, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={SG.accent2} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <div style={{ fontSize: 12, color: SG.accent2, fontWeight: 600 }}>Activité Strava · lecture seule</div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (detail) {
@@ -2017,14 +2090,21 @@ function SGMobileHistory({ data, user, onDeleteSession, upsertFn, initialDetail,
                 const day = i + 1;
                 const iso = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
                 const daySessions = sessions.filter(x => x.date === iso);
-                const hasSess = daySessions.length > 0;
+                const dayStravaRuns = runActivities.filter(a => a.date === iso);
+                const hasStravaRun = dayStravaRuns.length > 0;
+                const hasSess = daySessions.length > 0 || hasStravaRun;
                 const isToday = isCurrentMonth && day === today.getDate();
-                const hasRun = daySessions.some(s => isRunSession(s));
+                const hasGymRun = daySessions.some(s => isRunSession(s));
                 const hasMuscu = daySessions.some(s => !isRunSession(s));
+                const hasRun = hasGymRun || hasStravaRun;
                 const dotColor = hasMuscu && hasRun ? `linear-gradient(90deg, ${SG.accent}, ${SG.accent2})` : hasRun ? SG.accent2 : SG.accent;
                 const circleColor = hasMuscu && !hasRun ? SG.accent : hasRun && !hasMuscu ? SG.accent2 : hasSess ? SG.accent : 'transparent';
+                const handleCalClick = () => {
+                  if (daySessions.length > 0) setDetail(daySessions[0]);
+                  else if (hasStravaRun) setDetail({ ...dayStravaRuns[0], _isRun: true });
+                };
                 return (
-                  <div key={day} onClick={() => { if (hasSess) setDetail(daySessions[0]); }} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '3px 0', cursor: hasSess ? 'pointer' : 'default' }}>
+                  <div key={day} onClick={() => { if (hasSess) handleCalClick(); }} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '3px 0', cursor: hasSess ? 'pointer' : 'default' }}>
                     <div style={{ width: 32, height: 32, borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: hasSess || isToday ? 700 : 400, background: isToday ? SG.ink : hasSess ? circleColor : 'transparent', color: isToday || hasSess ? '#fff' : SG.ink, boxShadow: hasSess && !isToday ? `0 2px 8px ${circleColor}55` : 'none' }}>{day}</div>
                     <div style={{ width: 5, height: 5, borderRadius: 3, marginTop: 2, background: hasSess && !isToday ? dotColor : 'transparent' }}/>
                   </div>
@@ -2046,11 +2126,12 @@ function SGMobileHistory({ data, user, onDeleteSession, upsertFn, initialDetail,
         {/* Session list grouped by month */}
         {(() => {
           const groups = {};
-          filtered.forEach(s => {
+          filteredItems.forEach(s => {
             const key = s.date ? s.date.slice(0, 7) : 'unknown';
             if (!groups[key]) groups[key] = [];
             groups[key].push(s);
           });
+          Object.values(groups).forEach(g => g.sort((a, b) => b.date < a.date ? -1 : b.date > a.date ? 1 : 0));
           const sorted = Object.entries(groups).sort(([a],[b]) => b.localeCompare(a));
           if (sorted.length === 0) return (
             <div style={{ textAlign: 'center', padding: 52, color: SG.inkSoft }}>
@@ -2058,38 +2139,49 @@ function SGMobileHistory({ data, user, onDeleteSession, upsertFn, initialDetail,
               <div style={{ fontSize: 13 }}>Modifie le filtre ou commence à t'entraîner !</div>
             </div>
           );
-          return sorted.map(([key, groupSessions]) => {
+          return sorted.map(([key, groupItems]) => {
             const [y, m] = key.split('-');
             const label = `${monthNames[parseInt(m)-1]} ${y}`;
             return (
               <div key={key} style={{ marginBottom: 24 }}>
-                <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1.4, color: SG.inkSoft, textTransform: 'uppercase', marginBottom: 10, paddingLeft: 2 }}>{label} · {groupSessions.length}</div>
+                <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1.4, color: SG.inkSoft, textTransform: 'uppercase', marginBottom: 10, paddingLeft: 2 }}>{label} · {groupItems.length}</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {groupSessions.map(s => {
-                    const run = isRunSession(s);
+                  {groupItems.map(s => {
+                    const isRun = s._isRun;
+                    const run = isRun || isRunSession(s);
                     const accent = run ? SG.accent2 : SG.accent;
                     const dayNum = s.date ? s.date.slice(8) : '–';
                     const mIdx = s.date ? parseInt(s.date.slice(5,7)) - 1 : 0;
-                    const tonnage = sgTonnage(s);
+                    const handleClick = () => isRun ? setDetail({ ...s, _isRun: true }) : setDetail(s);
                     return (
-                      <Glass key={s.id} radius={20} tint="rgba(255,255,255,0.60)" onClick={() => setDetail(s)} style={{ overflow: 'hidden' }}>
+                      <Glass key={s.id} radius={20} tint="rgba(255,255,255,0.60)" onClick={handleClick} style={{ overflow: 'hidden' }}>
                         <div style={{ display: 'flex', alignItems: 'stretch' }}>
-                          {/* Colored type bar */}
                           <div style={{ width: 5, background: accent, flexShrink: 0 }}/>
-                          {/* Date column */}
                           <div style={{ padding: '15px 14px 15px 15px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minWidth: 50, borderRight: '1px solid rgba(31,26,20,0.07)' }}>
                             <div style={{ fontFamily: SG.serif, fontSize: 26, fontWeight: 500, lineHeight: 1, color: SG.ink }}>{dayNum}</div>
                             <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: SG.inkFaint, letterSpacing: 0.6, marginTop: 2 }}>{monthAbbrs[mIdx]}</div>
                           </div>
-                          {/* Content */}
                           <div style={{ flex: 1, padding: '15px 14px 15px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, minWidth: 0 }}>
                             <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontFamily: SG.serif, fontSize: 19, fontWeight: 500, color: SG.ink, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{displayType(s.type)}</div>
-                              <div style={{ fontSize: 12, color: SG.inkSoft, marginTop: 4, display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
-                                {(s.exercises||[]).length > 0 && <span>{(s.exercises||[]).length} exo</span>}
-                                {tonnage > 0 && <><span style={{ color: SG.inkFaint, fontSize: 10 }}>·</span><span>{tonnage.toLocaleString('fr-FR')} kg</span></>}
-                                {s.dur && <><span style={{ color: SG.inkFaint, fontSize: 10 }}>·</span><span>{s.dur} min</span></>}
-                              </div>
+                              {isRun ? (
+                                <>
+                                  <div style={{ fontFamily: SG.serif, fontSize: 19, fontWeight: 500, color: SG.ink, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.name || 'Course'}</div>
+                                  <div style={{ fontSize: 12, color: SG.inkSoft, marginTop: 4, display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
+                                    {s.distance > 0 && <span>{(s.distance / 1000).toFixed(2)} km</span>}
+                                    {s.moving_time > 0 && <><span style={{ color: SG.inkFaint, fontSize: 10 }}>·</span><span>{Math.floor(s.moving_time / 60)}min</span></>}
+                                    {s.distance > 0 && s.moving_time > 0 && (() => { const ps = s.moving_time / (s.distance / 1000); return <><span style={{ color: SG.inkFaint, fontSize: 10 }}>·</span><span>{Math.floor(ps/60)}:{String(Math.round(ps%60)).padStart(2,'0')}/km</span></>; })()}
+                                  </div>
+                                </>
+                              ) : (
+                                <>
+                                  <div style={{ fontFamily: SG.serif, fontSize: 19, fontWeight: 500, color: SG.ink, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{displayType(s.type)}</div>
+                                  <div style={{ fontSize: 12, color: SG.inkSoft, marginTop: 4, display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
+                                    {(s.exercises||[]).length > 0 && <span>{(s.exercises||[]).length} exo</span>}
+                                    {sgTonnage(s) > 0 && <><span style={{ color: SG.inkFaint, fontSize: 10 }}>·</span><span>{sgTonnage(s).toLocaleString('fr-FR')} kg</span></>}
+                                    {s.dur && <><span style={{ color: SG.inkFaint, fontSize: 10 }}>·</span><span>{s.dur} min</span></>}
+                                  </div>
+                                </>
+                              )}
                             </div>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={SG.inkFaint} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M9 6l6 6-6 6"/></svg>
                           </div>
