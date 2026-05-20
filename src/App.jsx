@@ -1446,9 +1446,10 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession, onNa
         .then(d => {
           const steps = Array.isArray(d) ? d : (d?.steps || []);
           if (d?.error && !steps.length) {
-            // API crash — keep existing stale cache, don't overwrite with empty
+            // API crash — don't cache the error; fall back to stale data if available
             const stale = apiCache.getStale(stepsKey);
-            if (stale) processSteps(stale);
+            const staleSteps = Array.isArray(stale) ? stale : (stale?.steps || []);
+            if (staleSteps.length > 0) processSteps(stale);
             return;
           }
           apiCache.set(stepsKey, d);
@@ -1456,7 +1457,8 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession, onNa
         })
         .catch(() => {
           const stale = apiCache.getStale(stepsKey);
-          if (stale) processSteps(stale);
+          const staleSteps = Array.isArray(stale) ? stale : (stale?.steps || []);
+          if (staleSteps.length > 0) processSteps(stale);
         });
     }
   }, [user?.id]);
@@ -7703,9 +7705,12 @@ function StepsTracker({ user }) {
     // Si cache frais dispo (appel déjà fait au login) → on réutilise, pas de double appel
     if (!forceRefresh) {
       const cached = apiCache.get(key, STEPS_TTL);
-      if (cached) {
+      const cachedSteps = Array.isArray(cached) ? cached : (cached?.steps || []);
+      // Only use cache if it contains actual step data or a valid auth state (needsReauth)
+      // Ignore cached error responses — they should not block a fresh fetch attempt
+      if (cached && (cachedSteps.length > 0 || cached?.needsReauth)) {
         const isArray = Array.isArray(cached);
-        setStepsData(isArray ? cached : (cached?.steps || []));
+        setStepsData(cachedSteps);
         setNeedsReauth(Boolean(!isArray && cached?.needsReauth));
         setConnected(Boolean(!isArray && (cached?.connected ?? !cached?.needsReauth)));
         setLoading(false);
@@ -7720,7 +7725,7 @@ function StepsTracker({ user }) {
       const data = await res.json();
       const steps = Array.isArray(data) ? data : (data?.steps || []);
       if (data?.error && !steps.length) throw new Error("API_ERROR");
-      apiCache.set(key, data);
+      apiCache.set(key, data); // only cached if no error
       if (Array.isArray(data)) {
         setStepsData(data); setNeedsReauth(false); setConnected(true);
       } else {
