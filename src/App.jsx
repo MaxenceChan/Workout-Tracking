@@ -574,6 +574,16 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, known
     ));
   };
 
+  const deleteSet = (exIdx, si) => {
+    setExercises(exs => exs.map((ex, ei) => {
+      if (ei !== exIdx) return ex;
+      return { ...ex, sets: ex.sets.filter((_, idx) => idx !== si) };
+    }));
+    if (exIdx === curExIdx && si <= curSetIdx && curSetIdx > 0) {
+      setCurSetIdx(prev => prev - 1);
+    }
+  };
+
   const addExercise = (name) => {
     const defaultSets = () => Array(3).fill(null).map(() => ({ reps: 10, weight: 0, done: false }));
     let prefillSets = null;
@@ -701,6 +711,9 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, known
                 </div>
                 {s.done && <div style={{ fontSize: 9, fontWeight: 700, color: SG.accent2, letterSpacing: 0.4, opacity: 0.7 }}>RETOUR</div>}
                 {isCur && !s.done && <div style={{ fontSize: 10, fontWeight: 800, color: SG.accent, letterSpacing: 0.5 }}>EN COURS</div>}
+                <button onClick={(e) => { e.stopPropagation(); deleteSet(exIdx, si); }} style={{ width: 26, height: 26, borderRadius: 13, border: 'none', background: 'rgba(178,58,58,0.12)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginLeft: 4 }}>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#B23A3A" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
               </div>
             );
           })}
