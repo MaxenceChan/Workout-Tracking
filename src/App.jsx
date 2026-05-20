@@ -1960,19 +1960,9 @@ function SGMobileHistory({ data, user, onDeleteSession, upsertFn, initialDetail,
             </div>
           </Glass>
           <Glass radius={24} tint="rgba(255,255,255,0.55)" style={{ marginBottom: 14 }}>
-            <div style={{ padding: 18, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-              <div>
-                <div style={{ fontSize: 10, color: SG.inkFaint, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase' }}>Dénivelé</div>
-                <div style={{ fontFamily: SG.serif, fontSize: 24, fontWeight: 500, lineHeight: 1, marginTop: 2, color: SG.ink }}>{detail.elevation ?? '—'}<span style={{ fontSize: 11, color: SG.inkSoft }}>m</span></div>
-              </div>
-              <div>
-                <div style={{ fontSize: 10, color: SG.inkFaint, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase' }}>FC moy.</div>
-                <div style={{ fontFamily: SG.serif, fontSize: 24, fontWeight: 500, lineHeight: 1, marginTop: 2, color: SG.ink }}>{detail.avg_hr ? Math.round(detail.avg_hr) : '—'}<span style={{ fontSize: 11, color: SG.inkSoft }}>bpm</span></div>
-              </div>
-              <div>
-                <div style={{ fontSize: 10, color: SG.inkFaint, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase' }}>FC max.</div>
-                <div style={{ fontFamily: SG.serif, fontSize: 24, fontWeight: 500, lineHeight: 1, marginTop: 2, color: SG.ink }}>{detail.max_hr ? Math.round(detail.max_hr) : '—'}<span style={{ fontSize: 11, color: SG.inkSoft }}>bpm</span></div>
-              </div>
+            <div style={{ padding: 18 }}>
+              <div style={{ fontSize: 10, color: SG.inkFaint, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase' }}>Dénivelé</div>
+              <div style={{ fontFamily: SG.serif, fontSize: 24, fontWeight: 500, lineHeight: 1, marginTop: 2, color: SG.ink }}>{detail.elevation ?? '—'}<span style={{ fontSize: 11, color: SG.inkSoft }}>m</span></div>
             </div>
           </Glass>
           <div style={{ padding: '10px 14px', borderRadius: 16, background: `${SG.accent2}18`, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -2117,7 +2107,7 @@ function SGMobileHistory({ data, user, onDeleteSession, upsertFn, initialDetail,
         {/* Filter pills */}
         <div style={{ display: 'flex', gap: 6, marginBottom: 18, overflowX: 'auto', paddingBottom: 2, WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
           {types.map(t => (
-            <button key={t} onClick={() => setFilter(t)} style={{ padding: '9px 20px', borderRadius: 22, border: 'none', cursor: 'pointer', background: filter === t ? SG.ink : 'rgba(255,255,255,0.70)', color: filter === t ? '#fff' : SG.ink, fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', boxShadow: filter === t ? '0 2px 10px rgba(31,26,20,0.18)' : '0 1px 4px rgba(31,26,20,0.08)', transition: 'all 0.15s' }}>
+            <button key={t} onClick={() => setFilter(t)} style={{ padding: '9px 20px', borderRadius: 22, border: 'none', cursor: 'pointer', background: filter === t ? SG.ink : 'rgba(255,255,255,0.88)', color: filter === t ? '#fff' : SG.ink, fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', boxShadow: filter === t ? '0 2px 10px rgba(31,26,20,0.18)' : '0 1px 4px rgba(31,26,20,0.08)', transition: 'background 0.15s, color 0.15s, box-shadow 0.15s', WebkitAppearance: 'none', appearance: 'none', transform: 'translateZ(0)', WebkitTransform: 'translateZ(0)' }}>
               {t}
             </button>
           ))}
