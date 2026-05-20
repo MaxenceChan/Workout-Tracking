@@ -108,6 +108,14 @@ const apiCache = {
       return data;
     } catch { return null; }
   },
+  // Returns cached data regardless of TTL (for crash fallback)
+  getStale(key) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return null;
+      return JSON.parse(raw).data;
+    } catch { return null; }
+  },
   set(key, data) {
     try { localStorage.setItem(key, JSON.stringify({ data, ts: Date.now() })); } catch {}
   },
@@ -1432,7 +1440,25 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession, onNa
     };
     const cachedSteps = apiCache.get(stepsKey, STEPS_TTL);
     if (cachedSteps) { processSteps(cachedSteps); }
-    else { fetch(`/api/steps?uid=${user.id}`).then(r => r.json()).then(d => { apiCache.set(stepsKey, d); processSteps(d); }).catch(() => {}); }
+    else {
+      fetch(`/api/steps?uid=${user.id}`)
+        .then(r => r.json())
+        .then(d => {
+          const steps = Array.isArray(d) ? d : (d?.steps || []);
+          if (d?.error && !steps.length) {
+            // API crash — keep existing stale cache, don't overwrite with empty
+            const stale = apiCache.getStale(stepsKey);
+            if (stale) processSteps(stale);
+            return;
+          }
+          apiCache.set(stepsKey, d);
+          processSteps(d);
+        })
+        .catch(() => {
+          const stale = apiCache.getStale(stepsKey);
+          if (stale) processSteps(stale);
+        });
+    }
   }, [user?.id]);
   const weekDone = sgWeekDone(sessions, weekRunActivities);
   const weekDays = sgWeekDays(sessions, weekRunActivities);
@@ -7692,17 +7718,28 @@ function StepsTracker({ user }) {
       const res = await fetch(`/api/steps?uid=${user.id}`);
       if (!res.ok) throw new Error("API_ERROR");
       const data = await res.json();
+      const steps = Array.isArray(data) ? data : (data?.steps || []);
+      if (data?.error && !steps.length) throw new Error("API_ERROR");
       apiCache.set(key, data);
       if (Array.isArray(data)) {
         setStepsData(data); setNeedsReauth(false); setConnected(true);
       } else {
-        setStepsData(data?.steps || []);
+        setStepsData(steps);
         setNeedsReauth(Boolean(data?.needsReauth));
         setConnected(Boolean(data?.connected ?? !data?.needsReauth));
       }
       setLastUpdated(new Date());
     } catch {
-      setError("API_ERROR");
+      // API crash — fall back to stale cache so user keeps their data
+      const stale = apiCache.getStale(key);
+      const staleSteps = Array.isArray(stale) ? stale : (stale?.steps || []);
+      if (staleSteps.length > 0) {
+        setStepsData(staleSteps);
+        setConnected(true);
+        setNeedsReauth(false);
+      } else {
+        setError("API_ERROR");
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
