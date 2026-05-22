@@ -134,16 +134,27 @@ const apiCache = {
 const STEPS_TTL = 5 * 60 * 1000;
 const stepsInFlight = new Map();
 
-async function fetchStepsDeduped(uid) {
+async function fetchStepsDeduped(uid, { force = false } = {}) {
+  // force=true (clic Actualiser) → on jette l'in-flight existant qui pourrait être hung
+  if (force) stepsInFlight.delete(uid);
   if (stepsInFlight.has(uid)) return stepsInFlight.get(uid);
+
   const promise = (async () => {
-    const res = await fetch(`/api/steps?uid=${uid}`);
-    if (!res.ok) {
-      if (res.status === 429) throw new Error("RATE_LIMITED");
-      throw new Error("API_ERROR");
+    // Timeout 30s : un fetch jamais résolu ne doit pas bloquer tous les futurs polls
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    try {
+      const res = await fetch(`/api/steps?uid=${uid}`, { signal: controller.signal });
+      if (!res.ok) {
+        if (res.status === 429) throw new Error("RATE_LIMITED");
+        throw new Error("API_ERROR");
+      }
+      return await res.json();
+    } finally {
+      clearTimeout(timeoutId);
     }
-    return res.json();
   })();
+
   stepsInFlight.set(uid, promise);
   try { return await promise; }
   finally { stepsInFlight.delete(uid); }
@@ -195,7 +206,7 @@ function useLiveSteps(user) {
       error: null,
     }));
     try {
-      const data = await fetchStepsDeduped(user.id);
+      const data = await fetchStepsDeduped(user.id, { force: forceRefresh });
       const steps = Array.isArray(data) ? data : (data?.steps || []);
       if (data?.error && !steps.length) throw new Error(data.error);
       apiCache.set(key, data);
@@ -7833,6 +7844,7 @@ function StepsTracker({ user }) {
     needsReauth,
     connected,
     lastUpdated,
+    stale,
     refresh,
   } = useLiveSteps(user);
 
@@ -7892,7 +7904,10 @@ function StepsTracker({ user }) {
                 {refreshing ? "Actualisation…" : "↻ Actualiser"}
               </Button>
               {lastUpdated && !refreshing && (
-                <span className="text-xs text-gray-400">Mis à jour {lastUpdated.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
+                <span className="text-xs text-gray-400">
+                  Mis à jour {lastUpdated.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                  {stale && <span className="ml-2 text-amber-500">⚠ Google Fit ne répond pas — affichage du cache</span>}
+                </span>
               )}
             </div>
           )}
