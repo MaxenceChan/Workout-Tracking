@@ -793,7 +793,9 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, sessi
   const deleteExercise = (idx) => {
     if (exercises.length <= 1) return;
     setExercises(exs => exs.filter((_, i) => i !== idx));
-    setSessionName('Séance libre');
+    // Pas de retour forcé en "Séance libre" : si l'user construit un nouveau modèle
+    // (pendingNewTemplate) ou modifie un modèle existant, il reste sur ce type.
+    // S'il veut changer, il clique sur le titre.
     if (curExIdx > idx) setCurExIdx(c => c - 1);
     else if (curExIdx === idx) { setCurSetIdx(0); if (curExIdx >= exercises.length - 1 && curExIdx > 0) setCurExIdx(c => c - 1); }
   };
@@ -802,7 +804,6 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, sessi
     const to = idx + dir;
     if (to < 0 || to >= exercises.length) return;
     setExercises(exs => { const arr = [...exs]; [arr[idx], arr[to]] = [arr[to], arr[idx]]; return arr; });
-    setSessionName('Séance libre');
     if (curExIdx === idx) setCurExIdx(to);
     else if (curExIdx === to) setCurExIdx(idx);
   };
@@ -2832,7 +2833,11 @@ function SGMobileStats({ data, user, initialSubTab = 'stats' }) {
 function SGMobileTemplateEdit({ tpl, onSave, onCancel, knownExercises = [], existingTemplates = [] }) {
   const isNew = !tpl?.id;
   const [name, setName] = useState(tpl?.name || '');
-  const [exercises, setExercises] = useState([...(tpl?.exercises || [])]);
+  // Normalise tout exo qui serait un objet { name, ... } vers son name (string)
+  // pour les anciens templates créés avec une structure objet
+  const [exercises, setExercises] = useState(
+    (tpl?.exercises || []).map(e => (typeof e === 'string' ? e : (e?.name || '')))
+  );
   const [saving, setSaving] = useState(false);
   const [showExPicker, setShowExPicker] = useState(false);
 
@@ -2962,24 +2967,36 @@ function SGMobileTpl({ data, user, onTab, onOpenForm, onSaveTpl, onDeleteTpl, kn
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
             {templates.map(tpl => (
               <Glass key={tpl.id} radius={20} tint="rgba(255,255,255,0.5)">
-                <div style={{ padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
-                  <div style={{ width: 48, height: 48, borderRadius: 14, background: `linear-gradient(135deg, ${SG.accent} 0%, ${SG.accent2} 100%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>🏋️</div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontFamily: SG.serif, fontSize: 18, fontWeight: 500, color: SG.ink }}>{tpl.name}</div>
-                    <div style={{ fontSize: 12, color: SG.inkSoft, marginTop: 2 }}>{(tpl.exercises||[]).length} exercices</div>
+                <div style={{ padding: 16 }}>
+                  {/* Row 1 : icône + nom/nb exos + corbeille à l'extrémité droite */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                    <div style={{ width: 48, height: 48, borderRadius: 14, background: `linear-gradient(135deg, ${SG.accent} 0%, ${SG.accent2} 100%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>🏋️</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontFamily: SG.serif, fontSize: 18, fontWeight: 500, color: SG.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{tpl.name}</div>
+                      <div style={{ fontSize: 12, color: SG.inkSoft, marginTop: 2 }}>{(tpl.exercises||[]).length} exercices</div>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        if (!onDeleteTpl) return;
+                        if (!window.confirm(`Supprimer le modèle « ${tpl.name} » ?`)) return;
+                        try { await onDeleteTpl(tpl.id); } catch (e) { alert('Erreur: ' + e.message); }
+                      }}
+                      title="Supprimer le modèle"
+                      style={{ width: 34, height: 34, borderRadius: 10, border: 'none', background: 'rgba(178,58,58,0.10)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#B23A3A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                    </button>
                   </div>
-                  <button
-                    onClick={async () => {
-                      if (!onDeleteTpl) return;
-                      if (!window.confirm(`Supprimer le modèle « ${tpl.name} » ?`)) return;
-                      try { await onDeleteTpl(tpl.id); } catch (e) { alert('Erreur: ' + e.message); }
-                    }}
-                    title="Supprimer le modèle"
-                    style={{ width: 38, height: 38, borderRadius: 12, border: 'none', background: 'rgba(178,58,58,0.10)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginRight: 6 }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#B23A3A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-                  </button>
-                  <button onClick={() => setEditingTpl(tpl)} style={{ padding: '10px 14px', borderRadius: 16, border: 'none', background: 'rgba(31,26,20,0.07)', color: SG.ink, fontWeight: 600, fontSize: 13, cursor: 'pointer', marginRight: 6 }}>Éditer</button>
-                  <button onClick={() => onOpenForm(tpl)} style={{ padding: '10px 16px', borderRadius: 16, border: 'none', background: SG.ink, color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>Démarrer</button>
+                  {/* Row 2 : Éditer (light) + Démarrer (dark) en 50/50 */}
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={() => setEditingTpl(tpl)} style={{ flex: 1, padding: '11px 14px', borderRadius: 14, border: 'none', background: 'rgba(31,26,20,0.07)', color: SG.ink, fontWeight: 600, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={SG.ink} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20h4l11-11-4-4L4 16v4z"/></svg>
+                      Éditer
+                    </button>
+                    <button onClick={() => onOpenForm(tpl)} style={{ flex: 1, padding: '11px 16px', borderRadius: 14, border: 'none', background: SG.ink, color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="#fff"><path d="M6 4l14 8-14 8V4z"/></svg>
+                      Démarrer
+                    </button>
+                  </div>
                 </div>
               </Glass>
             ))}
@@ -3371,6 +3388,9 @@ function App() {
       console.error('Error saving session:', e);
     }
     // Si l'user a créé un type custom pendant la séance → sauve aussi en template
+    // Les templates sont au format "array de strings" (noms d'exos uniquement) pour
+    // matcher le format géré par SGMobileTemplateEdit. Les sets seront prefilled
+    // automatiquement à partir de l'historique des séances au prochain lancement.
     if (isNewTemplate && name && name !== 'Séance libre') {
       const alreadyExists = (data.sessionTemplates || []).some(
         t => (t.name || '').toLowerCase().trim() === name.toLowerCase().trim()
@@ -3379,7 +3399,7 @@ function App() {
         const tpl = {
           id: uuidv4(),
           name,
-          exercises: exercises.map(ex => ({ name: ex.name, sets: (ex.sets || []).map(s => ({ reps: Number(s.reps) || 10, weight: Number(s.weight) || 0 })) })),
+          exercises: exercises.map(ex => ex.name).filter(Boolean),
         };
         try {
           await upsertSessionTemplate(user.id, tpl);
