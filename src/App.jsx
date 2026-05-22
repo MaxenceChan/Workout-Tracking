@@ -2086,22 +2086,30 @@ function SGMobileSessionEdit({ session, onSave, onCancel, upsertFn }) {
     <div style={{ position: 'relative', minHeight: '100vh', paddingBottom: 120 }}>
       <div style={{ position: 'relative', padding: '50px 18px 0', maxWidth: 600, margin: '0 auto' }}>
 
-        {/* Header identique à SGActiveSession */}
+        {/* Header row 1 : close + badge ÉDITION */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
           <Glass radius={22} tint="rgba(255,255,255,0.7)" style={{ width: 44, height: 44 }} onClick={onCancel}>
             <div style={{ width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={SG.ink} strokeWidth="2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
             </div>
           </Glass>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 10, color: SG.accent, fontWeight: 800, letterSpacing: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
-              <div style={{ width: 6, height: 6, borderRadius: 3, background: SG.accent }} /> ÉDITION
-            </div>
-            <div style={{ fontFamily: SG.serif, fontSize: 16, fontStyle: 'italic', color: SG.ink }}>{displayType(session.type)}</div>
-            <input type="date" value={date} max={toLocalISO(new Date())} onChange={e => setDate(e.target.value)}
-              style={{ marginTop: 4, fontSize: 11, color: SG.inkSoft, background: 'transparent', border: 'none', outline: 'none', textAlign: 'center', cursor: 'pointer', width: '100%' }} />
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 14, background: 'rgba(200,100,58,0.10)' }}>
+            <div style={{ width: 6, height: 6, borderRadius: 3, background: SG.accent }} />
+            <span style={{ fontSize: 10, color: SG.accent, fontWeight: 800, letterSpacing: 1.5 }}>ÉDITION</span>
           </div>
           <div style={{ width: 44, height: 44 }} />
+        </div>
+
+        {/* Header row 2 : titre à gauche + date à droite */}
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, marginBottom: 16 }}>
+          <h1 style={{ fontFamily: SG.serif, fontSize: 28, fontWeight: 500, color: SG.ink, margin: 0, lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0, flex: 1 }}>{displayType(session.type)}</h1>
+          <input
+            type="date"
+            value={date}
+            max={toLocalISO(new Date())}
+            onChange={e => setDate(e.target.value)}
+            style={{ fontSize: 13, color: SG.inkSoft, background: 'rgba(255,255,255,0.55)', border: `1px solid rgba(31,26,20,0.10)`, borderRadius: 10, padding: '6px 10px', outline: 'none', cursor: 'pointer', flexShrink: 0, fontFamily: 'inherit' }}
+          />
         </div>
 
         {/* Carte stats */}
@@ -2436,13 +2444,14 @@ function SGMobileHistory({ data, user, onDeleteSession, upsertFn, initialDetail,
             </div>
           </div>
           {showTypeEdit && (() => {
-            const types = [
-              'Libre',
-              ...new Set([
-                ...templates.map(t => t.name).filter(Boolean),
-                ...sessions.map(s => s.type).filter(t => t && t !== 'Libre'),
-              ]),
-            ];
+            // Liste de types uniques, en normalisant les variantes "Séance libre" / "Libre"
+            // vers la valeur canonique 'Libre' pour éviter les doublons d'affichage.
+            const normalize = (t) => (t === 'Séance libre' ? 'Libre' : t);
+            const rawTypes = [
+              ...templates.map(t => t.name),
+              ...sessions.map(s => s.type),
+            ].filter(Boolean).map(normalize);
+            const types = ['Libre', ...new Set(rawTypes.filter(t => t !== 'Libre'))];
             const pickType = async (newType) => {
               const updated = { ...detail, type: newType };
               setDetail(updated);
