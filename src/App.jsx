@@ -967,26 +967,35 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, sessi
     <div style={{ position: 'relative', minHeight: '100vh', paddingBottom: 30 }}>
       <div style={{ position: 'relative', padding: '50px 18px 0', maxWidth: 600, margin: '0 auto' }}>
 
+        {/* Header row 1 : close + badge EN COURS */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
           <Glass radius={22} tint="rgba(255,255,255,0.7)" style={{ width: 44, height: 44 }} onClick={() => setShowAbandon(true)}>
             <div style={{ width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={SG.ink} strokeWidth="2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
             </div>
           </Glass>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 10, color: SG.accent, fontWeight: 800, letterSpacing: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
-              <div style={{ width: 6, height: 6, borderRadius: 3, background: SG.accent }} /> EN COURS
-            </div>
-            <div
-              onClick={() => { setCategoryWarnAction('edit-title'); setShowCategoryWarn(true); }}
-              style={{ fontFamily: SG.serif, fontSize: 16, fontStyle: 'italic', color: SG.ink, display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-              {sessionName}
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={SG.inkSoft} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-            </div>
-            <input type="date" value={sessionDate} max={toLocalISO(new Date())} onChange={e => setSessionDate(e.target.value)}
-              style={{ marginTop: 4, fontSize: 11, color: SG.inkSoft, background: 'transparent', border: 'none', outline: 'none', textAlign: 'center', cursor: 'pointer', width: '100%' }} />
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 14, background: 'rgba(200,100,58,0.10)' }}>
+            <div style={{ width: 6, height: 6, borderRadius: 3, background: SG.accent }} />
+            <span style={{ fontSize: 10, color: SG.accent, fontWeight: 800, letterSpacing: 1.5 }}>EN COURS</span>
           </div>
           <div style={{ width: 44, height: 44 }} />
+        </div>
+
+        {/* Header row 2 : titre (avec crayon) à gauche + date à droite */}
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, marginBottom: 16 }}>
+          <div
+            onClick={() => { setCategoryWarnAction('edit-title'); setShowCategoryWarn(true); }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', minWidth: 0, flex: 1 }}>
+            <h1 style={{ fontFamily: SG.serif, fontSize: 28, fontWeight: 500, color: SG.ink, margin: 0, lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>{sessionName}</h1>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={SG.inkSoft} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </div>
+          <input
+            type="date"
+            value={sessionDate}
+            max={toLocalISO(new Date())}
+            onChange={e => setSessionDate(e.target.value)}
+            style={{ fontSize: 13, color: SG.inkSoft, background: 'rgba(255,255,255,0.55)', border: `1px solid rgba(31,26,20,0.10)`, borderRadius: 10, padding: '6px 10px', outline: 'none', cursor: 'pointer', flexShrink: 0, fontFamily: 'inherit' }}
+          />
         </div>
 
         <Glass radius={26} tint="rgba(255,255,255,0.50)" style={{ marginBottom: 12 }}>
