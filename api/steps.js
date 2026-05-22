@@ -4,8 +4,7 @@ import { google } from "googleapis";
 const DAY_MS = 86400000;
 const HISTORY_DAYS = 730;
 
-// Rate limit in-memory : 30 req/min/uid → confortable pour polling 5min + multi-tab
-// + refresh manuels, mais bloque le spam (>30 req/min/user = abus évident)
+// Rate limit in-memory : 30 req/min/uid
 const rateLimit = new Map();
 const RL_WINDOW_MS = 60 * 1000;
 const RL_MAX = 30;
@@ -30,52 +29,77 @@ function checkRateLimit(uid) {
 const toParisDate = (ms) =>
   new Date(ms).toLocaleDateString("fr-CA", { timeZone: "Europe/Paris" });
 
-const LIVE_STEP_SOURCE =
-  "derived:com.google.step_count.delta:com.google.android.gms:merge_step_deltas";
+// Plusieurs sources interrogées en parallèle + max par jour pour avoir les données les
+// plus complètes. merge_step_deltas = live, estimated_steps = plus complet sur l'historique,
+// dataTypeName = auto-merge fait par Google (filet de sécurité).
+const STEP_SOURCES = [
+  "derived:com.google.step_count.delta:com.google.android.gms:merge_step_deltas",
+  "derived:com.google.step_count.delta:com.google.android.gms:estimated_steps",
+];
 
-// Buckets jour alignés Europe/Paris : Google Fit gère DST automatiquement
 async function fetchFromGoogleFit(fitness, startMs, endMs) {
   const baseReq = {
     bucketByTime: { period: { type: "day", value: 1, timeZoneId: "Europe/Paris" } },
     startTimeMillis: startMs,
     endTimeMillis: endMs,
   };
-  try {
-    return await fitness.users.dataset.aggregate({
+
+  const calls = STEP_SOURCES.map(dataSourceId =>
+    fitness.users.dataset.aggregate({
       userId: "me",
-      requestBody: { aggregateBy: [{ dataSourceId: LIVE_STEP_SOURCE }], ...baseReq },
-    });
-  } catch (e) {
-    const msg = String(e?.message || "");
-    if (!msg.includes("DataSourceId") && !msg.includes("dataSource")) throw e;
-  }
-  return fitness.users.dataset.aggregate({
-    userId: "me",
-    requestBody: { aggregateBy: [{ dataTypeName: "com.google.step_count.delta" }], ...baseReq },
-  });
+      requestBody: { aggregateBy: [{ dataSourceId }], ...baseReq },
+    }).catch(e => {
+      const msg = String(e?.message || "");
+      // DataSourceId absent pour cet user : on ignore cette source, on garde les autres
+      if (msg.includes("DataSourceId") || msg.includes("dataSource")) return null;
+      throw e;
+    })
+  );
+
+  // Fallback : auto-merge par Google sur le type de donnée
+  calls.push(
+    fitness.users.dataset.aggregate({
+      userId: "me",
+      requestBody: { aggregateBy: [{ dataTypeName: "com.google.step_count.delta" }], ...baseReq },
+    }).catch(() => null)
+  );
+
+  const responses = await Promise.all(calls);
+  const valid = responses.filter(r => r && r.data);
+  if (valid.length === 0) throw new Error("ALL_SOURCES_FAILED");
+  return valid;
 }
 
-function parseBuckets(response) {
+// Buckets alignés Paris (timeZoneId fourni à l'API) → 1 bucket = 1 jour Paris
+function parseBuckets(responses) {
   const dayMap = new Map();
-  for (const bucket of response.data.bucket || []) {
-    // bucket.startTimeMillis = minuit Paris UTC (timeZoneId fourni à l'API)
-    const bucketDate = toParisDate(Number(bucket.startTimeMillis));
-    if (!dayMap.has(bucketDate)) dayMap.set(bucketDate, 0);
-    for (const dataset of bucket.dataset || []) {
-      for (const point of dataset.point || []) {
-        const ms = Number(point.startTimeNanos) / 1e6 || Number(bucket.startTimeMillis);
-        const date = toParisDate(ms);
-        dayMap.set(date, (dayMap.get(date) || 0) + (point.value?.[0]?.intVal || 0));
+  for (const response of responses) {
+    for (const bucket of response.data.bucket || []) {
+      const date = toParisDate(Number(bucket.startTimeMillis));
+      let bucketSteps = 0;
+      for (const dataset of bucket.dataset || []) {
+        for (const point of dataset.point || []) {
+          bucketSteps += (point.value?.[0]?.intVal || 0);
+        }
       }
+      // Max entre les sources pour ce jour
+      dayMap.set(date, Math.max(dayMap.get(date) || 0, bucketSteps));
     }
   }
   return [...dayMap.entries()].map(([date, steps]) => ({ date, steps }));
 }
 
 function fillGaps(steps) {
-  if (steps.length < 2) return steps;
   const map = new Map(steps.map(d => [d.date, d.steps]));
-  const sorted = steps.map(d => d.date).sort();
+  // Aujourd'hui Paris toujours présent (même à 0 → la courbe arrive jusqu'à aujourd'hui)
+  const todayParis = toParisDate(Date.now());
+  if (!map.has(todayParis)) map.set(todayParis, 0);
+
+  if (map.size < 2) {
+    return [...map.entries()].map(([date, steps]) => ({ date, steps }));
+  }
+
+  const sorted = [...map.keys()].sort();
   const filled = [];
   let cur = sorted[0];
   const last = sorted[sorted.length - 1];
@@ -87,7 +111,7 @@ function fillGaps(steps) {
   return filled;
 }
 
-// max(fresh, cached) par jour : un 0 transitoire ne wipe jamais l'historique
+// max(fresh, cached) par jour : ne wipe jamais l'historique
 function mergeWithCache(cached, fresh) {
   const merged = new Map(cached.map(d => [d.date, d.steps]));
   for (const { date, steps } of fresh) {
@@ -100,7 +124,7 @@ function mergeWithCache(cached, fresh) {
 
 export default async function handler(req, res) {
   try {
-    const { uid } = req.query;
+    const { uid, debug } = req.query;
     if (!uid) return res.status(200).json({ ok: true });
 
     if (!checkRateLimit(uid)) {
@@ -128,15 +152,22 @@ export default async function handler(req, res) {
     oauth2Client.setCredentials({ refresh_token });
     const fitness = google.fitness({ version: "v1", auth: oauth2Client });
 
-    // Fenêtre large : Google Fit aligne sur minuit Paris en interne
     const now = Date.now();
     const startMs = now - HISTORY_DAYS * DAY_MS;
     const endMs   = now + DAY_MS;
 
     let freshSteps;
+    let debugInfo = null;
     try {
-      const response = await fetchFromGoogleFit(fitness, startMs, endMs);
-      freshSteps = parseBuckets(response);
+      const responses = await fetchFromGoogleFit(fitness, startMs, endMs);
+      freshSteps = parseBuckets(responses);
+      if (debug === "1") {
+        debugInfo = {
+          sourcesQueried: STEP_SOURCES.length + 1,
+          sourcesReturned: responses.length,
+          freshLastDates: freshSteps.slice(-7).map(s => `${s.date}:${s.steps}`),
+        };
+      }
     } catch (error) {
       const msg    = String(error?.message || "").toLowerCase();
       const apiErr = error?.response?.data?.error;
@@ -164,7 +195,9 @@ export default async function handler(req, res) {
       );
     }
 
-    return res.status(200).json({ connected: true, needsReauth: false, steps: allSteps });
+    const payload = { connected: true, needsReauth: false, steps: allSteps };
+    if (debugInfo) payload.debug = debugInfo;
+    return res.status(200).json(payload);
   } catch (e) {
     console.error("Steps error:", e);
     return res.status(500).json({ error: "Failed to fetch steps" });
