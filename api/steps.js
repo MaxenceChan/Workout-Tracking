@@ -124,7 +124,8 @@ async function fetchFromGoogleFit(fitness, startMs, endMs) {
 }
 
 // Réassignation point par point sur la date Paris (gère DST + chevauchements de bucket).
-// Pour chaque source on construit sa propre map jour->pas, puis on prend le max entre sources.
+// Pour chaque source on construit sa map jour->pas, puis on prend la MÉDIANE des valeurs
+// non-nulles entre sources (ignore les sources qui ont raté ce jour, ignore l'outlier inflated).
 function parseBuckets(responses) {
   const perSourceMaps = [];
 
@@ -144,13 +145,33 @@ function parseBuckets(responses) {
     perSourceMaps.push(dayMap);
   }
 
+  const allDates = new Set();
+  for (const m of perSourceMaps) for (const d of m.keys()) allDates.add(d);
+
   const finalMap = new Map();
-  for (const sourceMap of perSourceMaps) {
-    for (const [date, steps] of sourceMap) {
-      finalMap.set(date, Math.max(finalMap.get(date) || 0, steps));
+  for (const date of allDates) {
+    const values = perSourceMaps
+      .map(m => m.get(date))
+      .filter(v => v !== undefined && v > 0)
+      .sort((a, b) => a - b);
+
+    if (values.length === 0) {
+      finalMap.set(date, 0);
+    } else if (values.length === 1) {
+      finalMap.set(date, values[0]);
+    } else {
+      const mid = Math.floor(values.length / 2);
+      finalMap.set(
+        date,
+        values.length % 2 === 0
+          ? Math.round((values[mid - 1] + values[mid]) / 2)
+          : values[mid]
+      );
     }
   }
-  return [...finalMap.entries()].map(([date, steps]) => ({ date, steps }));
+  return [...finalMap.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, steps]) => ({ date, steps }));
 }
 
 function fillGaps(steps) {
@@ -175,11 +196,15 @@ function fillGaps(steps) {
   return filled;
 }
 
-// max(fresh, cached) par jour : ne wipe jamais l'historique
+// Fresh prime sur cached, sauf si fresh=0 pour un jour qui avait déjà des données
+// (= panne API partielle → on protège l'historique mais on laisse passer les vraies corrections vers le bas).
 function mergeWithCache(cached, fresh) {
   const merged = new Map(cached.map(d => [d.date, d.steps]));
   for (const { date, steps } of fresh) {
-    merged.set(date, Math.max(steps, merged.get(date) ?? 0));
+    const existing = merged.get(date);
+    if (steps > 0 || existing === undefined) {
+      merged.set(date, steps);
+    }
   }
   return [...merged.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
