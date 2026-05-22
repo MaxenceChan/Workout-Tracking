@@ -2456,11 +2456,31 @@ function SGMobileHistory({ data, user, onDeleteSession, upsertFn, initialDetail,
 
         {/* Filter pills */}
         <div style={{ display: 'flex', gap: 6, marginBottom: 18, overflowX: 'auto', paddingBottom: 2, WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
-          {types.map(t => (
-            <button key={t} onClick={() => setFilter(t)} style={{ padding: '9px 20px', borderRadius: 22, border: 'none', cursor: 'pointer', background: filter === t ? SG.ink : 'rgba(255,255,255,0.88)', color: filter === t ? '#fff' : SG.ink, fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', boxShadow: filter === t ? '0 2px 10px rgba(31,26,20,0.18)' : '0 1px 4px rgba(31,26,20,0.08)', transition: 'background 0.15s, color 0.15s, box-shadow 0.15s', WebkitAppearance: 'none', appearance: 'none', transform: 'translateZ(0)', WebkitTransform: 'translateZ(0)' }}>
-              {t}
-            </button>
-          ))}
+          {types.map(t => {
+            const active = filter === t;
+            return (
+              <button
+                key={t}
+                onClick={() => setFilter(t)}
+                style={{
+                  padding: '9px 20px',
+                  borderRadius: 22,
+                  border: 'none',
+                  cursor: 'pointer',
+                  backgroundColor: active ? SG.ink : '#FFFFFF',
+                  color: active ? '#FFFFFF' : SG.ink,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                  boxShadow: active ? '0 2px 10px rgba(31,26,20,0.18)' : '0 1px 4px rgba(31,26,20,0.08)',
+                  WebkitAppearance: 'none',
+                  appearance: 'none',
+                }}>
+                {t}
+              </button>
+            );
+          })}
         </div>
 
         {/* Session list grouped by month */}
