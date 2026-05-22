@@ -2,7 +2,8 @@ import admin from "./lib/firebaseAdmin.js";
 import { google } from "googleapis";
 
 const DAY_MS = 86400000;
-const HISTORY_DAYS = 365;       // 1 an de fetch fresh (cache préserve l'historique au-delà via merge max)
+const HISTORY_DAYS = 365;       // Fetch full 1 an au premier login / reset / ?full=1
+const FRESH_WINDOW_DAYS = 14;   // Polls de routine : seulement 14 derniers jours (le reste vient du cache via merge max)
 const MAX_CHUNK_DAYS = 30;      // Google Fit refuse les windows > ~90j ("aggregate duration too large")
 const MAX_CHUNK_MS = MAX_CHUNK_DAYS * DAY_MS;
 
@@ -244,8 +245,16 @@ export default async function handler(req, res) {
     oauth2Client.setCredentials({ refresh_token });
     const fitness = google.fitness({ version: "v1", auth: oauth2Client });
 
-    // startMs/endMs alignés sur minuit Paris (proven approach, géré DST)
-    const startMs = parisMidnight(toParisDate(Date.now() - HISTORY_DAYS * DAY_MS)) - DAY_MS;
+    // Fetch différentiel : full 365j uniquement si cache absent/vieux/forcé, sinon 14j
+    const cacheTs = userData.stepsCache?.updatedAt?.toMillis?.() || 0;
+    const cacheAgeMs = Date.now() - cacheTs;
+    const forceFull = req.query.full === "1";
+    const useRecentOnly = !forceFull
+      && cachedSteps.length > FRESH_WINDOW_DAYS
+      && cacheAgeMs < FRESH_WINDOW_DAYS * DAY_MS;
+
+    const lookbackDays = useRecentOnly ? FRESH_WINDOW_DAYS : HISTORY_DAYS;
+    const startMs = parisMidnight(toParisDate(Date.now() - lookbackDays * DAY_MS)) - DAY_MS;
     const endMs   = parisMidnight(toParisDate(Date.now() + DAY_MS));
 
     let freshSteps;
@@ -292,7 +301,10 @@ export default async function handler(req, res) {
 
     const payload = { connected: true, needsReauth: false, steps: allSteps };
     if (debugInfo) payload.debug = debugInfo;
-    if (debug === "1" && sourceErrors.length) payload.sourceErrors = sourceErrors;
+    if (debug === "1") {
+      payload.fetchMode = useRecentOnly ? `recent-${FRESH_WINDOW_DAYS}d` : `full-${HISTORY_DAYS}d`;
+      if (sourceErrors.length) payload.sourceErrors = sourceErrors;
+    }
     return res.status(200).json(payload);
   } catch (e) {
     console.error("Steps error:", e);
