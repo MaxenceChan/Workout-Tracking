@@ -681,6 +681,7 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, sessi
   const [showReorder, setShowReorder] = useState(false);
   const [showAddEx, setShowAddEx] = useState(false);
   const [showCategoryWarn, setShowCategoryWarn] = useState(false);
+  const [categoryWarnAction, setCategoryWarnAction] = useState('add'); // 'add' | 'rename'
   const [newExName, setNewExName] = useState('');
   const [showSummary, setShowSummary] = useState(false);
   const [summarySessionsSnapshot, setSummarySessionsSnapshot] = useState(null);
@@ -791,9 +792,16 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, sessi
   const handleExLongPressStart = () => { longPressRef.current = setTimeout(() => setShowReorder(true), 500); };
   const handleExLongPressEnd = () => { clearTimeout(longPressRef.current); };
   const renameExercise = (idx, name) => {
-    if (!name.trim()) return;
-    setExercises(exs => exs.map((ex, i) => i === idx ? { ...ex, name: name.trim() } : ex));
+    const newName = name.trim();
+    const oldName = exercises[idx]?.name;
     setRenamingExIdx(null);
+    if (!newName || newName === oldName) return;
+    setExercises(exs => exs.map((ex, i) => i === idx ? { ...ex, name: newName } : ex));
+    // Si la séance est un modèle, on demande au user comment recatégoriser
+    if (sessionName && sessionName !== 'Séance libre') {
+      setCategoryWarnAction('rename');
+      setShowCategoryWarn(true);
+    }
   };
 
   const iconCheck = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 13l4 4L19 7"/></svg>;
@@ -808,14 +816,7 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, sessi
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 11, color: isCurrent ? SG.accent : SG.inkSoft, fontWeight: 800, letterSpacing: 0.8, textTransform: 'uppercase' }}>EXERCICE {exIdx + 1} / {exercises.length}</div>
-            {renamingExIdx === exIdx ? (
-              <input autoFocus value={renameValue} onChange={e => setRenameValue(e.target.value)}
-                onBlur={() => renameExercise(exIdx, renameValue)}
-                onKeyDown={e => { if (e.key === 'Enter') renameExercise(exIdx, renameValue); if (e.key === 'Escape') setRenamingExIdx(null); }}
-                style={{ fontFamily: SG.serif, fontSize: 24, fontWeight: 500, color: SG.ink, border: 'none', borderBottom: `2px solid ${SG.accent}`, background: 'transparent', outline: 'none', width: '100%', marginTop: 3 }} />
-            ) : (
-              <div style={{ fontFamily: SG.serif, fontSize: 26, fontWeight: 500, marginTop: 3, letterSpacing: -0.4, color: SG.ink }}>{ex.name}</div>
-            )}
+            <div style={{ fontFamily: SG.serif, fontSize: 26, fontWeight: 500, marginTop: 3, letterSpacing: -0.4, color: SG.ink }}>{ex.name}</div>
             {(() => {
               const exTonnage = (ex.sets || []).reduce((s, st) => s + (Number(st.reps)||0) * (Number(st.weight)||0), 0);
               const doneTonnage = (ex.sets || []).filter(s => s.done).reduce((s, st) => s + st.reps * st.weight, 0);
@@ -927,7 +928,15 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, sessi
           </>
         )}
         {!isCurrent && (
-          <button onClick={() => { setCurExIdx(exIdx); setCurSetIdx(0); setExpandedIdx(null); }} style={{ marginTop: 14, width: '100%', padding: 12, borderRadius: 18, border: `1.5px solid ${SG.ink}`, background: 'transparent', cursor: 'pointer', fontSize: 14, fontWeight: 700, color: SG.ink }}>
+          <button onClick={() => {
+            setCurExIdx(exIdx);
+            // Position sur la 1ère série non validée si elle existe, sinon la dernière série
+            // (= clic immédiat sur "Ajouter une série" pointe juste après → bouton Valider OK)
+            const sets = exercises[exIdx]?.sets || [];
+            const firstUndone = sets.findIndex(s => !s.done);
+            setCurSetIdx(firstUndone >= 0 ? firstUndone : Math.max(0, sets.length - 1));
+            setExpandedIdx(null);
+          }} style={{ marginTop: 14, width: '100%', padding: 12, borderRadius: 18, border: `1.5px solid ${SG.ink}`, background: 'transparent', cursor: 'pointer', fontSize: 14, fontWeight: 700, color: SG.ink }}>
             Passer à cet exercice
           </button>
         )}
@@ -1062,8 +1071,8 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, sessi
 
         <button
           onClick={() => {
-            // Sur séance modèle (pas libre) → popup d'avertissement pour catégoriser
             if (sessionName && sessionName !== 'Séance libre') {
+              setCategoryWarnAction('add');
               setShowCategoryWarn(true);
             } else {
               setShowAddEx(true);
@@ -1125,6 +1134,30 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, sessi
           </div>
         )}
 
+        {renamingExIdx !== null && (
+          <div onClick={() => setRenamingExIdx(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
+            <div onClick={e => e.stopPropagation()} style={{ background: '#FFF8F1', borderRadius: 24, padding: 22, maxWidth: 420, width: '100%' }}>
+              <div style={{ fontFamily: SG.serif, fontSize: 20, fontWeight: 600, color: SG.ink, marginBottom: 4 }}>Renommer l'exercice</div>
+              <div style={{ fontSize: 12, color: SG.inkSoft, marginBottom: 14 }}>Modifie le nom puis enregistre.</div>
+              <input
+                autoFocus
+                value={renameValue}
+                onChange={e => setRenameValue(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') renameExercise(renamingExIdx, renameValue); if (e.key === 'Escape') setRenamingExIdx(null); }}
+                style={{ width: '100%', padding: '12px 14px', fontFamily: SG.serif, fontSize: 18, fontWeight: 500, color: SG.ink, background: 'rgba(255,255,255,0.7)', border: `1.5px solid rgba(31,26,20,0.12)`, borderRadius: 14, outline: 'none', marginBottom: 14 }}
+              />
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => setRenamingExIdx(null)} style={{ flex: 1, padding: 12, borderRadius: 14, border: `1.5px solid rgba(31,26,20,0.15)`, cursor: 'pointer', background: 'transparent', color: SG.ink, fontWeight: 600, fontSize: 13 }}>
+                  Annuler
+                </button>
+                <button onClick={() => renameExercise(renamingExIdx, renameValue)} style={{ flex: 1, padding: 12, borderRadius: 14, border: 'none', cursor: 'pointer', background: SG.ink, color: '#fff', fontWeight: 700, fontSize: 13 }}>
+                  Enregistrer
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {showCategoryWarn && (() => {
           const categories = [
             ...new Set([
@@ -1145,12 +1178,12 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, sessi
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <button
-                    onClick={() => { setShowCategoryWarn(false); setShowAddEx(true); }}
+                    onClick={() => { setShowCategoryWarn(false); if (categoryWarnAction === 'add') setShowAddEx(true); }}
                     style={{ width: '100%', padding: 14, borderRadius: 16, border: 'none', cursor: 'pointer', background: SG.ink, color: '#fff', fontWeight: 700, fontSize: 14, textAlign: 'left' }}>
                     Garder « {sessionName} »
                   </button>
                   <button
-                    onClick={() => { setSessionName('Séance libre'); setShowCategoryWarn(false); setShowAddEx(true); }}
+                    onClick={() => { setSessionName('Séance libre'); setShowCategoryWarn(false); if (categoryWarnAction === 'add') setShowAddEx(true); }}
                     style={{ width: '100%', padding: 14, borderRadius: 16, border: `1.5px solid ${SG.ink}`, cursor: 'pointer', background: 'transparent', color: SG.ink, fontWeight: 700, fontSize: 14, textAlign: 'left' }}>
                     Passer en Séance libre
                   </button>
@@ -1161,7 +1194,7 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, sessi
                         {otherCategories.map(cat => (
                           <button
                             key={cat}
-                            onClick={() => { setSessionName(cat); setShowCategoryWarn(false); setShowAddEx(true); }}
+                            onClick={() => { setSessionName(cat); setShowCategoryWarn(false); if (categoryWarnAction === 'add') setShowAddEx(true); }}
                             style={{ padding: '8px 12px', borderRadius: 12, border: `1.5px solid rgba(31,26,20,0.18)`, cursor: 'pointer', background: 'rgba(255,255,255,0.6)', color: SG.ink, fontWeight: 600, fontSize: 13 }}>
                             {cat}
                           </button>
@@ -2266,6 +2299,17 @@ function SGMobileHistory({ data, user, onDeleteSession, upsertFn, initialDetail,
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={SG.inkSoft} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginTop: 4 }}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
               </div>
             </div>
+            <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+              <button onClick={() => setEditing(true)} title="Éditer" style={{ width: 38, height: 38, borderRadius: 12, border: 'none', background: 'rgba(255,255,255,0.6)', color: SG.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={SG.ink} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20h4l11-11-4-4L4 16v4z"/></svg>
+              </button>
+              <button onClick={exportDetail} title="Partager" style={{ width: 38, height: 38, borderRadius: 12, border: 'none', background: 'rgba(255,255,255,0.6)', color: SG.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={SG.ink} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+              </button>
+              <button onClick={async () => { if (window.confirm('Supprimer cette séance ?')) { await onDeleteSession(detail.id); setDetail(null); } }} title="Supprimer" style={{ width: 38, height: 38, borderRadius: 12, border: 'none', background: 'rgba(178,58,58,0.10)', color: '#B23A3A', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#B23A3A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+              </button>
+            </div>
           </div>
           {showTypeEdit && (() => {
             const types = [
@@ -2342,16 +2386,6 @@ function SGMobileHistory({ data, user, onDeleteSession, upsertFn, initialDetail,
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-5"/></svg>
             Voir le récap (vs dernières perfs)
           </button>
-          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-            <button onClick={() => setEditing(true)} style={{ flex: 1, padding: 14, borderRadius: 18, border: 'none', background: 'rgba(255,255,255,0.6)', color: SG.ink, cursor: 'pointer', fontWeight: 600, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={SG.ink} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20h4l11-11-4-4L4 16v4z"/></svg>
-              Éditer
-            </button>
-            <button onClick={exportDetail} style={{ width: 48, padding: 14, borderRadius: 18, border: 'none', background: 'rgba(255,255,255,0.6)', color: SG.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={SG.ink} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
-            </button>
-            <button onClick={async () => { if (window.confirm('Supprimer cette séance ?')) { await onDeleteSession(detail.id); setDetail(null); } }} style={{ flex: 1, padding: 14, borderRadius: 18, border: 'none', background: 'rgba(178,58,58,0.1)', color: '#B23A3A', cursor: 'pointer', fontWeight: 600, fontSize: 14 }}>Supprimer</button>
-          </div>
         </div>
       </div>
     );
