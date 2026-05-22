@@ -681,7 +681,10 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, sessi
   const [showReorder, setShowReorder] = useState(false);
   const [showAddEx, setShowAddEx] = useState(false);
   const [showCategoryWarn, setShowCategoryWarn] = useState(false);
-  const [categoryWarnAction, setCategoryWarnAction] = useState('add'); // 'add' | 'rename'
+  const [categoryWarnAction, setCategoryWarnAction] = useState('add'); // 'add' | 'rename' | 'edit-title'
+  const [pendingNewTemplate, setPendingNewTemplate] = useState(false);
+  const [showCustomTypeInput, setShowCustomTypeInput] = useState(false);
+  const [customTypeValue, setCustomTypeValue] = useState('');
   const [newExName, setNewExName] = useState('');
   const [showSummary, setShowSummary] = useState(false);
   const [summarySessionsSnapshot, setSummarySessionsSnapshot] = useState(null);
@@ -791,7 +794,7 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, sessi
     setSummarySessionsSnapshot([...(sessions || [])]);
     if (!hasSavedRef.current) {
       hasSavedRef.current = true;
-      onFinish({ exercises, dur, tonnage, name: sessionName, date: sessionDate });
+      onFinish({ exercises, dur, tonnage, name: sessionName, date: sessionDate, isNewTemplate: pendingNewTemplate });
     }
     setShowSummary(true);
   };
@@ -1210,10 +1213,55 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, sessi
                     Garder « {sessionName} »
                   </button>
                   <button
-                    onClick={() => { setSessionName('Séance libre'); setShowCategoryWarn(false); if (categoryWarnAction === 'add') setShowAddEx(true); }}
+                    onClick={() => { setSessionName('Séance libre'); setPendingNewTemplate(false); setShowCategoryWarn(false); if (categoryWarnAction === 'add') setShowAddEx(true); }}
                     style={{ width: '100%', padding: 14, borderRadius: 16, border: `1.5px solid ${SG.ink}`, cursor: 'pointer', background: 'transparent', color: SG.ink, fontWeight: 700, fontSize: 14, textAlign: 'left' }}>
                     Passer en Séance libre
                   </button>
+                  {showCustomTypeInput ? (
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <input
+                        autoFocus
+                        value={customTypeValue}
+                        onChange={e => setCustomTypeValue(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            const n = customTypeValue.trim();
+                            if (!n) return;
+                            setSessionName(n);
+                            setPendingNewTemplate(true);
+                            setShowCustomTypeInput(false);
+                            setCustomTypeValue('');
+                            setShowCategoryWarn(false);
+                            if (categoryWarnAction === 'add') setShowAddEx(true);
+                          }
+                          if (e.key === 'Escape') { setShowCustomTypeInput(false); setCustomTypeValue(''); }
+                        }}
+                        placeholder="Ex: Bras, Cardio, Mobilité…"
+                        style={{ flex: 1, padding: 14, borderRadius: 16, border: `1.5px solid ${SG.accent}`, background: 'rgba(255,255,255,0.8)', color: SG.ink, fontWeight: 600, fontSize: 14, outline: 'none' }}
+                      />
+                      <button
+                        onClick={() => {
+                          const n = customTypeValue.trim();
+                          if (!n) return;
+                          setSessionName(n);
+                          setPendingNewTemplate(true);
+                          setShowCustomTypeInput(false);
+                          setCustomTypeValue('');
+                          setShowCategoryWarn(false);
+                          if (categoryWarnAction === 'add') setShowAddEx(true);
+                        }}
+                        style={{ padding: '0 18px', borderRadius: 16, border: 'none', cursor: 'pointer', background: SG.accent, color: '#fff', fontWeight: 700, fontSize: 14 }}>
+                        Créer
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setShowCustomTypeInput(true)}
+                      style={{ width: '100%', padding: 14, borderRadius: 16, border: `1.5px dashed rgba(31,26,20,0.25)`, cursor: 'pointer', background: 'transparent', color: SG.ink, fontWeight: 700, fontSize: 14, textAlign: 'left', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={SG.ink} strokeWidth="2.4" strokeLinecap="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                      Créer un nouveau type (sera sauvé comme modèle)
+                    </button>
+                  )}
                   {otherCategories.length > 0 && (
                     <div style={{ borderTop: `1px solid rgba(31,26,20,0.1)`, marginTop: 6, paddingTop: 10 }}>
                       <div style={{ fontSize: 11, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 6 }}>Autre catégorie</div>
@@ -1221,7 +1269,7 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, sessi
                         {otherCategories.map(cat => (
                           <button
                             key={cat}
-                            onClick={() => { setSessionName(cat); setShowCategoryWarn(false); if (categoryWarnAction === 'add') setShowAddEx(true); }}
+                            onClick={() => { setSessionName(cat); setPendingNewTemplate(false); setShowCategoryWarn(false); if (categoryWarnAction === 'add') setShowAddEx(true); }}
                             style={{ padding: '8px 12px', borderRadius: 12, border: `1.5px solid rgba(31,26,20,0.18)`, cursor: 'pointer', background: 'rgba(255,255,255,0.6)', color: SG.ink, fontWeight: 600, fontSize: 13 }}>
                             {cat}
                           </button>
@@ -3236,7 +3284,7 @@ function App() {
     setActiveSession({ name: 'Séance libre', templateId: null, exercises: [{ name: firstExName, sets: prefillSets || defaultSets() }], startedAt: Date.now() });
   };
 
-  const saveSession = async ({ exercises, dur, tonnage, name, date }) => {
+  const saveSession = async ({ exercises, dur, tonnage, name, date, isNewTemplate }) => {
     const s = {
       id: uuidv4(),
       type: name || activeSession.name,
@@ -3254,6 +3302,24 @@ function App() {
       // onSnapshot Firestore met à jour data automatiquement — pas besoin de setData
     } catch (e) {
       console.error('Error saving session:', e);
+    }
+    // Si l'user a créé un type custom pendant la séance → sauve aussi en template
+    if (isNewTemplate && name && name !== 'Séance libre') {
+      const alreadyExists = (data.sessionTemplates || []).some(
+        t => (t.name || '').toLowerCase().trim() === name.toLowerCase().trim()
+      );
+      if (!alreadyExists) {
+        const tpl = {
+          id: uuidv4(),
+          name,
+          exercises: exercises.map(ex => ({ name: ex.name, sets: (ex.sets || []).map(s => ({ reps: Number(s.reps) || 10, weight: Number(s.weight) || 0 })) })),
+        };
+        try {
+          await upsertSessionTemplate(user.id, tpl);
+        } catch (e) {
+          console.error('Error saving template:', e);
+        }
+      }
     }
     // Note: does NOT close the session — summary screen handles that
   };
