@@ -245,15 +245,26 @@ export default async function handler(req, res) {
     oauth2Client.setCredentials({ refresh_token });
     const fitness = google.fitness({ version: "v1", auth: oauth2Client });
 
-    // Fetch différentiel : full 365j uniquement si cache absent/vieux/forcé, sinon 14j
+    // Fetch différentiel : recent uniquement si cache existant ET récent ET sans trou possible
     const cacheTs = userData.stepsCache?.updatedAt?.toMillis?.() || 0;
     const cacheAgeMs = Date.now() - cacheTs;
+
+    // Dernière date présente dans le cache (sécurité supplémentaire : on couvre toujours la
+    // fenêtre depuis cette date, même si updatedAt a été touché récemment sans nouvelles données)
+    const lastCacheDate = cachedSteps.length > 0 ? cachedSteps[cachedSteps.length - 1].date : null;
+    const lastCacheMs = lastCacheDate ? new Date(lastCacheDate + "T00:00:00Z").getTime() : 0;
+    const lastDateAgeMs = Date.now() - lastCacheMs;
+
     const forceFull = req.query.full === "1";
     const useRecentOnly = !forceFull
       && cachedSteps.length > FRESH_WINDOW_DAYS
-      && cacheAgeMs < FRESH_WINDOW_DAYS * DAY_MS;
+      && cacheAgeMs < FRESH_WINDOW_DAYS * DAY_MS
+      && lastDateAgeMs < FRESH_WINDOW_DAYS * DAY_MS;
 
-    const lookbackDays = useRecentOnly ? FRESH_WINDOW_DAYS : HISTORY_DAYS;
+    // Fenêtre couvre le max entre FRESH_WINDOW et l'âge réel de la dernière donnée (sécurité)
+    const lookbackDays = useRecentOnly
+      ? Math.max(FRESH_WINDOW_DAYS, Math.ceil(lastDateAgeMs / DAY_MS) + 1)
+      : HISTORY_DAYS;
     const startMs = parisMidnight(toParisDate(Date.now() - lookbackDays * DAY_MS)) - DAY_MS;
     const endMs   = parisMidnight(toParisDate(Date.now() + DAY_MS));
 
