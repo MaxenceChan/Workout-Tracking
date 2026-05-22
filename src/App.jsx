@@ -728,8 +728,15 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, sessi
       const updated = exs.map((ex, ei) =>
         ei === curExIdx ? { ...ex, sets: [...ex.sets, { reps, weight: kg, done: false }] } : ex
       );
-      // Pointer curSetIdx sur la nouvelle série pour afficher le bouton "Valider la série"
-      setCurSetIdx(updated[curExIdx].sets.length - 1);
+      // Si la série courante est déjà validée (toutes finalisées → on enchaîne sur une de plus)
+      //   → on bouge sur la nouvelle série
+      // Si la série courante est en cours (user prévoit juste une série pour plus tard)
+      //   → on garde la position pour ne pas bloquer la validation en cours
+      const ex = updated[curExIdx];
+      const currentDone = ex.sets[curSetIdx]?.done === true;
+      if (currentDone) {
+        setCurSetIdx(ex.sets.length - 1);
+      }
       return updated;
     });
   };
@@ -970,7 +977,12 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, sessi
             <div style={{ fontSize: 10, color: SG.accent, fontWeight: 800, letterSpacing: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
               <div style={{ width: 6, height: 6, borderRadius: 3, background: SG.accent }} /> EN COURS
             </div>
-            <div style={{ fontFamily: SG.serif, fontSize: 16, fontStyle: 'italic', color: SG.ink }}>{sessionName}</div>
+            <div
+              onClick={() => { setCategoryWarnAction('edit-title'); setShowCategoryWarn(true); }}
+              style={{ fontFamily: SG.serif, fontSize: 16, fontStyle: 'italic', color: SG.ink, display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+              {sessionName}
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={SG.inkSoft} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </div>
             <input type="date" value={sessionDate} max={toLocalISO(new Date())} onChange={e => setSessionDate(e.target.value)}
               style={{ marginTop: 4, fontSize: 11, color: SG.inkSoft, background: 'transparent', border: 'none', outline: 'none', textAlign: 'center', cursor: 'pointer', width: '100%' }} />
           </div>
@@ -1169,12 +1181,18 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, sessi
           return (
             <div onClick={() => setShowCategoryWarn(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
               <div onClick={e => e.stopPropagation()} style={{ background: '#FFF8F1', borderRadius: 24, padding: 22, maxWidth: 420, width: '100%', boxShadow: '0 -10px 40px rgba(0,0,0,0.18)' }}>
-                <div style={{ fontSize: 22, marginBottom: 6 }}>⚠️</div>
+                {categoryWarnAction !== 'edit-title' && <div style={{ fontSize: 22, marginBottom: 6 }}>⚠️</div>}
                 <div style={{ fontFamily: SG.serif, fontSize: 20, fontWeight: 600, color: SG.ink, marginBottom: 6 }}>
-                  Catégorisation de la séance
+                  {categoryWarnAction === 'edit-title' ? 'Type de séance' : 'Catégorisation de la séance'}
                 </div>
                 <div style={{ fontSize: 13, color: SG.inkSoft, marginBottom: 16, lineHeight: 1.4 }}>
-                  Cette séance est actuellement <strong>« {sessionName} »</strong>. Si tu ajoutes un exercice, comment veux-tu la catégoriser ?
+                  {categoryWarnAction === 'edit-title' ? (
+                    <>Cette séance est actuellement <strong>« {sessionName} »</strong>. Choisis un autre type si tu veux la recatégoriser.</>
+                  ) : categoryWarnAction === 'rename' ? (
+                    <>Cette séance est actuellement <strong>« {sessionName} »</strong>. Tu viens de renommer un exercice — comment veux-tu la catégoriser ?</>
+                  ) : (
+                    <>Cette séance est actuellement <strong>« {sessionName} »</strong>. Si tu ajoutes un exercice, comment veux-tu la catégoriser ?</>
+                  )}
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <button
