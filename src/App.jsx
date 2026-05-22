@@ -1271,37 +1271,42 @@ function SGSessionSummary({ exercises, sessionName, templateName, startedAt, ses
     return { name: ex.name, curEx, prevEx, pct, doneSets: doneSetsArr.length, totalSets: (ex.sets||[]).length, sets: doneSetsArr, prevSets };
   });
 
-  // Overall: compare vs last session of same template (templateName = original name, immutable)
-  // Sort desc by date to always get the most recent match
+  // Overall: compare vs last session of same template — pas pertinent pour les séances libres
+  // (exercices variables d'une libre à l'autre → comparer le tonnage total n'a pas de sens)
   const refName = templateName || sessionName;
-  const prevSession = [...sessions]
+  const isLibre = refName === 'Libre' || refName === 'Séance libre';
+  const prevSession = isLibre ? null : [...sessions]
     .sort((a, b) => (a.date > b.date ? -1 : 1))
     .find(s => s.type === refName);
   const prevOverall = prevSession ? exTon((prevSession.exercises||[]).flatMap(e => e.sets||[])) : null;
   const overallPct = prevOverall !== null && prevOverall > 0
     ? Math.round(((curTonnage - prevOverall) / prevOverall) * 100) : null;
 
-  const isFirst = overallPct === null;
+  const isFirst = !isLibre && overallPct === null;
   const isVeryFirst = isFirst && sessions.length === 0;
-  const isPositive = isFirst || overallPct >= 0;
+  const isPositive = isFirst || isLibre || (overallPct !== null && overallPct >= 0);
 
-  const title = isVeryFirst
-    ? "C'est parti, première séance enregistrée !"
-    : isFirst
-      ? 'Séance enregistrée 💪'
-      : overallPct > 0
-        ? `Bravo ! Tu as progressé de +${overallPct}% 💪`
-        : overallPct === 0
-          ? 'Même tonnage que la dernière fois — régulier !'
-          : `Continue, le progrès n'est pas linéaire 🔥`;
+  const title = isLibre
+    ? 'Séance libre enregistrée 💪'
+    : isVeryFirst
+      ? "C'est parti, première séance enregistrée !"
+      : isFirst
+        ? 'Séance enregistrée 💪'
+        : overallPct > 0
+          ? `Bravo ! Tu as progressé de +${overallPct}% 💪`
+          : overallPct === 0
+            ? 'Même tonnage que la dernière fois — régulier !'
+            : `Continue, le progrès n'est pas linéaire 🔥`;
 
-  const subtitle = isVeryFirst
-    ? 'Tu as posé la première pierre. Reviens régulièrement.'
-    : isFirst
-      ? 'Continue sur cette lancée, chaque séance compte.'
-      : isPositive
-        ? 'Tu surpasses ta dernière performance. Keep going.'
-        : 'Chaque séance compte, même les jours difficiles.';
+  const subtitle = isLibre
+    ? 'Comparaison globale ignorée (exercices variables). Regarde les progressions par exercice ci-dessous.'
+    : isVeryFirst
+      ? 'Tu as posé la première pierre. Reviens régulièrement.'
+      : isFirst
+        ? 'Continue sur cette lancée, chaque séance compte.'
+        : isPositive
+          ? 'Tu surpasses ta dernière performance. Keep going.'
+          : 'Chaque séance compte, même les jours difficiles.';
 
   return (
     <div style={{ position: 'relative', minHeight: '100vh', paddingBottom: 50 }}>
@@ -1324,7 +1329,12 @@ function SGSessionSummary({ exercises, sessionName, templateName, startedAt, ses
               <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', marginTop: 2 }}>tonnes</div>
             </div>
             <div>
-              {overallPct !== null ? (
+              {isLibre ? (
+                <>
+                  <div style={{ fontFamily: SG.serif, fontSize: 28, fontWeight: 500, color: SG.ink }}>{exercises.length}</div>
+                  <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', marginTop: 2 }}>exercices</div>
+                </>
+              ) : overallPct !== null ? (
                 <>
                   <div style={{ fontFamily: SG.serif, fontSize: 28, fontWeight: 500, color: overallPct >= 0 ? '#2D7A3A' : '#B23A3A' }}>
                     {overallPct >= 0 ? '+' : ''}{overallPct}%
@@ -2318,6 +2328,9 @@ function SGMobileHistory({ data, user, onDeleteSession, upsertFn, initialDetail,
               </div>
             </div>
             <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+              <button onClick={() => setShowRecap(true)} title="Voir le récap" style={{ width: 38, height: 38, borderRadius: 12, border: 'none', background: `linear-gradient(135deg, ${SG.accent} 0%, ${SG.accent2} 100%)`, color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 4px 12px ${SG.accent}44` }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-5"/></svg>
+              </button>
               <button onClick={() => setEditing(true)} title="Éditer" style={{ width: 38, height: 38, borderRadius: 12, border: 'none', background: 'rgba(255,255,255,0.6)', color: SG.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={SG.ink} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20h4l11-11-4-4L4 16v4z"/></svg>
               </button>
