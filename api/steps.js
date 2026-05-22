@@ -50,22 +50,27 @@ async function fetchFromGoogleFit(fitness, startMs, endMs) {
     endTimeMillis: endMs,
   };
 
+  // Une source qui erreur (timeout, 429, source absente) ne casse pas les autres.
+  // Seules les erreurs d'auth remontent (pour déclencher needs_reauth en amont).
+  const tolerant = (promise) => promise.catch(e => {
+    const msg = String(e?.message || "").toLowerCase();
+    const status = e?.response?.status || e?.code;
+    if (status === 401 || msg.includes("invalid_grant")) throw e;
+    return null;
+  });
+
   const calls = STEP_SOURCES.map(dataSourceId =>
-    fitness.users.dataset.aggregate({
+    tolerant(fitness.users.dataset.aggregate({
       userId: "me",
       requestBody: { aggregateBy: [{ dataSourceId }], ...baseReq },
-    }).catch(e => {
-      const msg = String(e?.message || "");
-      if (msg.includes("DataSourceId") || msg.includes("dataSource")) return null;
-      throw e;
-    })
+    }))
   );
 
   calls.push(
-    fitness.users.dataset.aggregate({
+    tolerant(fitness.users.dataset.aggregate({
       userId: "me",
       requestBody: { aggregateBy: [{ dataTypeName: "com.google.step_count.delta" }], ...baseReq },
-    }).catch(() => null)
+    }))
   );
 
   const responses = await Promise.all(calls);
