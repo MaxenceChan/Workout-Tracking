@@ -685,6 +685,9 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, sessi
   const [sessionName, setSessionName] = useState(session.name);
   const [curExIdx, setCurExIdx] = useState(0);
   const [curSetIdx, setCurSetIdx] = useState(0);
+  // Scroll en haut à l'entrée de la séance (mobile : on arrivait parfois au milieu)
+  useEffect(() => { window.scrollTo({ top: 0, behavior: 'auto' }); }, []);
+
   const [reps, setReps] = useState(() => session.exercises[0]?.sets[0]?.reps || 10);
   const [kg, setKg] = useState(() => session.exercises[0]?.sets[0]?.weight || 0);
   const [kgInput, setKgInput] = useState('');
@@ -823,12 +826,9 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, sessi
     setRenamingExIdx(null);
     if (!newName || newName === oldName) return;
     setExercises(exs => exs.map((ex, i) => i === idx ? { ...ex, name: newName } : ex));
-    // Si la séance est un modèle existant (et qu'on n'est pas en train de construire un
-    // nouveau modèle), on demande au user comment recatégoriser
-    if (sessionName && sessionName !== 'Séance libre' && !pendingNewTemplate) {
-      setCategoryWarnAction('rename');
-      setShowCategoryWarn(true);
-    }
+    // Pas de popup catégorisation forcée ici — renommer un exo n'est pas censé
+    // déclencher une recatégorisation. Si l'user veut changer le type, il clique
+    // sur le titre en haut.
   };
 
   const iconCheck = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 13l4 4L19 7"/></svg>;
@@ -1291,7 +1291,10 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, sessi
                       Créer un nouveau type (sera sauvé comme modèle)
                     </button>
                   )}
-                  {otherCategories.length > 0 && (
+                  {/* Autres catégories : visibles uniquement pour add/rename — pas pour edit-title
+                      (changer pour un autre type existant n'a pas de sens quand on édite le titre,
+                      les exos viennent du contexte actuel) */}
+                  {otherCategories.length > 0 && categoryWarnAction !== 'edit-title' && (
                     <div style={{ borderTop: `1px solid rgba(31,26,20,0.1)`, marginTop: 6, paddingTop: 10 }}>
                       <div style={{ fontSize: 11, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 6 }}>Autre catégorie</div>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
