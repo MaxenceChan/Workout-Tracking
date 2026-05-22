@@ -509,7 +509,7 @@ function ExercisePicker({ knownExercises = [], onSelect, onClose }) {
   const handleClick = () => { if (wasFocusedRef.current) inputRef.current?.blur(); };
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 250, background: SG.bg1, display: 'flex', flexDirection: 'column' }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 1100, background: SG.bg1, display: 'flex', flexDirection: 'column' }}>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '54px 20px 0', maxWidth: 600, margin: '0 auto', width: '100%', minHeight: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 20, flexShrink: 0 }}>
           <button onClick={onClose} style={{ width: 36, height: 36, borderRadius: 12, border: 'none', background: 'rgba(31,26,20,0.07)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: 14, flexShrink: 0 }}>
@@ -823,8 +823,9 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, sessi
     setRenamingExIdx(null);
     if (!newName || newName === oldName) return;
     setExercises(exs => exs.map((ex, i) => i === idx ? { ...ex, name: newName } : ex));
-    // Si la séance est un modèle, on demande au user comment recatégoriser
-    if (sessionName && sessionName !== 'Séance libre') {
+    // Si la séance est un modèle existant (et qu'on n'est pas en train de construire un
+    // nouveau modèle), on demande au user comment recatégoriser
+    if (sessionName && sessionName !== 'Séance libre' && !pendingNewTemplate) {
       setCategoryWarnAction('rename');
       setShowCategoryWarn(true);
     }
@@ -1111,7 +1112,10 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, sessi
 
         <button
           onClick={() => {
-            if (sessionName && sessionName !== 'Séance libre') {
+            // Si l'user vient de créer un nouveau type pendant cette séance,
+            // il est en train de le construire → pas de re-popup catégorisation.
+            // Sinon si la séance est un modèle existant, on demande comment recatégoriser.
+            if (sessionName && sessionName !== 'Séance libre' && !pendingNewTemplate) {
               setCategoryWarnAction('add');
               setShowCategoryWarn(true);
             } else {
@@ -1199,13 +1203,17 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, sessi
         )}
 
         {showCategoryWarn && (() => {
+          const isCurrentlyLibre = sessionName === 'Séance libre' || sessionName === 'Libre';
           const categories = [
             ...new Set([
               ...sessionTemplates.map(t => t.name).filter(Boolean),
-              ...sessions.map(s => s.name).filter(n => n && n !== 'Séance libre'),
+              ...sessions.map(s => s.type).filter(Boolean),
             ]),
           ];
-          const otherCategories = categories.filter(c => c !== sessionName);
+          // Filtre 'Séance libre' / 'Libre' (gérés par un bouton dédié) + la catégorie courante
+          const otherCategories = categories.filter(
+            c => c !== sessionName && c !== 'Séance libre' && c !== 'Libre'
+          );
           return (
             <div onClick={() => setShowCategoryWarn(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
               <div onClick={e => e.stopPropagation()} style={{ background: '#FFF8F1', borderRadius: 24, padding: 22, maxWidth: 420, width: '100%', boxShadow: '0 -10px 40px rgba(0,0,0,0.18)' }}>
@@ -1228,11 +1236,13 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, sessi
                     style={{ width: '100%', padding: 14, borderRadius: 16, border: 'none', cursor: 'pointer', background: SG.ink, color: '#fff', fontWeight: 700, fontSize: 14, textAlign: 'left' }}>
                     Garder « {sessionName} »
                   </button>
-                  <button
-                    onClick={() => { setSessionName('Séance libre'); setPendingNewTemplate(false); setShowCategoryWarn(false); if (categoryWarnAction === 'add') setShowAddEx(true); }}
-                    style={{ width: '100%', padding: 14, borderRadius: 16, border: `1.5px solid ${SG.ink}`, cursor: 'pointer', background: 'transparent', color: SG.ink, fontWeight: 700, fontSize: 14, textAlign: 'left' }}>
-                    Passer en Séance libre
-                  </button>
+                  {!isCurrentlyLibre && (
+                    <button
+                      onClick={() => { setSessionName('Séance libre'); setPendingNewTemplate(false); setShowCategoryWarn(false); if (categoryWarnAction === 'add') setShowAddEx(true); }}
+                      style={{ width: '100%', padding: 14, borderRadius: 16, border: `1.5px solid ${SG.ink}`, cursor: 'pointer', background: 'transparent', color: SG.ink, fontWeight: 700, fontSize: 14, textAlign: 'left' }}>
+                      Passer en Séance libre
+                    </button>
+                  )}
                   {showCustomTypeInput ? (() => {
                     const trimmed = customTypeValue.trim();
                     const existsAlready = trimmed && categories.some(c => c.toLowerCase() === trimmed.toLowerCase());
@@ -2254,6 +2264,13 @@ function SGMobileHistory({ data, user, onDeleteSession, upsertFn, initialDetail,
     if (initialDetail) { setDetail(initialDetail); onClearInitialDetail?.(); }
   }, [initialDetail]);
 
+  // Scroll en haut à chaque ouverture/changement de fiche détail
+  useEffect(() => {
+    if (detail && !editing && !showRecap) {
+      window.scrollTo({ top: 0, behavior: 'auto' });
+    }
+  }, [detail, editing, showRecap]);
+
   const exportDetail = async () => {
     if (!detailRef.current) return;
     try {
@@ -2893,7 +2910,7 @@ function SGMobileTemplateEdit({ tpl, onSave, onCancel, knownExercises = [], exis
 }
 
 // ─── SGMobileTpl ──────────────────────────────────────────────────────────────
-function SGMobileTpl({ data, user, onTab, onOpenForm, onSaveTpl, knownExercises = [] }) {
+function SGMobileTpl({ data, user, onTab, onOpenForm, onSaveTpl, onDeleteTpl, knownExercises = [] }) {
   const templates = data.sessionTemplates || [];
   const [editingTpl, setEditingTpl] = useState(null);
 
@@ -2939,6 +2956,16 @@ function SGMobileTpl({ data, user, onTab, onOpenForm, onSaveTpl, knownExercises 
                     <div style={{ fontFamily: SG.serif, fontSize: 18, fontWeight: 500, color: SG.ink }}>{tpl.name}</div>
                     <div style={{ fontSize: 12, color: SG.inkSoft, marginTop: 2 }}>{(tpl.exercises||[]).length} exercices</div>
                   </div>
+                  <button
+                    onClick={async () => {
+                      if (!onDeleteTpl) return;
+                      if (!window.confirm(`Supprimer le modèle « ${tpl.name} » ?`)) return;
+                      try { await onDeleteTpl(tpl.id); } catch (e) { alert('Erreur: ' + e.message); }
+                    }}
+                    title="Supprimer le modèle"
+                    style={{ width: 38, height: 38, borderRadius: 12, border: 'none', background: 'rgba(178,58,58,0.10)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginRight: 6 }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#B23A3A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                  </button>
                   <button onClick={() => setEditingTpl(tpl)} style={{ padding: '10px 14px', borderRadius: 16, border: 'none', background: 'rgba(31,26,20,0.07)', color: SG.ink, fontWeight: 600, fontSize: 13, cursor: 'pointer', marginRight: 6 }}>Éditer</button>
                   <button onClick={() => onOpenForm(tpl)} style={{ padding: '10px 16px', borderRadius: 16, border: 'none', background: SG.ink, color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>Démarrer</button>
                 </div>
@@ -3562,6 +3589,10 @@ function App() {
               const exists = cur.sessionTemplates.some(t => t.id === tpl.id);
               return { ...cur, sessionTemplates: exists ? cur.sessionTemplates.map(t => t.id === tpl.id ? tpl : t) : [tpl, ...cur.sessionTemplates] };
             });
+          }}
+          onDeleteTpl={async (id) => {
+            await deleteSessionTemplate(id);
+            setData(cur => ({ ...cur, sessionTemplates: cur.sessionTemplates.filter(t => t.id !== id) }));
           }}
         />}
         {showTplPicker && <SGTemplatePicker templates={data.sessionTemplates || []} onSelect={(tpl) => launchSession(tpl)} onClose={() => setShowTplPicker(false)} />}
