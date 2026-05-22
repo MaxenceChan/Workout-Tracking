@@ -133,6 +133,10 @@ const apiCache = {
 // ───────────────────────────────────────────────
 const STEPS_TTL = 5 * 60 * 1000;
 const stepsInFlight = new Map();
+// Module-level : true uniquement au tout premier mount d'une session de page.
+// Permet de forcer un fetch frais quand l'user recharge l'app (vs simplement
+// switcher d'onglet où le hook remonte mais on respecte le cache TTL).
+let stepsFreshLoad = true;
 
 async function fetchStepsDeduped(uid, { force = false } = {}) {
   // force=true (clic Actualiser) → on jette l'in-flight existant qui pourrait être hung
@@ -230,8 +234,12 @@ function useLiveSteps(user) {
     }
   }, [user?.id, applyData]);
 
-  // Fetch initial au mount
-  useEffect(() => { fetchSteps(false); }, [fetchSteps]);
+  // Fetch initial au mount : force refresh au premier mount du page-load
+  // (rechargement de l'app = on veut des données fraîches, pas le cache 5min)
+  useEffect(() => {
+    fetchSteps(stepsFreshLoad);
+    stepsFreshLoad = false;
+  }, [fetchSteps]);
 
   // Polling 5 min (uniquement si tab visible → économie quota)
   useEffect(() => {
@@ -242,14 +250,22 @@ function useLiveSteps(user) {
     return () => clearInterval(id);
   }, [fetchSteps, user?.id]);
 
-  // Revalidation au retour de focus
+  // Revalidation au retour de focus : force refresh si l'app a été cachée > 30s
+  // (l'user est probablement revenu après un moment d'absence → veut du frais)
   useEffect(() => {
     if (!user?.id) return;
-    const onVisible = () => {
-      if (document.visibilityState === "visible") fetchSteps(false);
+    let hiddenSince = null;
+    const onChange = () => {
+      if (document.visibilityState === "hidden") {
+        hiddenSince = Date.now();
+      } else {
+        const hiddenFor = hiddenSince ? Date.now() - hiddenSince : 0;
+        fetchSteps(hiddenFor > 30_000); // force si caché plus de 30s
+        hiddenSince = null;
+      }
     };
-    document.addEventListener("visibilitychange", onVisible);
-    return () => document.removeEventListener("visibilitychange", onVisible);
+    document.addEventListener("visibilitychange", onChange);
+    return () => document.removeEventListener("visibilitychange", onChange);
   }, [fetchSteps, user?.id]);
 
   // Revalidation à la reconnexion réseau
