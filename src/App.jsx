@@ -662,7 +662,7 @@ function useTimer(startedAt) {
   return { display: `${mm}:${ss}`, elapsed, now };
 }
 
-function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, knownExercises = [] }) {
+function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, sessionTemplates = [], knownExercises = [] }) {
   const [timerStart, setTimerStart] = useState(session.startedAt);
   const { display: timerDisplay, now } = useTimer(timerStart);
   const [exercises, setExercises] = useState(session.exercises);
@@ -680,6 +680,7 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, known
   const [expandedIdx, setExpandedIdx] = useState(null);
   const [showReorder, setShowReorder] = useState(false);
   const [showAddEx, setShowAddEx] = useState(false);
+  const [showCategoryWarn, setShowCategoryWarn] = useState(false);
   const [newExName, setNewExName] = useState('');
   const [showSummary, setShowSummary] = useState(false);
   const [summarySessionsSnapshot, setSummarySessionsSnapshot] = useState(null);
@@ -755,7 +756,6 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, known
       }
     }
     setExercises(exs => [...exs, { name, sets: prefillSets || defaultSets() }]);
-    setSessionName('Séance libre');
     setNewExName('');
     setShowAddEx(false);
   };
@@ -1061,7 +1061,16 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, known
           </>
         )}
 
-        <button onClick={() => setShowAddEx(true)} style={{ width: '100%', padding: '12px 16px', borderRadius: 18, border: `1.5px dashed rgba(31,26,20,0.18)`, background: 'transparent', cursor: 'pointer', fontSize: 13, color: SG.inkSoft, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 8, marginBottom: 12 }}>
+        <button
+          onClick={() => {
+            // Sur séance modèle (pas libre) → popup d'avertissement pour catégoriser
+            if (sessionName && sessionName !== 'Séance libre') {
+              setShowCategoryWarn(true);
+            } else {
+              setShowAddEx(true);
+            }
+          }}
+          style={{ width: '100%', padding: '12px 16px', borderRadius: 18, border: `1.5px dashed rgba(31,26,20,0.18)`, background: 'transparent', cursor: 'pointer', fontSize: 13, color: SG.inkSoft, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 8, marginBottom: 12 }}>
           {iconPlus(SG.inkSoft)} Ajouter un exercice
         </button>
 
@@ -1117,10 +1126,65 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, known
           </div>
         )}
 
+        {showCategoryWarn && (() => {
+          const categories = [
+            ...new Set([
+              ...sessionTemplates.map(t => t.name).filter(Boolean),
+              ...sessions.map(s => s.name).filter(n => n && n !== 'Séance libre'),
+            ]),
+          ];
+          const otherCategories = categories.filter(c => c !== sessionName);
+          return (
+            <div onClick={() => setShowCategoryWarn(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
+              <div onClick={e => e.stopPropagation()} style={{ background: '#FFF8F1', borderRadius: 24, padding: 22, maxWidth: 420, width: '100%', boxShadow: '0 -10px 40px rgba(0,0,0,0.18)' }}>
+                <div style={{ fontSize: 22, marginBottom: 6 }}>⚠️</div>
+                <div style={{ fontFamily: SG.serif, fontSize: 20, fontWeight: 600, color: SG.ink, marginBottom: 6 }}>
+                  Catégorisation de la séance
+                </div>
+                <div style={{ fontSize: 13, color: SG.inkSoft, marginBottom: 16, lineHeight: 1.4 }}>
+                  Cette séance est actuellement <strong>« {sessionName} »</strong>. Si tu ajoutes un exercice, comment veux-tu la catégoriser ?
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <button
+                    onClick={() => { setShowCategoryWarn(false); setShowAddEx(true); }}
+                    style={{ width: '100%', padding: 14, borderRadius: 16, border: 'none', cursor: 'pointer', background: SG.ink, color: '#fff', fontWeight: 700, fontSize: 14, textAlign: 'left' }}>
+                    Garder « {sessionName} »
+                  </button>
+                  <button
+                    onClick={() => { setSessionName('Séance libre'); setShowCategoryWarn(false); setShowAddEx(true); }}
+                    style={{ width: '100%', padding: 14, borderRadius: 16, border: `1.5px solid ${SG.ink}`, cursor: 'pointer', background: 'transparent', color: SG.ink, fontWeight: 700, fontSize: 14, textAlign: 'left' }}>
+                    Passer en Séance libre
+                  </button>
+                  {otherCategories.length > 0 && (
+                    <div style={{ borderTop: `1px solid rgba(31,26,20,0.1)`, marginTop: 6, paddingTop: 10 }}>
+                      <div style={{ fontSize: 11, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 6 }}>Autre catégorie</div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                        {otherCategories.map(cat => (
+                          <button
+                            key={cat}
+                            onClick={() => { setSessionName(cat); setShowCategoryWarn(false); setShowAddEx(true); }}
+                            style={{ padding: '8px 12px', borderRadius: 12, border: `1.5px solid rgba(31,26,20,0.18)`, cursor: 'pointer', background: 'rgba(255,255,255,0.6)', color: SG.ink, fontWeight: 600, fontSize: 13 }}>
+                            {cat}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <button
+                    onClick={() => setShowCategoryWarn(false)}
+                    style={{ width: '100%', padding: 12, borderRadius: 16, border: 'none', cursor: 'pointer', background: 'transparent', color: SG.inkSoft, fontWeight: 600, fontSize: 13, marginTop: 4 }}>
+                    Annuler
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
         {showAddEx && (
           <ExercisePicker
             knownExercises={knownExercises}
-            onSelect={(name) => { addExercise(name); setSessionName('Séance libre'); setShowAddEx(false); }}
+            onSelect={(name) => { addExercise(name); setShowAddEx(false); }}
             onClose={() => setShowAddEx(false)}
           />
         )}
@@ -3203,6 +3267,7 @@ function App() {
             onClose={() => setActiveSession(null)}
             onCancel={() => setActiveSession(null)}
             sessions={data.sessions || []}
+            sessionTemplates={data.sessionTemplates || []}
             knownExercises={getUserExercises(data)}
           />
         </div>
