@@ -7902,9 +7902,25 @@ function StepsTracker({ user }) {
 
       {/* ───── Filtre période */}
       <Card>
-        <CardContent className="grid grid-cols-2 gap-4">
-          <div><Label>Début</Label><Input type="date" lang="fr-FR" value={startDate} min={firstDate} max={endDate} onChange={e => setStartDate(e.target.value)} /></div>
-          <div><Label>Fin</Label><Input type="date" lang="fr-FR" value={endDate} min={startDate} max={today} onChange={e => setEndDate(e.target.value)} /></div>
+        <CardContent className="space-y-3">
+          <div className="grid grid-cols-2 gap-4">
+            <div><Label>Début</Label><Input type="date" lang="fr-FR" value={startDate} min={firstDate} max={endDate} onChange={e => setStartDate(e.target.value)} /></div>
+            <div><Label>Fin</Label><Input type="date" lang="fr-FR" value={endDate} min={startDate} max={today} onChange={e => setEndDate(e.target.value)} /></div>
+          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              const d = new Date();
+              const day = d.getDay();
+              d.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
+              d.setHours(0, 0, 0, 0);
+              setStartDate(toLocalISO(d));
+              setEndDate(today);
+            }}
+          >
+            Cette semaine
+          </Button>
         </CardContent>
       </Card>
 
