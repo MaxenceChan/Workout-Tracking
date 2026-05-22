@@ -7,34 +7,35 @@ const HISTORY_DAYS = 730;
 const toParisDate = (ms) =>
   new Date(ms).toLocaleDateString("fr-CA", { timeZone: "Europe/Paris" });
 
+// UTC ms of 00:00 Europe/Paris for a YYYY-MM-DD date
 const parisMidnight = (dateStr) => {
-  const d = new Date(dateStr + "T00:00:00");
-  const paris = new Date(d.toLocaleString("en-US", { timeZone: "Europe/Paris" }));
-  return paris.getTime();
+  const ref = new Date(`${dateStr}T00:00:00Z`);
+  const parisLocal = new Date(ref.toLocaleString("en-US", { timeZone: "Europe/Paris" }));
+  return ref.getTime() - parisLocal.getHours() * 3_600_000;
 };
 
+// Real-time merged source (no estimation lag). Falls back to dataTypeName if unavailable.
+const LIVE_STEP_SOURCE =
+  "derived:com.google.step_count.delta:com.google.android.gms:merge_step_deltas";
+
 async function fetchFromGoogleFit(fitness, startMs, endMs) {
+  const baseReq = {
+    bucketByTime: { durationMillis: DAY_MS },
+    startTimeMillis: startMs,
+    endTimeMillis: endMs,
+  };
   try {
     return await fitness.users.dataset.aggregate({
       userId: "me",
-      requestBody: {
-        aggregateBy: [{ dataSourceId: "derived:com.google.step_count.delta:com.google.android.gms:estimated_steps" }],
-        bucketByTime: { durationMillis: DAY_MS },
-        startTimeMillis: startMs,
-        endTimeMillis: endMs,
-      },
+      requestBody: { aggregateBy: [{ dataSourceId: LIVE_STEP_SOURCE }], ...baseReq },
     });
   } catch (e) {
-    if (!String(e?.message || "").includes("DataSourceId")) throw e;
+    const msg = String(e?.message || "");
+    if (!msg.includes("DataSourceId") && !msg.includes("dataSource")) throw e;
   }
   return fitness.users.dataset.aggregate({
     userId: "me",
-    requestBody: {
-      aggregateBy: [{ dataTypeName: "com.google.step_count.delta" }],
-      bucketByTime: { durationMillis: DAY_MS },
-      startTimeMillis: startMs,
-      endTimeMillis: endMs,
-    },
+    requestBody: { aggregateBy: [{ dataTypeName: "com.google.step_count.delta" }], ...baseReq },
   });
 }
 
@@ -68,6 +69,17 @@ function fillGaps(steps) {
   return filled;
 }
 
+// Keep max(fresh, cached) per day so a transient 0 never wipes historical data
+function mergeWithCache(cached, fresh) {
+  const merged = new Map(cached.map(d => [d.date, d.steps]));
+  for (const { date, steps } of fresh) {
+    merged.set(date, Math.max(steps, merged.get(date) ?? 0));
+  }
+  return [...merged.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, steps]) => ({ date, steps }));
+}
+
 export default async function handler(req, res) {
   try {
     const { uid } = req.query;
@@ -94,7 +106,6 @@ export default async function handler(req, res) {
     oauth2Client.setCredentials({ refresh_token });
     const fitness = google.fitness({ version: "v1", auth: oauth2Client });
 
-    // Toujours fetcher les 730 derniers jours depuis Google Fit
     const startMs = parisMidnight(toParisDate(Date.now() - HISTORY_DAYS * DAY_MS)) - DAY_MS;
     const endMs   = parisMidnight(toParisDate(Date.now() + DAY_MS));
 
@@ -110,14 +121,18 @@ export default async function handler(req, res) {
         await userRef.set({ googleFit: { needs_reauth: true } }, { merge: true });
         return res.status(200).json({ needsReauth: true, steps: cachedSteps });
       }
-      throw error;
+      console.error("Steps fetch error:", error);
+      // Keep history visible to the user on transient errors
+      return res.status(200).json({ connected: true, needsReauth: false, steps: cachedSteps, stale: true });
     }
 
-    const allSteps = fillGaps(freshSteps);
+    const merged = mergeWithCache(cachedSteps, freshSteps);
+    const allSteps = fillGaps(merged);
 
-    // Écriture Firestore sautée si aucune donnée nouvelle
-    const cachedMap  = new Map(cachedSteps.map(d => [d.date, d.steps]));
-    const hasChanges = freshSteps.some(f => cachedMap.get(f.date) !== f.steps);
+    const cachedMap = new Map(cachedSteps.map(d => [d.date, d.steps]));
+    const hasChanges =
+      allSteps.length !== cachedSteps.length ||
+      allSteps.some(s => cachedMap.get(s.date) !== s.steps);
 
     if (hasChanges) {
       await userRef.set(
