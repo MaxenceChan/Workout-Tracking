@@ -50,33 +50,49 @@ async function fetchFromGoogleFit(fitness, startMs, endMs) {
     endTimeMillis: endMs,
   };
 
-  // Une source qui erreur (timeout, 429, source absente) ne casse pas les autres.
-  // Seules les erreurs d'auth remontent (pour déclencher needs_reauth en amont).
-  const tolerant = (promise) => promise.catch(e => {
-    const msg = String(e?.message || "").toLowerCase();
+  const errors = [];
+  const tolerant = (label, promise) => promise.catch(e => {
+    const msg = String(e?.message || "");
     const status = e?.response?.status || e?.code;
-    if (status === 401 || msg.includes("invalid_grant")) throw e;
+    const apiErr = e?.response?.data?.error;
+    if (status === 401 || msg.toLowerCase().includes("invalid_grant")) throw e;
+    const info = {
+      source: label,
+      status: status || null,
+      apiError: apiErr || null,
+      message: msg.slice(0, 300),
+    };
+    errors.push(info);
+    console.error(`[steps][${label}]`, JSON.stringify(info));
     return null;
   });
 
   const calls = STEP_SOURCES.map(dataSourceId =>
-    tolerant(fitness.users.dataset.aggregate({
-      userId: "me",
-      requestBody: { aggregateBy: [{ dataSourceId }], ...baseReq },
-    }))
+    tolerant(dataSourceId.split(":").pop(),
+      fitness.users.dataset.aggregate({
+        userId: "me",
+        requestBody: { aggregateBy: [{ dataSourceId }], ...baseReq },
+      })
+    )
   );
 
   calls.push(
-    tolerant(fitness.users.dataset.aggregate({
-      userId: "me",
-      requestBody: { aggregateBy: [{ dataTypeName: "com.google.step_count.delta" }], ...baseReq },
-    }))
+    tolerant("auto-merge",
+      fitness.users.dataset.aggregate({
+        userId: "me",
+        requestBody: { aggregateBy: [{ dataTypeName: "com.google.step_count.delta" }], ...baseReq },
+      })
+    )
   );
 
   const responses = await Promise.all(calls);
   const valid = responses.filter(r => r && r.data);
-  if (valid.length === 0) throw new Error("ALL_SOURCES_FAILED");
-  return valid;
+  if (valid.length === 0) {
+    const err = new Error("ALL_SOURCES_FAILED");
+    err.sourceErrors = errors;
+    throw err;
+  }
+  return { responses: valid, sourceErrors: errors };
 }
 
 // Réassignation point par point sur la date Paris (gère DST + chevauchements de bucket).
@@ -207,8 +223,10 @@ export default async function handler(req, res) {
 
     let freshSteps;
     let debugInfo = null;
+    let sourceErrors = [];
     try {
-      const responses = await fetchFromGoogleFit(fitness, startMs, endMs);
+      const { responses, sourceErrors: srcErr } = await fetchFromGoogleFit(fitness, startMs, endMs);
+      sourceErrors = srcErr;
       freshSteps = parseBuckets(responses);
       if (debug === "1") debugInfo = buildDebugInfo(responses);
     } catch (error) {
@@ -219,8 +237,15 @@ export default async function handler(req, res) {
         await userRef.set({ googleFit: { needs_reauth: true } }, { merge: true });
         return res.status(200).json({ needsReauth: true, steps: cachedSteps });
       }
-      console.error("Steps fetch error:", error);
-      return res.status(200).json({ connected: true, needsReauth: false, steps: cachedSteps, stale: true });
+      console.error("Steps fetch error:", error?.message, error?.sourceErrors || "");
+      const payload = {
+        connected: true,
+        needsReauth: false,
+        steps: cachedSteps,
+        stale: true,
+      };
+      if (debug === "1") payload.sourceErrors = error?.sourceErrors || [{ message: String(error?.message || "unknown") }];
+      return res.status(200).json(payload);
     }
 
     const merged = mergeWithCache(cachedSteps, freshSteps);
@@ -240,6 +265,7 @@ export default async function handler(req, res) {
 
     const payload = { connected: true, needsReauth: false, steps: allSteps };
     if (debugInfo) payload.debug = debugInfo;
+    if (debug === "1" && sourceErrors.length) payload.sourceErrors = sourceErrors;
     return res.status(200).json(payload);
   } catch (e) {
     console.error("Steps error:", e);
