@@ -2091,9 +2091,11 @@ function SGMobileSessionEdit({ session, onSave, onCancel, upsertFn }) {
 // ─── SGMobileHistory ──────────────────────────────────────────────────────────
 function SGMobileHistory({ data, user, onDeleteSession, upsertFn, initialDetail, onClearInitialDetail }) {
   const sessions = data.sessions || [];
+  const templates = data.sessionTemplates || [];
   const [filter, setFilter] = useState('Tout');
   const [detail, setDetail] = useState(null);
   const [editing, setEditing] = useState(false);
+  const [showTypeEdit, setShowTypeEdit] = useState(false);
   const detailRef = useRef(null);
   const [runActivities, setRunActivities] = useState([]);
 
@@ -2229,11 +2231,49 @@ function SGMobileHistory({ data, user, onDeleteSession, upsertFn, initialDetail,
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={SG.ink} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
               </div>
             </Glass>
-            <div>
+            <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 11, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase' }}>{sgFmt(detail.date).toUpperCase()}</div>
-              <h1 style={{ fontFamily: SG.serif, fontSize: 28, fontWeight: 500, lineHeight: 1, margin: '4px 0 0', color: SG.ink }}>{detail.type || 'Séance'}</h1>
+              <div onClick={() => setShowTypeEdit(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                <h1 style={{ fontFamily: SG.serif, fontSize: 28, fontWeight: 500, lineHeight: 1, margin: '4px 0 0', color: SG.ink }}>{displayType(detail.type)}</h1>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={SG.inkSoft} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginTop: 4 }}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              </div>
             </div>
           </div>
+          {showTypeEdit && (() => {
+            const types = [
+              'Libre',
+              ...new Set([
+                ...templates.map(t => t.name).filter(Boolean),
+                ...sessions.map(s => s.type).filter(t => t && t !== 'Libre'),
+              ]),
+            ];
+            const pickType = async (newType) => {
+              const updated = { ...detail, type: newType };
+              setDetail(updated);
+              setShowTypeEdit(false);
+              try { await upsertFn(updated); } catch (e) { alert('Erreur: ' + e.message); }
+            };
+            return (
+              <div onClick={() => setShowTypeEdit(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
+                <div onClick={e => e.stopPropagation()} style={{ background: '#FFF8F1', borderRadius: 24, padding: 22, maxWidth: 420, width: '100%', maxHeight: '70vh', overflowY: 'auto' }}>
+                  <div style={{ fontFamily: SG.serif, fontSize: 20, fontWeight: 600, color: SG.ink, marginBottom: 14 }}>Type de séance</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {types.map(t => {
+                      const isCur = (detail.type || 'Libre') === t;
+                      return (
+                        <button key={t} onClick={() => pickType(t)}
+                          style={{ width: '100%', padding: 14, borderRadius: 14, border: isCur ? `1.5px solid ${SG.accent}` : `1px solid rgba(31,26,20,0.12)`, cursor: 'pointer', background: isCur ? `${SG.accent}11` : 'rgba(255,255,255,0.6)', color: SG.ink, fontWeight: 600, fontSize: 14, textAlign: 'left', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <span>{displayType(t)}</span>
+                          {isCur && <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={SG.accent} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 13l4 4L19 7"/></svg>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <button onClick={() => setShowTypeEdit(false)} style={{ width: '100%', padding: 12, borderRadius: 14, border: 'none', cursor: 'pointer', background: 'transparent', color: SG.inkSoft, fontWeight: 600, fontSize: 13, marginTop: 10 }}>Annuler</button>
+                </div>
+              </div>
+            );
+          })()}
           <Glass radius={24} tint="rgba(255,255,255,0.55)" style={{ marginBottom: 14 }}>
             <div style={{ padding: 18, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
               <div>
