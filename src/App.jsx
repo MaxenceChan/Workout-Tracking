@@ -722,9 +722,14 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, known
   };
 
   const addSet = () => {
-    setExercises(exs => exs.map((ex, ei) =>
-      ei === curExIdx ? { ...ex, sets: [...ex.sets, { reps, weight: kg, done: false }] } : ex
-    ));
+    setExercises(exs => {
+      const updated = exs.map((ex, ei) =>
+        ei === curExIdx ? { ...ex, sets: [...ex.sets, { reps, weight: kg, done: false }] } : ex
+      );
+      // Pointer curSetIdx sur la nouvelle série pour afficher le bouton "Valider la série"
+      setCurSetIdx(updated[curExIdx].sets.length - 1);
+      return updated;
+    });
   };
 
   const deleteSet = (exIdx, si) => {
