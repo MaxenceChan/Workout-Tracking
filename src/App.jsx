@@ -2096,6 +2096,7 @@ function SGMobileHistory({ data, user, onDeleteSession, upsertFn, initialDetail,
   const [detail, setDetail] = useState(null);
   const [editing, setEditing] = useState(false);
   const [showTypeEdit, setShowTypeEdit] = useState(false);
+  const [showRecap, setShowRecap] = useState(false);
   const detailRef = useRef(null);
   const [runActivities, setRunActivities] = useState([]);
 
@@ -2166,6 +2167,33 @@ function SGMobileHistory({ data, user, onDeleteSession, upsertFn, initialDetail,
       onCancel={() => setEditing(false)}
       upsertFn={upsertFn}
     />;
+  }
+
+  if (detail && showRecap && !detail._isRun) {
+    // Reconstruit le récap fin-de-séance depuis une séance historique :
+    // toutes les séries sont considérées validées (done: true) et la durée
+    // est restituée via un startedAt fictif basé sur detail.dur
+    const exercisesAsCompleted = (detail.exercises || []).map(ex => ({
+      ...ex,
+      sets: (ex.sets || []).map(s => ({ ...s, done: true })),
+    }));
+    const durMin = Number(detail.dur) || 60;
+    const startedAt = Date.now() - durMin * 60_000;
+    // Sessions antérieures uniquement (pour les comparaisons "vs dernière")
+    const priorSessions = sessions
+      .filter(s => s.id !== detail.id && (s.date || '') < (detail.date || ''))
+      .sort((a, b) => (a.date > b.date ? -1 : 1));
+    return (
+      <SGSessionSummary
+        exercises={exercisesAsCompleted}
+        sessionName={detail.type || 'Libre'}
+        templateName={detail.type || 'Libre'}
+        startedAt={startedAt}
+        sessions={priorSessions}
+        onClose={() => setShowRecap(false)}
+        onBack={() => setShowRecap(false)}
+      />
+    );
   }
 
   if (detail && detail._isRun) {
@@ -2310,6 +2338,10 @@ function SGMobileHistory({ data, user, onDeleteSession, upsertFn, initialDetail,
               </div>
             </Glass>
           ))}
+          <button onClick={() => setShowRecap(true)} style={{ width: '100%', marginTop: 8, padding: 14, borderRadius: 18, border: 'none', background: `linear-gradient(135deg, ${SG.accent} 0%, ${SG.accent2} 100%)`, color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: `0 8px 22px ${SG.accent}33` }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-5"/></svg>
+            Voir le récap (vs dernières perfs)
+          </button>
           <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
             <button onClick={() => setEditing(true)} style={{ flex: 1, padding: 14, borderRadius: 18, border: 'none', background: 'rgba(255,255,255,0.6)', color: SG.ink, cursor: 'pointer', fontWeight: 600, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={SG.ink} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20h4l11-11-4-4L4 16v4z"/></svg>
