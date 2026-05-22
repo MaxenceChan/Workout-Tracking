@@ -793,7 +793,6 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, sessi
   const renameExercise = (idx, name) => {
     if (!name.trim()) return;
     setExercises(exs => exs.map((ex, i) => i === idx ? { ...ex, name: name.trim() } : ex));
-    setSessionName('Séance libre');
     setRenamingExIdx(null);
   };
 
