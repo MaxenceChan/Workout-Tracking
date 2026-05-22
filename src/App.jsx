@@ -1233,44 +1233,47 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, sessi
                     style={{ width: '100%', padding: 14, borderRadius: 16, border: `1.5px solid ${SG.ink}`, cursor: 'pointer', background: 'transparent', color: SG.ink, fontWeight: 700, fontSize: 14, textAlign: 'left' }}>
                     Passer en Séance libre
                   </button>
-                  {showCustomTypeInput ? (
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      <input
-                        autoFocus
-                        value={customTypeValue}
-                        onChange={e => setCustomTypeValue(e.target.value)}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter') {
-                            const n = customTypeValue.trim();
-                            if (!n) return;
-                            setSessionName(n);
-                            setPendingNewTemplate(true);
-                            setShowCustomTypeInput(false);
-                            setCustomTypeValue('');
-                            setShowCategoryWarn(false);
-                            if (categoryWarnAction === 'add') setShowAddEx(true);
-                          }
-                          if (e.key === 'Escape') { setShowCustomTypeInput(false); setCustomTypeValue(''); }
-                        }}
-                        placeholder="Ex: Bras, Cardio, Mobilité…"
-                        style={{ flex: 1, padding: 14, borderRadius: 16, border: `1.5px solid ${SG.accent}`, background: 'rgba(255,255,255,0.8)', color: SG.ink, fontWeight: 600, fontSize: 14, outline: 'none' }}
-                      />
-                      <button
-                        onClick={() => {
-                          const n = customTypeValue.trim();
-                          if (!n) return;
-                          setSessionName(n);
-                          setPendingNewTemplate(true);
-                          setShowCustomTypeInput(false);
-                          setCustomTypeValue('');
-                          setShowCategoryWarn(false);
-                          if (categoryWarnAction === 'add') setShowAddEx(true);
-                        }}
-                        style={{ padding: '0 18px', borderRadius: 16, border: 'none', cursor: 'pointer', background: SG.accent, color: '#fff', fontWeight: 700, fontSize: 14 }}>
-                        Créer
-                      </button>
-                    </div>
-                  ) : (
+                  {showCustomTypeInput ? (() => {
+                    const trimmed = customTypeValue.trim();
+                    const existsAlready = trimmed && categories.some(c => c.toLowerCase() === trimmed.toLowerCase());
+                    const submit = () => {
+                      if (!trimmed || existsAlready) return;
+                      setSessionName(trimmed);
+                      setPendingNewTemplate(true);
+                      setShowCustomTypeInput(false);
+                      setCustomTypeValue('');
+                      setShowCategoryWarn(false);
+                      if (categoryWarnAction === 'add') setShowAddEx(true);
+                    };
+                    return (
+                      <div>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <input
+                            autoFocus
+                            value={customTypeValue}
+                            onChange={e => setCustomTypeValue(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') submit();
+                              if (e.key === 'Escape') { setShowCustomTypeInput(false); setCustomTypeValue(''); }
+                            }}
+                            placeholder="Ex: Bras, Cardio, Mobilité…"
+                            style={{ flex: 1, padding: 14, borderRadius: 16, border: `1.5px solid ${existsAlready ? '#B23A3A' : SG.accent}`, background: 'rgba(255,255,255,0.8)', color: SG.ink, fontWeight: 600, fontSize: 14, outline: 'none' }}
+                          />
+                          <button
+                            onClick={submit}
+                            disabled={!trimmed || existsAlready}
+                            style={{ padding: '0 18px', borderRadius: 16, border: 'none', cursor: (!trimmed || existsAlready) ? 'not-allowed' : 'pointer', background: SG.accent, color: '#fff', fontWeight: 700, fontSize: 14, opacity: (!trimmed || existsAlready) ? 0.4 : 1 }}>
+                            Créer
+                          </button>
+                        </div>
+                        {existsAlready && (
+                          <div style={{ marginTop: 8, fontSize: 12, color: '#B23A3A', fontWeight: 600 }}>
+                            ⚠ Impossible, ce type de séance existe déjà — choisis-le dans la liste ci-dessous.
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })() : (
                     <button
                       onClick={() => setShowCustomTypeInput(true)}
                       style={{ width: '100%', padding: 14, borderRadius: 16, border: `1.5px dashed rgba(31,26,20,0.25)`, cursor: 'pointer', background: 'transparent', color: SG.ink, fontWeight: 700, fontSize: 14, textAlign: 'left', display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -2797,12 +2800,18 @@ function SGMobileStats({ data, user, initialSubTab = 'stats' }) {
 }
 
 // ─── SGMobileTemplateEdit ─────────────────────────────────────────────────────
-function SGMobileTemplateEdit({ tpl, onSave, onCancel, knownExercises = [] }) {
+function SGMobileTemplateEdit({ tpl, onSave, onCancel, knownExercises = [], existingTemplates = [] }) {
   const isNew = !tpl?.id;
   const [name, setName] = useState(tpl?.name || '');
   const [exercises, setExercises] = useState([...(tpl?.exercises || [])]);
   const [saving, setSaving] = useState(false);
   const [showExPicker, setShowExPicker] = useState(false);
+
+  // Détection de doublon : on ignore le template en cours d'édition (par id)
+  const trimmedName = name.trim();
+  const nameConflict = trimmedName && existingTemplates.some(
+    t => t.id !== tpl?.id && (t.name || '').toLowerCase().trim() === trimmedName.toLowerCase()
+  );
 
   const addEx = () => setShowExPicker(true);
   const updEx = (i, v) => setExercises(e => e.map((x, idx) => idx === i ? v : x));
@@ -2834,8 +2843,13 @@ function SGMobileTemplateEdit({ tpl, onSave, onCancel, knownExercises = [] }) {
           <div style={{ padding: 16 }}>
             <div style={{ fontSize: 10, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 8 }}>Nom du modèle</div>
             <input value={name} onChange={e => setName(e.target.value)}
-              style={{ width: '100%', fontFamily: SG.serif, fontSize: 20, fontWeight: 500, color: SG.ink, background: 'transparent', border: 'none', outline: 'none' }}
+              style={{ width: '100%', fontFamily: SG.serif, fontSize: 20, fontWeight: 500, color: SG.ink, background: 'transparent', border: 'none', borderBottom: nameConflict ? '2px solid #B23A3A' : '2px solid transparent', outline: 'none', paddingBottom: 2 }}
               placeholder="Ex: Pec & Épaules" />
+            {nameConflict && (
+              <div style={{ marginTop: 8, fontSize: 12, color: '#B23A3A', fontWeight: 600 }}>
+                ⚠ Impossible, cette séance existe déjà.
+              </div>
+            )}
           </div>
         </Glass>
 
@@ -2863,7 +2877,7 @@ function SGMobileTemplateEdit({ tpl, onSave, onCancel, knownExercises = [] }) {
 
         <button onClick={addEx} style={{ width: '100%', padding: 14, borderRadius: 18, border: `1.5px dashed rgba(31,26,20,0.15)`, background: 'transparent', cursor: 'pointer', fontSize: 13, color: SG.inkSoft, fontWeight: 600, marginBottom: 20 }}>+ Ajouter un exercice</button>
 
-        <button onClick={handleSave} disabled={saving || !name.trim()} style={{ width: '100%', padding: 16, borderRadius: 22, border: 'none', background: SG.ink, color: '#fff', fontWeight: 700, fontSize: 16, cursor: 'pointer', opacity: !name.trim() ? 0.5 : 1 }}>
+        <button onClick={handleSave} disabled={saving || !name.trim() || nameConflict} style={{ width: '100%', padding: 16, borderRadius: 22, border: 'none', background: SG.ink, color: '#fff', fontWeight: 700, fontSize: 16, cursor: (saving || !name.trim() || nameConflict) ? 'not-allowed' : 'pointer', opacity: (!name.trim() || nameConflict) ? 0.5 : 1 }}>
           {saving ? 'Enregistrement…' : (isNew ? 'Créer le modèle' : 'Enregistrer le modèle')}
         </button>
       </div>
@@ -2887,6 +2901,7 @@ function SGMobileTpl({ data, user, onTab, onOpenForm, onSaveTpl, knownExercises 
     return <SGMobileTemplateEdit
       tpl={editingTpl || undefined}
       knownExercises={knownExercises}
+      existingTemplates={templates}
       onSave={async (updated) => { await (onSaveTpl ? onSaveTpl(updated) : upsertSessionTemplate(user.id, updated)); setEditingTpl(null); }}
       onCancel={() => setEditingTpl(null)}
     />;
