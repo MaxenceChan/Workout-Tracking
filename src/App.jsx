@@ -2385,9 +2385,6 @@ function SGMobileHistory({ data, user, onDeleteSession, upsertFn, initialDetail,
               </div>
             </div>
             <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-              <button onClick={() => setShowRecap(true)} title="Voir le récap" style={{ width: 38, height: 38, borderRadius: 12, border: 'none', background: `linear-gradient(135deg, ${SG.accent} 0%, ${SG.accent2} 100%)`, color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 4px 12px ${SG.accent}44` }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-5"/></svg>
-              </button>
               <button onClick={() => setEditing(true)} title="Éditer" style={{ width: 38, height: 38, borderRadius: 12, border: 'none', background: 'rgba(255,255,255,0.6)', color: SG.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={SG.ink} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20h4l11-11-4-4L4 16v4z"/></svg>
               </button>
@@ -2450,6 +2447,10 @@ function SGMobileHistory({ data, user, onDeleteSession, upsertFn, initialDetail,
               </div>
             </div>
           </Glass>
+          <button onClick={() => setShowRecap(true)} style={{ width: '100%', marginBottom: 14, padding: 14, borderRadius: 18, border: 'none', background: `linear-gradient(135deg, ${SG.accent} 0%, ${SG.accent2} 100%)`, color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: `0 8px 22px ${SG.accent}33` }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-5"/></svg>
+            Voir le récap (vs dernières perfs)
+          </button>
           {(detail.exercises||[]).map((ex, i) => (
             <Glass key={i} radius={26} tint="rgba(255,255,255,0.50)" style={{ marginBottom: 12, border: '1px solid rgba(255,255,255,0.4)' }}>
               <div style={{ padding: 20 }}>
@@ -2470,10 +2471,6 @@ function SGMobileHistory({ data, user, onDeleteSession, upsertFn, initialDetail,
               </div>
             </Glass>
           ))}
-          <button onClick={() => setShowRecap(true)} style={{ width: '100%', marginTop: 8, padding: 14, borderRadius: 18, border: 'none', background: `linear-gradient(135deg, ${SG.accent} 0%, ${SG.accent2} 100%)`, color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: `0 8px 22px ${SG.accent}33` }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-5"/></svg>
-            Voir le récap (vs dernières perfs)
-          </button>
         </div>
       </div>
     );
