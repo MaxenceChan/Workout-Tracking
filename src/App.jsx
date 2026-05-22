@@ -124,6 +124,148 @@ const apiCache = {
   },
 };
 
+// ───────────────────────────────────────────────
+// Hook live steps : un seul fetch coordonné pour header + onglet Pas + multi-tab
+// - Polling auto toutes les 5 min (uniquement si tab visible)
+// - Revalidation sur retour de focus + reconnexion réseau
+// - Dédup intra-tab : 2 composants en parallèle = 1 seul fetch
+// - Multi-tab : BroadcastChannel synchronise les onglets
+// ───────────────────────────────────────────────
+const STEPS_TTL = 5 * 60 * 1000;
+const stepsInFlight = new Map();
+
+async function fetchStepsDeduped(uid) {
+  if (stepsInFlight.has(uid)) return stepsInFlight.get(uid);
+  const promise = (async () => {
+    const res = await fetch(`/api/steps?uid=${uid}`);
+    if (!res.ok) {
+      if (res.status === 429) throw new Error("RATE_LIMITED");
+      throw new Error("API_ERROR");
+    }
+    return res.json();
+  })();
+  stepsInFlight.set(uid, promise);
+  try { return await promise; }
+  finally { stepsInFlight.delete(uid); }
+}
+
+function useLiveSteps(user) {
+  const [state, setState] = useState({
+    steps: [],
+    loading: true,
+    refreshing: false,
+    error: null,
+    needsReauth: false,
+    connected: false,
+    lastUpdated: null,
+    stale: false,
+  });
+
+  const applyData = useCallback((data, fromCache = false) => {
+    const steps = Array.isArray(data) ? data : (data?.steps || []);
+    const isArray = Array.isArray(data);
+    setState(s => ({
+      ...s,
+      steps,
+      loading: false,
+      refreshing: false,
+      error: null,
+      needsReauth: Boolean(!isArray && data?.needsReauth),
+      connected: Boolean(isArray || (data?.connected ?? !data?.needsReauth)),
+      stale: Boolean(!isArray && data?.stale),
+      lastUpdated: fromCache ? s.lastUpdated : new Date(),
+    }));
+  }, []);
+
+  const fetchSteps = useCallback(async (forceRefresh = false) => {
+    if (!user?.id) return;
+    const key = `wt_steps_${user.id}`;
+    if (!forceRefresh) {
+      const cached = apiCache.get(key, STEPS_TTL);
+      const cachedSteps = Array.isArray(cached) ? cached : (cached?.steps || []);
+      if (cached && (cachedSteps.length > 0 || cached?.needsReauth)) {
+        applyData(cached, true);
+        return;
+      }
+    }
+    setState(s => ({
+      ...s,
+      refreshing: forceRefresh,
+      loading: !forceRefresh && s.steps.length === 0,
+      error: null,
+    }));
+    try {
+      const data = await fetchStepsDeduped(user.id);
+      const steps = Array.isArray(data) ? data : (data?.steps || []);
+      if (data?.error && !steps.length) throw new Error(data.error);
+      apiCache.set(key, data);
+      applyData(data);
+      try {
+        if (typeof BroadcastChannel !== "undefined") {
+          const ch = new BroadcastChannel(`steps_${user.id}`);
+          ch.postMessage({ type: "cache_updated", data });
+          ch.close();
+        }
+      } catch {}
+    } catch (e) {
+      const stale = apiCache.getStale(key);
+      const staleSteps = Array.isArray(stale) ? stale : (stale?.steps || []);
+      if (staleSteps.length > 0) {
+        applyData(stale, true);
+        setState(s => ({ ...s, stale: true }));
+      } else {
+        setState(s => ({ ...s, loading: false, refreshing: false, error: e?.message || "API_ERROR" }));
+      }
+    }
+  }, [user?.id, applyData]);
+
+  // Fetch initial au mount
+  useEffect(() => { fetchSteps(false); }, [fetchSteps]);
+
+  // Polling 5 min (uniquement si tab visible → économie quota)
+  useEffect(() => {
+    if (!user?.id) return;
+    const id = setInterval(() => {
+      if (document.visibilityState === "visible") fetchSteps(false);
+    }, STEPS_TTL);
+    return () => clearInterval(id);
+  }, [fetchSteps, user?.id]);
+
+  // Revalidation au retour de focus
+  useEffect(() => {
+    if (!user?.id) return;
+    const onVisible = () => {
+      if (document.visibilityState === "visible") fetchSteps(false);
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [fetchSteps, user?.id]);
+
+  // Revalidation à la reconnexion réseau
+  useEffect(() => {
+    if (!user?.id) return;
+    const onOnline = () => fetchSteps(true);
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+  }, [fetchSteps, user?.id]);
+
+  // Multi-tab : un autre onglet a refetch → on récupère sans nouveau fetch
+  useEffect(() => {
+    if (!user?.id || typeof BroadcastChannel === "undefined") return;
+    const ch = new BroadcastChannel(`steps_${user.id}`);
+    ch.onmessage = (e) => {
+      if (e?.data?.type === "cache_updated" && e.data.data) {
+        apiCache.set(`wt_steps_${user.id}`, e.data.data);
+        applyData(e.data.data);
+      }
+    };
+    return () => ch.close();
+  }, [user?.id, applyData]);
+
+  const refresh = useCallback(() => fetchSteps(true), [fetchSteps]);
+  return { ...state, refresh };
+}
+
 function useViewport() {
   const [w, setW] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
   useEffect(() => {
@@ -1399,8 +1541,7 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession, onNa
   const lastSession = sessions[0];
   const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
 
-  const [weekSteps, setWeekSteps] = useState(null);
-  const [stepsArray, setStepsArray] = useState([]);
+  const { steps: stepsArray } = useLiveSteps(user);
   const [weekRunKm, setWeekRunKm] = useState(null);
   const [weekRunActivities, setWeekRunActivities] = useState([]);
   const [allRunActivities, setAllRunActivities] = useState([]);
@@ -1445,41 +1586,19 @@ function SGMobileHome({ data, user, onOpenForm, onLaunchTpl, onViewSession, onNa
     const cachedStrava = apiCache.get(stravaKey, STRAVA_TTL);
     if (cachedStrava) { processStrava(cachedStrava); }
     else { fetch(`/api/strava?uid=${user.id}`).then(r => r.json()).then(d => { apiCache.set(stravaKey, d); processStrava(d); }).catch(() => {}); }
-
-    // Appel /api/steps à chaque ouverture d'app, résultat mis en cache 5 min
-    // → l'onglet Pas réutilise ce cache s'il est encore frais (pas de double appel)
-    const stepsKey = `wt_steps_${user.id}`;
-    const STEPS_TTL = 5 * 60 * 1000;
-    const processSteps = (d) => {
-      const steps = Array.isArray(d) ? d : (d?.steps || []);
-      const total = steps.filter(s => s.date >= monday && s.date <= today).reduce((a, b) => a + (b.steps || 0), 0);
-      setWeekSteps(total);
-      setStepsArray(steps);
-    };
-    const cachedSteps = apiCache.get(stepsKey, STEPS_TTL);
-    if (cachedSteps) { processSteps(cachedSteps); }
-    else {
-      fetch(`/api/steps?uid=${user.id}`)
-        .then(r => r.json())
-        .then(d => {
-          const steps = Array.isArray(d) ? d : (d?.steps || []);
-          if (d?.error && !steps.length) {
-            // API crash — don't cache the error; fall back to stale data if available
-            const stale = apiCache.getStale(stepsKey);
-            const staleSteps = Array.isArray(stale) ? stale : (stale?.steps || []);
-            if (staleSteps.length > 0) processSteps(stale);
-            return;
-          }
-          apiCache.set(stepsKey, d);
-          processSteps(d);
-        })
-        .catch(() => {
-          const stale = apiCache.getStale(stepsKey);
-          const staleSteps = Array.isArray(stale) ? stale : (stale?.steps || []);
-          if (staleSteps.length > 0) processSteps(stale);
-        });
-    }
   }, [user?.id]);
+
+  // Total de la semaine recalculé dès que stepsArray bouge (polling, refresh, broadcast)
+  const weekSteps = useMemo(() => {
+    if (!stepsArray?.length) return null;
+    const monday = (() => {
+      const d = new Date(); const day = d.getDay();
+      d.setDate(d.getDate() - (day === 0 ? 6 : day - 1)); d.setHours(0,0,0,0);
+      return toLocalISO(d);
+    })();
+    const today = toLocalISO(new Date());
+    return stepsArray.filter(s => s.date >= monday && s.date <= today).reduce((a, b) => a + (b.steps || 0), 0);
+  }, [stepsArray]);
   const weekDone = sgWeekDone(sessions, weekRunActivities);
   const weekDays = sgWeekDays(sessions, weekRunActivities);
   const formScore = useMemo(() => calcFormScore(sessions, stepsArray, allRunActivities), [sessions, stepsArray, allRunActivities]);
@@ -7705,71 +7824,17 @@ function StepsTracker({ user }) {
   const axisColor = "#1F1A14";
   const gridColor = "#e5e7eb";
 
-  const [stepsData, setStepsData] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState(null);
-  const [needsReauth, setNeedsReauth] = useState(false);
-  const [connected, setConnected] = useState(false);
-  const [lastUpdated, setLastUpdated] = useState(null);
-
-  /* ─────────────────────────────
-     FETCH GOOGLE FIT (tous les appareils)
-  ───────────────────────────── */
-  const fetchSteps = useCallback(async (forceRefresh = false) => {
-    if (!user?.id) return;
-    const key = `wt_steps_${user.id}`;
-    const STEPS_TTL = 5 * 60 * 1000;
-    // Si cache frais dispo (appel déjà fait au login) → on réutilise, pas de double appel
-    if (!forceRefresh) {
-      const cached = apiCache.get(key, STEPS_TTL);
-      const cachedSteps = Array.isArray(cached) ? cached : (cached?.steps || []);
-      // Only use cache if it contains actual step data or a valid auth state (needsReauth)
-      // Ignore cached error responses — they should not block a fresh fetch attempt
-      if (cached && (cachedSteps.length > 0 || cached?.needsReauth)) {
-        const isArray = Array.isArray(cached);
-        setStepsData(cachedSteps);
-        setNeedsReauth(Boolean(!isArray && cached?.needsReauth));
-        setConnected(Boolean(!isArray && (cached?.connected ?? !cached?.needsReauth)));
-        setLoading(false);
-        return;
-      }
-    }
-    try {
-      forceRefresh ? setRefreshing(true) : setLoading(true);
-      setError(null);
-      const res = await fetch(`/api/steps?uid=${user.id}`);
-      if (!res.ok) throw new Error("API_ERROR");
-      const data = await res.json();
-      const steps = Array.isArray(data) ? data : (data?.steps || []);
-      if (data?.error && !steps.length) throw new Error("API_ERROR");
-      apiCache.set(key, data); // only cached if no error
-      if (Array.isArray(data)) {
-        setStepsData(data); setNeedsReauth(false); setConnected(true);
-      } else {
-        setStepsData(steps);
-        setNeedsReauth(Boolean(data?.needsReauth));
-        setConnected(Boolean(data?.connected ?? !data?.needsReauth));
-      }
-      setLastUpdated(new Date());
-    } catch {
-      // API crash — fall back to stale cache so user keeps their data
-      const stale = apiCache.getStale(key);
-      const staleSteps = Array.isArray(stale) ? stale : (stale?.steps || []);
-      if (staleSteps.length > 0) {
-        setStepsData(staleSteps);
-        setConnected(true);
-        setNeedsReauth(false);
-      } else {
-        setError("API_ERROR");
-      }
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [user?.id]);
-
-  useEffect(() => { fetchSteps(); }, [fetchSteps]);
+  // Hook live coordonné : polling 5 min + revalidation focus/online + multi-tab + dédup
+  const {
+    steps: stepsData,
+    loading,
+    refreshing,
+    error,
+    needsReauth,
+    connected,
+    lastUpdated,
+    refresh,
+  } = useLiveSteps(user);
 
   /* ─────────────────────────────
      FILTRE PÉRIODE UNIFIÉ
@@ -7823,7 +7888,7 @@ function StepsTracker({ user }) {
           {!loading && !error && connected && (
             <div className="mt-2 flex items-center gap-3 flex-wrap">
               <p className="text-sm text-green-500">✅ Google Fit connecté{stepsData.length === 0 ? " — aucune donnée pour la période." : ""}</p>
-              <Button variant="secondary" size="sm" disabled={refreshing} onClick={() => fetchSteps(true)}>
+              <Button variant="secondary" size="sm" disabled={refreshing} onClick={() => refresh()}>
                 {refreshing ? "Actualisation…" : "↻ Actualiser"}
               </Button>
               {lastUpdated && !refreshing && (

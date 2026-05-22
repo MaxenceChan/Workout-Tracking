@@ -4,23 +4,39 @@ import { google } from "googleapis";
 const DAY_MS = 86400000;
 const HISTORY_DAYS = 730;
 
+// Rate limit in-memory : 30 req/min/uid → confortable pour polling 5min + multi-tab
+// + refresh manuels, mais bloque le spam (>30 req/min/user = abus évident)
+const rateLimit = new Map();
+const RL_WINDOW_MS = 60 * 1000;
+const RL_MAX = 30;
+
+function checkRateLimit(uid) {
+  const now = Date.now();
+  const entry = rateLimit.get(uid) || { count: 0, windowStart: now };
+  if (now - entry.windowStart > RL_WINDOW_MS) {
+    entry.count = 0;
+    entry.windowStart = now;
+  }
+  entry.count++;
+  rateLimit.set(uid, entry);
+  if (rateLimit.size > 200) {
+    for (const [k, v] of rateLimit) {
+      if (now - v.windowStart > RL_WINDOW_MS * 5) rateLimit.delete(k);
+    }
+  }
+  return entry.count <= RL_MAX;
+}
+
 const toParisDate = (ms) =>
   new Date(ms).toLocaleDateString("fr-CA", { timeZone: "Europe/Paris" });
 
-// UTC ms of 00:00 Europe/Paris for a YYYY-MM-DD date
-const parisMidnight = (dateStr) => {
-  const ref = new Date(`${dateStr}T00:00:00Z`);
-  const parisLocal = new Date(ref.toLocaleString("en-US", { timeZone: "Europe/Paris" }));
-  return ref.getTime() - parisLocal.getHours() * 3_600_000;
-};
-
-// Real-time merged source (no estimation lag). Falls back to dataTypeName if unavailable.
 const LIVE_STEP_SOURCE =
   "derived:com.google.step_count.delta:com.google.android.gms:merge_step_deltas";
 
+// Buckets jour alignés Europe/Paris : Google Fit gère DST automatiquement
 async function fetchFromGoogleFit(fitness, startMs, endMs) {
   const baseReq = {
-    bucketByTime: { durationMillis: DAY_MS },
+    bucketByTime: { period: { type: "day", value: 1, timeZoneId: "Europe/Paris" } },
     startTimeMillis: startMs,
     endTimeMillis: endMs,
   };
@@ -42,6 +58,7 @@ async function fetchFromGoogleFit(fitness, startMs, endMs) {
 function parseBuckets(response) {
   const dayMap = new Map();
   for (const bucket of response.data.bucket || []) {
+    // bucket.startTimeMillis = minuit Paris UTC (timeZoneId fourni à l'API)
     const bucketDate = toParisDate(Number(bucket.startTimeMillis));
     if (!dayMap.has(bucketDate)) dayMap.set(bucketDate, 0);
     for (const dataset of bucket.dataset || []) {
@@ -59,17 +76,18 @@ function fillGaps(steps) {
   if (steps.length < 2) return steps;
   const map = new Map(steps.map(d => [d.date, d.steps]));
   const sorted = steps.map(d => d.date).sort();
-  const first = new Date(sorted[0] + "T00:00:00Z");
-  const last  = new Date(sorted[sorted.length - 1] + "T00:00:00Z");
   const filled = [];
-  for (let d = new Date(first); d <= last; d.setUTCDate(d.getUTCDate() + 1)) {
-    const date = d.toISOString().slice(0, 10);
-    filled.push({ date, steps: map.get(date) ?? 0 });
+  let cur = sorted[0];
+  const last = sorted[sorted.length - 1];
+  while (cur <= last) {
+    filled.push({ date: cur, steps: map.get(cur) ?? 0 });
+    const [y, m, dd] = cur.split("-").map(Number);
+    cur = new Date(Date.UTC(y, m - 1, dd + 1)).toISOString().slice(0, 10);
   }
   return filled;
 }
 
-// Keep max(fresh, cached) per day so a transient 0 never wipes historical data
+// max(fresh, cached) par jour : un 0 transitoire ne wipe jamais l'historique
 function mergeWithCache(cached, fresh) {
   const merged = new Map(cached.map(d => [d.date, d.steps]));
   for (const { date, steps } of fresh) {
@@ -84,6 +102,10 @@ export default async function handler(req, res) {
   try {
     const { uid } = req.query;
     if (!uid) return res.status(200).json({ ok: true });
+
+    if (!checkRateLimit(uid)) {
+      return res.status(429).json({ error: "RATE_LIMITED" });
+    }
 
     const db = admin.firestore();
     const userRef = db.collection("users").doc(uid);
@@ -106,8 +128,10 @@ export default async function handler(req, res) {
     oauth2Client.setCredentials({ refresh_token });
     const fitness = google.fitness({ version: "v1", auth: oauth2Client });
 
-    const startMs = parisMidnight(toParisDate(Date.now() - HISTORY_DAYS * DAY_MS)) - DAY_MS;
-    const endMs   = parisMidnight(toParisDate(Date.now() + DAY_MS));
+    // Fenêtre large : Google Fit aligne sur minuit Paris en interne
+    const now = Date.now();
+    const startMs = now - HISTORY_DAYS * DAY_MS;
+    const endMs   = now + DAY_MS;
 
     let freshSteps;
     try {
@@ -122,7 +146,6 @@ export default async function handler(req, res) {
         return res.status(200).json({ needsReauth: true, steps: cachedSteps });
       }
       console.error("Steps fetch error:", error);
-      // Keep history visible to the user on transient errors
       return res.status(200).json({ connected: true, needsReauth: false, steps: cachedSteps, stale: true });
     }
 
