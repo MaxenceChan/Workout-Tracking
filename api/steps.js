@@ -29,17 +29,23 @@ function checkRateLimit(uid) {
 const toParisDate = (ms) =>
   new Date(ms).toLocaleDateString("fr-CA", { timeZone: "Europe/Paris" });
 
-// Plusieurs sources interrogées en parallèle + max par jour pour avoir les données les
-// plus complètes. merge_step_deltas = live, estimated_steps = plus complet sur l'historique,
-// dataTypeName = auto-merge fait par Google (filet de sécurité).
+// UTC ms de minuit Europe/Paris pour une date YYYY-MM-DD (DST-aware)
+const parisMidnight = (dateStr) => {
+  const ref = new Date(`${dateStr}T00:00:00Z`);
+  const parisLocal = new Date(ref.toLocaleString("en-US", { timeZone: "Europe/Paris" }));
+  return ref.getTime() - parisLocal.getHours() * 3_600_000;
+};
+
+// Plusieurs sources en parallèle, max par jour : un capteur foireux ou une source
+// incomplète n'efface jamais les bonnes données.
 const STEP_SOURCES = [
-  "derived:com.google.step_count.delta:com.google.android.gms:merge_step_deltas",
   "derived:com.google.step_count.delta:com.google.android.gms:estimated_steps",
+  "derived:com.google.step_count.delta:com.google.android.gms:merge_step_deltas",
 ];
 
 async function fetchFromGoogleFit(fitness, startMs, endMs) {
   const baseReq = {
-    bucketByTime: { period: { type: "day", value: 1, timeZoneId: "Europe/Paris" } },
+    bucketByTime: { durationMillis: DAY_MS },
     startTimeMillis: startMs,
     endTimeMillis: endMs,
   };
@@ -50,13 +56,11 @@ async function fetchFromGoogleFit(fitness, startMs, endMs) {
       requestBody: { aggregateBy: [{ dataSourceId }], ...baseReq },
     }).catch(e => {
       const msg = String(e?.message || "");
-      // DataSourceId absent pour cet user : on ignore cette source, on garde les autres
       if (msg.includes("DataSourceId") || msg.includes("dataSource")) return null;
       throw e;
     })
   );
 
-  // Fallback : auto-merge par Google sur le type de donnée
   calls.push(
     fitness.users.dataset.aggregate({
       userId: "me",
@@ -70,28 +74,39 @@ async function fetchFromGoogleFit(fitness, startMs, endMs) {
   return valid;
 }
 
-// Buckets alignés Paris (timeZoneId fourni à l'API) → 1 bucket = 1 jour Paris
+// Réassignation point par point sur la date Paris (gère DST + chevauchements de bucket).
+// Pour chaque source on construit sa propre map jour->pas, puis on prend le max entre sources.
 function parseBuckets(responses) {
-  const dayMap = new Map();
+  const perSourceMaps = [];
+
   for (const response of responses) {
+    const dayMap = new Map();
     for (const bucket of response.data.bucket || []) {
-      const date = toParisDate(Number(bucket.startTimeMillis));
-      let bucketSteps = 0;
+      const bucketDate = toParisDate(Number(bucket.startTimeMillis));
+      if (!dayMap.has(bucketDate)) dayMap.set(bucketDate, 0);
       for (const dataset of bucket.dataset || []) {
         for (const point of dataset.point || []) {
-          bucketSteps += (point.value?.[0]?.intVal || 0);
+          const ms = Number(point.startTimeNanos) / 1e6 || Number(bucket.startTimeMillis);
+          const date = toParisDate(ms);
+          dayMap.set(date, (dayMap.get(date) || 0) + (point.value?.[0]?.intVal || 0));
         }
       }
-      // Max entre les sources pour ce jour
-      dayMap.set(date, Math.max(dayMap.get(date) || 0, bucketSteps));
+    }
+    perSourceMaps.push(dayMap);
+  }
+
+  const finalMap = new Map();
+  for (const sourceMap of perSourceMaps) {
+    for (const [date, steps] of sourceMap) {
+      finalMap.set(date, Math.max(finalMap.get(date) || 0, steps));
     }
   }
-  return [...dayMap.entries()].map(([date, steps]) => ({ date, steps }));
+  return [...finalMap.entries()].map(([date, steps]) => ({ date, steps }));
 }
 
 function fillGaps(steps) {
   const map = new Map(steps.map(d => [d.date, d.steps]));
-  // Aujourd'hui Paris toujours présent (même à 0 → la courbe arrive jusqu'à aujourd'hui)
+  // Aujourd'hui Paris toujours présent (la courbe arrive jusqu'à la date du jour)
   const todayParis = toParisDate(Date.now());
   if (!map.has(todayParis)) map.set(todayParis, 0);
 
@@ -122,9 +137,32 @@ function mergeWithCache(cached, fresh) {
     .map(([date, steps]) => ({ date, steps }));
 }
 
+// Debug helper : retourne par source les pas des 10 derniers jours
+function buildDebugInfo(responses) {
+  return responses.map((r, idx) => {
+    const map = new Map();
+    for (const bucket of r.data.bucket || []) {
+      const bucketDate = toParisDate(Number(bucket.startTimeMillis));
+      if (!map.has(bucketDate)) map.set(bucketDate, 0);
+      for (const ds of bucket.dataset || []) {
+        for (const p of ds.point || []) {
+          const ms = Number(p.startTimeNanos) / 1e6 || Number(bucket.startTimeMillis);
+          const date = toParisDate(ms);
+          map.set(date, (map.get(date) || 0) + (p.value?.[0]?.intVal || 0));
+        }
+      }
+    }
+    const entries = [...map.entries()].sort(([a], [b]) => a.localeCompare(b)).slice(-10);
+    return {
+      source: idx < STEP_SOURCES.length ? STEP_SOURCES[idx].split(":").pop() : "auto-merge",
+      last10: entries.map(([d, s]) => `${d}:${s}`),
+    };
+  });
+}
+
 export default async function handler(req, res) {
   try {
-    const { uid, debug } = req.query;
+    const { uid, debug, reset } = req.query;
     if (!uid) return res.status(200).json({ ok: true });
 
     if (!checkRateLimit(uid)) {
@@ -135,6 +173,12 @@ export default async function handler(req, res) {
     const userRef = db.collection("users").doc(uid);
     const userSnap = await userRef.get();
     if (!userSnap.exists) return res.status(404).json({ error: "User not found" });
+
+    // ?reset=1 → wipe le stepsCache pour repartir from scratch (debug)
+    if (reset === "1") {
+      await userRef.set({ stepsCache: admin.firestore.FieldValue.delete() }, { merge: true });
+      return res.status(200).json({ reset: true });
+    }
 
     const userData = userSnap.data();
     const { refresh_token } = userData.googleFit || {};
@@ -152,22 +196,16 @@ export default async function handler(req, res) {
     oauth2Client.setCredentials({ refresh_token });
     const fitness = google.fitness({ version: "v1", auth: oauth2Client });
 
-    const now = Date.now();
-    const startMs = now - HISTORY_DAYS * DAY_MS;
-    const endMs   = now + DAY_MS;
+    // startMs/endMs alignés sur minuit Paris (proven approach, géré DST)
+    const startMs = parisMidnight(toParisDate(Date.now() - HISTORY_DAYS * DAY_MS)) - DAY_MS;
+    const endMs   = parisMidnight(toParisDate(Date.now() + DAY_MS));
 
     let freshSteps;
     let debugInfo = null;
     try {
       const responses = await fetchFromGoogleFit(fitness, startMs, endMs);
       freshSteps = parseBuckets(responses);
-      if (debug === "1") {
-        debugInfo = {
-          sourcesQueried: STEP_SOURCES.length + 1,
-          sourcesReturned: responses.length,
-          freshLastDates: freshSteps.slice(-7).map(s => `${s.date}:${s.steps}`),
-        };
-      }
+      if (debug === "1") debugInfo = buildDebugInfo(responses);
     } catch (error) {
       const msg    = String(error?.message || "").toLowerCase();
       const apiErr = error?.response?.data?.error;
