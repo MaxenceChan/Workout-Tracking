@@ -146,27 +146,24 @@ export default function StepsMonthlyBubbleChart({ stepsData }) {
           }
 
           const size = 18 + (c.steps / maxSteps) * 28;
+          const isSelected = selectedDay?.date === c.date;
 
           return (
             <div key={i} className="flex items-center justify-center">
               <div
-              onClick={(e) => {
-                // 👉 si on reclique sur la même date, on ferme
-                if (selectedDay?.date === c.date) {
-                  setSelectedDay(null);
-                  return;
-                }
-              
-                const r = e.currentTarget.getBoundingClientRect();
-                setSelectedDay({
-                  ...c,
-                  x: r.left + r.width / 2,
-                  y: r.top,
-                });
-              }}
-                className="rounded-full bg-blue-500 hover:bg-blue-600
-                           cursor-pointer flex items-center justify-center
-                           text-white text-xs transition"
+                onClick={() => {
+                  if (isSelected) {
+                    setSelectedDay(null);
+                    return;
+                  }
+                  setSelectedDay(c);
+                }}
+                className={`rounded-full cursor-pointer flex items-center justify-center
+                           text-white text-xs transition ${
+                             isSelected
+                               ? "bg-blue-700 ring-2 ring-blue-300"
+                               : "bg-blue-500 hover:bg-blue-600"
+                           }`}
                 style={{ width: size, height: size }}
               >
                 {c.day}
@@ -176,35 +173,28 @@ export default function StepsMonthlyBubbleChart({ stepsData }) {
         })}
       </div>
 
-      {/* Tooltip (texte NOIR lisible) */}
-      {selectedDay && (
-        <div
-          className="fixed z-50"
-          style={{
-            left: selectedDay.x,
-            top: selectedDay.y - 8,
-            transform: "translate(-50%, -100%)",
-          }}
-        >
-          <div className="bg-white text-black rounded-lg shadow-lg border px-4 py-3 text-sm">
-            <div className="font-semibold mb-1 text-black">
-              {new Date(
-                selectedDay.date + "T12:00:00"
-              ).toLocaleDateString("fr-FR", {
+      {/* Panneau de détail toujours visible sous le calendrier */}
+      <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 px-4 py-3 text-sm min-h-[64px] flex items-center">
+        {selectedDay ? (
+          <div>
+            <div className="font-semibold mb-1 capitalize">
+              {new Date(selectedDay.date + "T12:00:00").toLocaleDateString("fr-FR", {
                 weekday: "long",
                 day: "numeric",
                 month: "long",
                 year: "numeric",
               })}
             </div>
-
-            <div className="text-black">
-              👣 <strong>{selectedDay.steps.toLocaleString()}</strong>{" "}
-              pas
+            <div>
+              👣 <strong>{selectedDay.steps.toLocaleString()}</strong> pas
             </div>
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="text-gray-400 text-xs">
+            Clique sur un jour du calendrier pour voir le détail
+          </div>
+        )}
+      </div>
     </div>
   );
 }

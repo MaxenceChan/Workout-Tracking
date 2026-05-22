@@ -7907,20 +7907,32 @@ function StepsTracker({ user }) {
             <div><Label>Début</Label><Input type="date" lang="fr-FR" value={startDate} min={firstDate} max={endDate} onChange={e => setStartDate(e.target.value)} /></div>
             <div><Label>Fin</Label><Input type="date" lang="fr-FR" value={endDate} min={startDate} max={today} onChange={e => setEndDate(e.target.value)} /></div>
           </div>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => {
-              const d = new Date();
-              const day = d.getDay();
-              d.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
-              d.setHours(0, 0, 0, 0);
-              setStartDate(toLocalISO(d));
-              setEndDate(today);
-            }}
-          >
-            Cette semaine
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                const d = new Date();
+                const day = d.getDay();
+                d.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
+                d.setHours(0, 0, 0, 0);
+                setStartDate(toLocalISO(d));
+                setEndDate(today);
+              }}
+            >
+              Cette semaine
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setStartDate(firstDate);
+                setEndDate(today);
+              }}
+            >
+              All time
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
