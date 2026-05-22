@@ -2,7 +2,9 @@ import admin from "./lib/firebaseAdmin.js";
 import { google } from "googleapis";
 
 const DAY_MS = 86400000;
-const HISTORY_DAYS = 730;
+const HISTORY_DAYS = 365;       // 1 an de fetch fresh (cache préserve l'historique au-delà via merge max)
+const MAX_CHUNK_DAYS = 30;      // Google Fit refuse les windows > ~90j ("aggregate duration too large")
+const MAX_CHUNK_MS = MAX_CHUNK_DAYS * DAY_MS;
 
 // Rate limit in-memory : 30 req/min/uid
 const rateLimit = new Map();
@@ -44,12 +46,6 @@ const STEP_SOURCES = [
 ];
 
 async function fetchFromGoogleFit(fitness, startMs, endMs) {
-  const baseReq = {
-    bucketByTime: { durationMillis: DAY_MS },
-    startTimeMillis: startMs,
-    endTimeMillis: endMs,
-  };
-
   const errors = [];
   const tolerant = (label, promise) => promise.catch(e => {
     const msg = String(e?.message || "");
@@ -67,32 +63,63 @@ async function fetchFromGoogleFit(fitness, startMs, endMs) {
     return null;
   });
 
-  const calls = STEP_SOURCES.map(dataSourceId =>
-    tolerant(dataSourceId.split(":").pop(),
-      fitness.users.dataset.aggregate({
-        userId: "me",
-        requestBody: { aggregateBy: [{ dataSourceId }], ...baseReq },
-      })
+  // Découpage de la fenêtre en chunks de MAX_CHUNK_DAYS jours (Google Fit refuse les fenêtres trop larges)
+  const chunks = [];
+  for (let cur = startMs; cur < endMs; cur += MAX_CHUNK_MS) {
+    chunks.push({ startMs: cur, endMs: Math.min(cur + MAX_CHUNK_MS, endMs) });
+  }
+
+  // Toutes les combinaisons (source × chunk) en parallèle
+  const allRequests = [];
+  for (const dataSourceId of STEP_SOURCES) {
+    const label = dataSourceId.split(":").pop();
+    for (const c of chunks) {
+      allRequests.push({
+        label,
+        body: {
+          aggregateBy: [{ dataSourceId }],
+          bucketByTime: { durationMillis: DAY_MS },
+          startTimeMillis: c.startMs,
+          endTimeMillis: c.endMs,
+        },
+      });
+    }
+  }
+  for (const c of chunks) {
+    allRequests.push({
+      label: "auto-merge",
+      body: {
+        aggregateBy: [{ dataTypeName: "com.google.step_count.delta" }],
+        bucketByTime: { durationMillis: DAY_MS },
+        startTimeMillis: c.startMs,
+        endTimeMillis: c.endMs,
+      },
+    });
+  }
+
+  const responses = await Promise.all(
+    allRequests.map(req =>
+      tolerant(req.label, fitness.users.dataset.aggregate({ userId: "me", requestBody: req.body }))
     )
   );
 
-  calls.push(
-    tolerant("auto-merge",
-      fitness.users.dataset.aggregate({
-        userId: "me",
-        requestBody: { aggregateBy: [{ dataTypeName: "com.google.step_count.delta" }], ...baseReq },
-      })
-    )
-  );
+  // Regroupement des buckets par source label → une "réponse virtuelle" par source
+  const bySource = new Map();
+  responses.forEach((r, i) => {
+    if (!r || !r.data) return;
+    const label = allRequests[i].label;
+    if (!bySource.has(label)) bySource.set(label, []);
+    bySource.get(label).push(...(r.data.bucket || []));
+  });
 
-  const responses = await Promise.all(calls);
-  const valid = responses.filter(r => r && r.data);
-  if (valid.length === 0) {
+  if (bySource.size === 0) {
     const err = new Error("ALL_SOURCES_FAILED");
     err.sourceErrors = errors;
     throw err;
   }
-  return { responses: valid, sourceErrors: errors };
+
+  const groupedResponses = [...bySource.values()].map(buckets => ({ data: { bucket: buckets } }));
+  return { responses: groupedResponses, sourceErrors: errors };
 }
 
 // Réassignation point par point sur la date Paris (gère DST + chevauchements de bucket).
