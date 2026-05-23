@@ -1209,16 +1209,6 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, sessi
 
         {showCategoryWarn && (() => {
           const isCurrentlyLibre = sessionName === 'Séance libre' || sessionName === 'Libre';
-          const categories = [
-            ...new Set([
-              ...sessionTemplates.map(t => t.name).filter(Boolean),
-              ...sessions.map(s => s.type).filter(Boolean),
-            ]),
-          ];
-          // Filtre 'Séance libre' / 'Libre' (gérés par un bouton dédié) + la catégorie courante
-          const otherCategories = categories.filter(
-            c => c !== sessionName && c !== 'Séance libre' && c !== 'Libre'
-          );
           // En mode 'rename', l'user doit obligatoirement choisir une option
           // (pas de dismiss au clic en dehors, pas de bouton Annuler).
           const isLocked = categoryWarnAction === 'rename';
@@ -1299,24 +1289,9 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, sessi
                       Créer un nouveau type (sera sauvé comme modèle)
                     </button>
                   )}
-                  {/* Autres catégories : visibles uniquement pour add/rename — pas pour edit-title
-                      (changer pour un autre type existant n'a pas de sens quand on édite le titre,
-                      les exos viennent du contexte actuel) */}
-                  {otherCategories.length > 0 && categoryWarnAction !== 'edit-title' && (
-                    <div style={{ borderTop: `1px solid rgba(31,26,20,0.1)`, marginTop: 6, paddingTop: 10 }}>
-                      <div style={{ fontSize: 11, color: SG.inkSoft, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 6 }}>Autre catégorie</div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                        {otherCategories.map(cat => (
-                          <button
-                            key={cat}
-                            onClick={() => { setSessionName(cat); setPendingNewTemplate(false); setShowCategoryWarn(false); if (categoryWarnAction === 'add') setShowAddEx(true); }}
-                            style={{ padding: '8px 12px', borderRadius: 12, border: `1.5px solid rgba(31,26,20,0.18)`, cursor: 'pointer', background: 'rgba(255,255,255,0.6)', color: SG.ink, fontWeight: 600, fontSize: 13 }}>
-                            {cat}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                  {/* Pas de liste des autres modèles existants : on ne propose que
+                      Garder X / Passer en libre / Créer un nouveau type, pour éviter
+                      de basculer une séance vers un modèle dont les exos sont différents */}
                   {!isLocked && (
                     <button
                       onClick={() => setShowCategoryWarn(false)}
