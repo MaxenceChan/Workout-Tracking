@@ -827,9 +827,13 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, sessi
     setRenamingExIdx(null);
     if (!newName || newName === oldName) return;
     setExercises(exs => exs.map((ex, i) => i === idx ? { ...ex, name: newName } : ex));
-    // Pas de popup catégorisation forcée ici — renommer un exo n'est pas censé
-    // déclencher une recatégorisation. Si l'user veut changer le type, il clique
-    // sur le titre en haut.
+    // Si la séance est un modèle existant (et qu'on n'est pas en train de construire
+    // un nouveau modèle), on force l'user à choisir comment recatégoriser :
+    // popup non-dismissable (pas de clic en dehors, pas d'Annuler).
+    if (sessionName && sessionName !== 'Séance libre' && !pendingNewTemplate) {
+      setCategoryWarnAction('rename');
+      setShowCategoryWarn(true);
+    }
   };
 
   const iconCheck = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 13l4 4L19 7"/></svg>;
@@ -1215,8 +1219,11 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, sessi
           const otherCategories = categories.filter(
             c => c !== sessionName && c !== 'Séance libre' && c !== 'Libre'
           );
+          // En mode 'rename', l'user doit obligatoirement choisir une option
+          // (pas de dismiss au clic en dehors, pas de bouton Annuler).
+          const isLocked = categoryWarnAction === 'rename';
           return (
-            <div onClick={() => setShowCategoryWarn(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
+            <div onClick={isLocked ? undefined : () => setShowCategoryWarn(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
               <div onClick={e => e.stopPropagation()} style={{ background: '#FFF8F1', borderRadius: 24, padding: 22, maxWidth: 420, width: '100%', boxShadow: '0 -10px 40px rgba(0,0,0,0.18)' }}>
                 {categoryWarnAction !== 'edit-title' && <div style={{ fontSize: 22, marginBottom: 6 }}>⚠️</div>}
                 <div style={{ fontFamily: SG.serif, fontSize: 20, fontWeight: 600, color: SG.ink, marginBottom: 6 }}>
@@ -1310,11 +1317,13 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, sessi
                       </div>
                     </div>
                   )}
-                  <button
-                    onClick={() => setShowCategoryWarn(false)}
-                    style={{ width: '100%', padding: 12, borderRadius: 16, border: 'none', cursor: 'pointer', background: 'transparent', color: SG.inkSoft, fontWeight: 600, fontSize: 13, marginTop: 4 }}>
-                    Annuler
-                  </button>
+                  {!isLocked && (
+                    <button
+                      onClick={() => setShowCategoryWarn(false)}
+                      style={{ width: '100%', padding: 12, borderRadius: 16, border: 'none', cursor: 'pointer', background: 'transparent', color: SG.inkSoft, fontWeight: 600, fontSize: 13, marginTop: 4 }}>
+                      Annuler
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -2302,8 +2311,17 @@ function SGMobileHistory({ data, user, onDeleteSession, upsertFn, initialDetail,
       if (/iPad|iPhone|iPod/.test(navigator.userAgent)) alert('📲 Image enregistrée. Tu peux maintenant la partager depuis Photos.');
     } catch (e) { console.error('Export error:', e); alert("Impossible d'exporter la séance."); }
   };
-  const muscuTypes = Array.from(new Set(sessions.map(s => displayType(s.type)).filter(Boolean)));
-  const types = ['Tout', ...muscuTypes, ...(runActivities.length > 0 ? ['Course'] : [])];
+  // Types muscu : on sépare les modèles (templates utilisateur + types historiques)
+  // de "Séance libre" pour respecter l'ordre demandé : Tout, Course, Modèles…, Libre
+  const allMuscuTypes = Array.from(new Set(sessions.map(s => displayType(s.type)).filter(Boolean)));
+  const modelTypes = allMuscuTypes.filter(t => t !== 'Séance libre');
+  const hasLibre = allMuscuTypes.includes('Séance libre');
+  const types = [
+    'Tout',
+    ...(runActivities.length > 0 ? ['Course'] : []),
+    ...modelTypes,
+    ...(hasLibre ? ['Séance libre'] : []),
+  ];
   const allItems = [
     ...sessions.map(s => ({ ...s, _isRun: false })),
     ...runActivities.map(a => ({ ...a, _isRun: true, id: `strava_${a.id}`, type: 'Course' })),
@@ -2831,6 +2849,9 @@ function SGMobileStats({ data, user, initialSubTab = 'stats' }) {
 
 // ─── SGMobileTemplateEdit ─────────────────────────────────────────────────────
 function SGMobileTemplateEdit({ tpl, onSave, onCancel, knownExercises = [], existingTemplates = [] }) {
+  // Scroll en haut à l'ouverture (mobile : l'user arrivait parfois au milieu du formulaire)
+  useEffect(() => { window.scrollTo({ top: 0, behavior: 'auto' }); }, []);
+
   const isNew = !tpl?.id;
   const [name, setName] = useState(tpl?.name || '');
   // Normalise tout exo qui serait un objet { name, ... } vers son name (string)
@@ -2929,7 +2950,15 @@ function SGMobileTemplateEdit({ tpl, onSave, onCancel, knownExercises = [], exis
 // ─── SGMobileTpl ──────────────────────────────────────────────────────────────
 function SGMobileTpl({ data, user, onTab, onOpenForm, onSaveTpl, onDeleteTpl, knownExercises = [] }) {
   const templates = data.sessionTemplates || [];
+  const sessions = data.sessions || [];
   const [editingTpl, setEditingTpl] = useState(null);
+
+  // Compte le nb de séances historique qui utilisent ce template (par son nom)
+  const sessionCountForTpl = (tpl) => {
+    const target = (tpl?.name || '').toLowerCase().trim();
+    if (!target) return 0;
+    return sessions.filter(s => (s.type || '').toLowerCase().trim() === target).length;
+  };
 
   if (editingTpl !== null) {
     return <SGMobileTemplateEdit
@@ -2942,7 +2971,7 @@ function SGMobileTpl({ data, user, onTab, onOpenForm, onSaveTpl, onDeleteTpl, kn
   }
 
   return (
-    <div style={{ position: 'relative', minHeight: '100vh', paddingBottom: 40 }}>
+    <div style={{ position: 'relative', minHeight: '100vh', paddingBottom: 140 }}>
       <div style={{ position: 'relative', padding: '54px 18px 0', maxWidth: 600, margin: '0 auto' }}>
         <div style={{ marginBottom: 18, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
           <div>
@@ -2975,16 +3004,26 @@ function SGMobileTpl({ data, user, onTab, onOpenForm, onSaveTpl, onDeleteTpl, kn
                       <div style={{ fontFamily: SG.serif, fontSize: 18, fontWeight: 500, color: SG.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{tpl.name}</div>
                       <div style={{ fontSize: 12, color: SG.inkSoft, marginTop: 2 }}>{(tpl.exercises||[]).length} exercices</div>
                     </div>
-                    <button
-                      onClick={async () => {
-                        if (!onDeleteTpl) return;
-                        if (!window.confirm(`Supprimer le modèle « ${tpl.name} » ?`)) return;
-                        try { await onDeleteTpl(tpl.id); } catch (e) { alert('Erreur: ' + e.message); }
-                      }}
-                      title="Supprimer le modèle"
-                      style={{ width: 34, height: 34, borderRadius: 10, border: 'none', background: 'rgba(178,58,58,0.10)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#B23A3A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-                    </button>
+                    {(() => {
+                      const usedCount = sessionCountForTpl(tpl);
+                      const isUsed = usedCount > 0;
+                      return (
+                        <button
+                          onClick={async () => {
+                            if (!onDeleteTpl) return;
+                            if (isUsed) {
+                              alert(`Impossible : ce modèle est utilisé par ${usedCount} séance${usedCount > 1 ? 's' : ''} dans ton historique. Renomme-les ou supprime-les avant de supprimer le modèle.`);
+                              return;
+                            }
+                            if (!window.confirm(`Supprimer le modèle « ${tpl.name} » ?`)) return;
+                            try { await onDeleteTpl(tpl.id); } catch (e) { alert('Erreur: ' + e.message); }
+                          }}
+                          title={isUsed ? `Utilisé par ${usedCount} séance${usedCount > 1 ? 's' : ''}` : 'Supprimer le modèle'}
+                          style={{ width: 34, height: 34, borderRadius: 10, border: 'none', background: isUsed ? 'rgba(31,26,20,0.06)' : 'rgba(178,58,58,0.10)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, opacity: isUsed ? 0.5 : 1 }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={isUsed ? SG.inkSoft : '#B23A3A'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                        </button>
+                      );
+                    })()}
                   </div>
                   {/* Row 2 : Éditer (light) + Démarrer (dark) en 50/50 */}
                   <div style={{ display: 'flex', gap: 8 }}>
