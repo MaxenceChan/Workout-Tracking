@@ -712,6 +712,8 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, sessi
   const longPressRef = useRef(null);
   const [renamingExIdx, setRenamingExIdx] = useState(null);
   const [renameValue, setRenameValue] = useState('');
+  const [editingNoteExIdx, setEditingNoteExIdx] = useState(null);
+  const [noteDraft, setNoteDraft] = useState('');
 
   const restRemaining = restEnd ? Math.max(0, Math.ceil((restEnd - now) / 1000)) : 0;
   const isResting = restRemaining > 0;
@@ -912,6 +914,34 @@ function SGActiveSession({ session, onFinish, onClose, onCancel, sessions, sessi
               {iconPlus(SG.inkSoft)} Ajouter une série
             </button>
           )}
+          {/* Note / commentaire libre sur l'exercice */}
+          <div style={{ marginTop: 10 }}>
+            {editingNoteExIdx === exIdx ? (
+              <textarea
+                autoFocus
+                value={noteDraft}
+                onChange={e => setNoteDraft(e.target.value)}
+                onBlur={() => {
+                  setExercises(exs => exs.map((ex, i) => i === exIdx ? { ...ex, comment: noteDraft.trim() } : ex));
+                  setEditingNoteExIdx(null);
+                }}
+                placeholder="Note sur cet exercice (ressenti, technique, RPE…)"
+                style={{ width: '100%', minHeight: 60, padding: 10, borderRadius: 12, border: `1.5px solid ${SG.accent}`, background: 'rgba(255,255,255,0.7)', fontFamily: SG.sans, fontSize: 13, color: SG.ink, resize: 'vertical', outline: 'none', boxSizing: 'border-box' }}
+              />
+            ) : ex.comment ? (
+              <div onClick={() => { setEditingNoteExIdx(exIdx); setNoteDraft(ex.comment); }}
+                style={{ padding: 10, borderRadius: 12, background: 'rgba(255,255,255,0.5)', fontSize: 13, color: SG.ink, fontStyle: 'italic', cursor: 'pointer', display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={SG.inkSoft} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2 }}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                <span style={{ flex: 1, whiteSpace: 'pre-wrap' }}>{ex.comment}</span>
+              </div>
+            ) : (
+              <button onClick={() => { setEditingNoteExIdx(exIdx); setNoteDraft(''); }}
+                style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: SG.inkFaint, fontSize: 12, padding: '4px 0', display: 'inline-flex', alignItems: 'center', gap: 4, fontWeight: 600 }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={SG.inkFaint} strokeWidth="2" strokeLinecap="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                Ajouter une note
+              </button>
+            )}
+          </div>
         </div>
         {isCurrent && (
           <>
@@ -2025,6 +2055,7 @@ function SGMobileSessionEdit({ session, onSave, onCancel, upsertFn }) {
   const [exercises, setExercises] = useState(
     (session.exercises || []).map(ex => ({
       name: ex.name,
+      comment: ex.comment || '',
       sets: (ex.sets || []).map(s => ({ reps: Number(s.reps ?? 10), weight: Number(s.weight ?? 0) }))
     }))
   );
@@ -2034,6 +2065,11 @@ function SGMobileSessionEdit({ session, onSave, onCancel, upsertFn }) {
   const [selSetIdx, setSelSetIdx] = useState(0);
   const [renamingIdx, setRenamingIdx] = useState(null);
   const [renameVal, setRenameVal] = useState('');
+  const [editingNoteIdx, setEditingNoteIdx] = useState(null);
+  const [noteDraftEdit, setNoteDraftEdit] = useState('');
+
+  // Scroll en haut à l'entrée de l'édition
+  useEffect(() => { window.scrollTo({ top: 0, behavior: 'auto' }); }, []);
 
   const updEx = (i, fn) => setExercises(exs => exs.map((e, idx) => idx === i ? fn(e) : e));
   const updSet = (ei, si, field, val) => updEx(ei, ex => ({ ...ex, sets: ex.sets.map((s, idx) => idx === si ? { ...s, [field]: val } : s) }));
@@ -2052,7 +2088,7 @@ function SGMobileSessionEdit({ session, onSave, onCancel, upsertFn }) {
 
   const handleSave = async () => {
     setSaving(true);
-    const updated = { ...session, date, exercises: exercises.map(ex => ({ name: ex.name, sets: ex.sets.map(s => ({ reps: Number(s.reps) || 0, weight: Number(s.weight) || 0 })) })) };
+    const updated = { ...session, date, exercises: exercises.map(ex => ({ name: ex.name, comment: (ex.comment || '').trim() || undefined, sets: ex.sets.map(s => ({ reps: Number(s.reps) || 0, weight: Number(s.weight) || 0 })) })) };
     await upsertFn(updated);
     onSave(updated);
     setSaving(false);
@@ -2166,6 +2202,34 @@ function SGMobileSessionEdit({ session, onSave, onCancel, upsertFn }) {
                   <button onClick={() => addSet(ei)} style={{ marginTop: 4, padding: '8px 14px', borderRadius: 14, border: `1.5px dashed rgba(31,26,20,0.14)`, background: 'transparent', cursor: 'pointer', fontSize: 12, color: SG.inkSoft, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
                     {iconPlus(SG.inkSoft)} Ajouter une série
                   </button>
+                </div>
+
+                {/* Note / commentaire libre sur l'exercice */}
+                <div style={{ marginTop: 10 }}>
+                  {editingNoteIdx === ei ? (
+                    <textarea
+                      autoFocus
+                      value={noteDraftEdit}
+                      onChange={e => setNoteDraftEdit(e.target.value)}
+                      onBlur={() => {
+                        updEx(ei, ex => ({ ...ex, comment: noteDraftEdit.trim() }));
+                        setEditingNoteIdx(null);
+                      }}
+                      placeholder="Note sur cet exercice (ressenti, technique, RPE…)"
+                      style={{ width: '100%', minHeight: 60, padding: 10, borderRadius: 12, border: `1.5px solid ${SG.accent}`, background: 'rgba(255,255,255,0.7)', fontFamily: SG.sans, fontSize: 13, color: SG.ink, resize: 'vertical', outline: 'none', boxSizing: 'border-box' }}
+                    />
+                  ) : ex.comment ? (
+                    <div onClick={() => { setEditingNoteIdx(ei); setNoteDraftEdit(ex.comment); }}
+                      style={{ padding: 10, borderRadius: 12, background: 'rgba(255,255,255,0.5)', fontSize: 13, color: SG.ink, fontStyle: 'italic', cursor: 'pointer', display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={SG.inkSoft} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2 }}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                      <span style={{ flex: 1, whiteSpace: 'pre-wrap' }}>{ex.comment}</span>
+                    </div>
+                  ) : (
+                    <button onClick={() => { setEditingNoteIdx(ei); setNoteDraftEdit(''); }}
+                      style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: SG.inkFaint, fontSize: 12, padding: '4px 0', display: 'inline-flex', alignItems: 'center', gap: 4, fontWeight: 600 }}>
+                      {iconPlus(SG.inkFaint)} Ajouter une note
+                    </button>
+                  )}
                 </div>
 
                 {/* Steppers reps/kg — uniquement sur l'exercice sélectionné */}
@@ -2507,6 +2571,12 @@ function SGMobileHistory({ data, user, onDeleteSession, upsertFn, initialDetail,
                     </div>
                   ))}
                 </div>
+                {ex.comment && (
+                  <div style={{ marginTop: 12, padding: 10, borderRadius: 12, background: 'rgba(255,255,255,0.55)', fontSize: 13, color: SG.ink, fontStyle: 'italic', display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={SG.inkSoft} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2 }}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                    <span style={{ flex: 1, whiteSpace: 'pre-wrap' }}>{ex.comment}</span>
+                  </div>
+                )}
               </div>
             </Glass>
           ))}
