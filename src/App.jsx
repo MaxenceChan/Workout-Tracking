@@ -2921,7 +2921,10 @@ function SGMobileTemplateEdit({ tpl, onSave, onCancel, knownExercises = [], exis
 
 // ─── SGMobileTpl ──────────────────────────────────────────────────────────────
 function SGMobileTpl({ data, user, onTab, onOpenForm, onSaveTpl, onDeleteTpl, knownExercises = [] }) {
-  const templates = data.sessionTemplates || [];
+  // Tri alphabétique (insensible casse + accents) pour un affichage stable et prévisible
+  const templates = [...(data.sessionTemplates || [])].sort((a, b) =>
+    (a.name || '').localeCompare(b.name || '', 'fr', { sensitivity: 'base' })
+  );
   const sessions = data.sessions || [];
   const [editingTpl, setEditingTpl] = useState(null);
 
