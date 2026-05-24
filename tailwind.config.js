@@ -9,20 +9,21 @@ export default {
     extend: {
       fontFamily: {
         sans: ["Inter", "system-ui", "-apple-system", "Segoe UI", "Roboto", "sans-serif"],
-        display: ["Plus Jakarta Sans", "Inter", "system-ui", "sans-serif"],
+        display: ["Fraunces", "Plus Jakarta Sans", "Inter", "system-ui", "sans-serif"],
+        serif: ["Fraunces", "Georgia", "serif"],
       },
       colors: {
         brand: {
-          50:  "#e8faf3",
-          100: "#c5f2dd",
-          200: "#8ee5c0",
-          300: "#52d29d",
-          400: "#1fba7a",
-          500: "#0aa165",
-          600: "#007b5e",
-          700: "#00634a",
-          800: "#004a37",
-          900: "#032a20",
+          50:  "#fdf2ec",
+          100: "#fae0d0",
+          200: "#f4b99a",
+          300: "#e98e64",
+          400: "#d97040",
+          500: "#C8643A",
+          600: "#a84e2a",
+          700: "#8a3d20",
+          800: "#6d2e18",
+          900: "#3d180a",
         },
         accent: {
           400: "#7dd3fc",
@@ -47,8 +48,8 @@ export default {
         card:  "0 6px 18px -8px rgba(15, 23, 42, 0.18), 0 2px 6px -2px rgba(15, 23, 42, 0.06)",
         lift:  "0 20px 40px -16px rgba(15, 23, 42, 0.22), 0 4px 12px -4px rgba(15, 23, 42, 0.08)",
         xl2:   "0 32px 64px -24px rgba(15, 23, 42, 0.28), 0 8px 20px -6px rgba(15, 23, 42, 0.10)",
-        glow:  "0 10px 40px -10px rgba(0, 123, 94, 0.35)",
-        glowx: "0 18px 60px -10px rgba(10, 161, 101, 0.55)",
+        glow:  "0 10px 40px -10px rgba(200, 100, 58, 0.40)",
+        glowx: "0 18px 60px -10px rgba(200, 100, 58, 0.55)",
       },
       borderRadius: {
         xl:  "0.875rem",

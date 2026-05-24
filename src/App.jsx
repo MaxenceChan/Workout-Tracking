@@ -3102,7 +3102,7 @@ const Card = React.forwardRef(({ className, interactive = false, children, ...re
   <div
     ref={ref}
     className={cn(
-      "rounded-2xl sm:rounded-[20px] border border-[var(--border-subtle)] bg-white/95 dark:bg-[#141516]/95 shadow-soft backdrop-blur-sm",
+      "rounded-2xl sm:rounded-[20px] border border-[var(--border-subtle)] bg-white/60 dark:bg-[#2e271e]/70 shadow-soft backdrop-blur-md",
       interactive ? "card-interactive" : "card-lift",
       "dark:border-white/5",
       className
@@ -3129,13 +3129,13 @@ function Button({ children, className, variant = "default", size = "md", ...prop
     "inline-flex items-center justify-center gap-2 rounded-xl btn-press btn-ripple font-semibold select-none disabled:opacity-50 disabled:cursor-not-allowed will-change-transform";
 
   const variants = {
-    // Primary — brand green gradient with subtle glow
+    // Primary — terracotta gradient
     default:
-      "bg-gradient-to-b from-brand-600 to-brand-700 text-white shadow-soft hover:from-brand-500 hover:to-brand-600 hover:shadow-glow dark:from-brand-500 dark:to-brand-700 dark:hover:from-brand-400 dark:hover:to-brand-600",
+      "bg-gradient-to-b from-brand-500 to-brand-600 text-white shadow-soft hover:from-brand-400 hover:to-brand-500 hover:shadow-glow dark:from-brand-500 dark:to-brand-700 dark:hover:from-brand-400 dark:hover:to-brand-600",
 
-    // Secondary — neutral surface
+    // Secondary — warm surface
     secondary:
-      "bg-white text-gray-900 border border-[var(--border-subtle)] hover:bg-gray-50 hover:border-[var(--border-strong)] dark:bg-[#1f2023] dark:text-white dark:border-white/10 dark:hover:bg-[#26282b]",
+      "bg-white/80 text-[#1F1A14] border border-[var(--border-subtle)] hover:bg-white hover:border-[var(--border-strong)] dark:bg-[#2e271e] dark:text-[#f5efe6] dark:border-white/10 dark:hover:bg-[#3a3028]",
 
     // Destructive
     destructive:
@@ -3143,7 +3143,7 @@ function Button({ children, className, variant = "default", size = "md", ...prop
 
     // Ghost — minimal
     ghost:
-      "bg-transparent text-gray-700 hover:bg-gray-100 dark:text-white dark:hover:bg-white/10",
+      "bg-transparent text-[#1F1A14] hover:bg-black/5 dark:text-[#f5efe6] dark:hover:bg-white/10",
   };
 
   return (
@@ -3161,10 +3161,10 @@ const Input = ({ className, ...props }) => (
   <input
     className={cn(
       "w-full rounded-xl border border-[var(--border-subtle)] px-3 sm:px-3.5 py-2 sm:py-2.5 text-sm outline-none",
-      "bg-white text-gray-900 placeholder:text-gray-400",
+      "bg-white/72 text-[#1F1A14] placeholder:text-[rgba(31,26,20,0.38)]",
       "transition-all duration-200 ease-smooth",
       "focus:border-brand-500 focus:ring-4 focus:ring-brand-500/15",
-      "dark:bg-[#1f2023] dark:text-white dark:border-white/10 dark:placeholder:text-gray-500 dark:focus:border-brand-400 dark:focus:ring-brand-400/20",
+      "dark:bg-[#2e271e] dark:text-[#f5efe6] dark:border-white/10 dark:placeholder:text-[rgba(245,239,230,0.38)] dark:focus:border-brand-400 dark:focus:ring-brand-400/20",
       className
     )}
     {...props}
@@ -3543,7 +3543,6 @@ function App() {
       title: "Communauté",
       items: [
         { value: "ranking", label: "Classement", shortLabel: "Classement", icon: Trophy },
-        { value: "chatbot", label: "Coach IA", shortLabel: "Coach IA", icon: Sparkles },
         ...(tractionAuthorized
           ? [{ value: "traction", label: "Tractions", shortLabel: "Traction", icon: Zap }]
           : []),
@@ -4425,7 +4424,7 @@ function DashboardSection({ sessions, user, onNavigate, quickStats }) {
   const quickActions = [
     { label: "Nouvelle séance", icon: Plus, tab: "log", desc: "Enregistrer un entraînement" },
     { label: "Statistiques", icon: BarChart3, tab: "analytics", desc: "Graphiques & tendances" },
-    { label: "Coach IA", icon: Sparkles, tab: "chatbot", desc: "Analyse personnalisée" },
+    { label: "Classement", icon: Trophy, tab: "ranking", desc: "Voir le classement" },
     { label: "Historique", icon: History, tab: "sessions", desc: "Toutes mes séances" },
   ];
 
