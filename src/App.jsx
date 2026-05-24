@@ -48,6 +48,12 @@ import {
   Send,
   Sparkles,
   Trophy,
+  X,
+  ChevronRight,
+  Activity,
+  Flame,
+  TrendingUp,
+  Zap,
 } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer,
@@ -3092,14 +3098,16 @@ function SGMobileTpl({ data, user, onTab, onOpenForm, onSaveTpl, onDeleteTpl, kn
   );
 }
 
-const Card = React.forwardRef(({ className, children }, ref) => (
+const Card = React.forwardRef(({ className, interactive = false, children, ...rest }, ref) => (
   <div
     ref={ref}
     className={cn(
-      "rounded-2xl sm:rounded-[20px] border border-[var(--border-subtle)] bg-white dark:bg-[#141516] shadow-soft card-lift",
+      "rounded-2xl sm:rounded-[20px] border border-[var(--border-subtle)] bg-white/95 dark:bg-[#141516]/95 shadow-soft backdrop-blur-sm",
+      interactive ? "card-interactive" : "card-lift",
       "dark:border-white/5",
       className
     )}
+    {...rest}
   >
     {children}
   </div>
@@ -3111,9 +3119,14 @@ const CardContent = ({ className, children }) => (
 );
 
 
-function Button({ children, className, variant = "default", ...props }) {
+function Button({ children, className, variant = "default", size = "md", ...props }) {
+  const sizes = {
+    sm: "text-xs px-2.5 py-1.5",
+    md: "text-xs sm:text-sm px-3 sm:px-4 py-2 sm:py-2.5",
+    lg: "text-sm sm:text-base px-5 py-3",
+  };
   const base =
-    "inline-flex items-center justify-center gap-2 rounded-xl btn-press text-xs sm:text-sm px-3 sm:px-4 py-2 sm:py-2.5 font-medium select-none disabled:opacity-50 disabled:cursor-not-allowed";
+    "inline-flex items-center justify-center gap-2 rounded-xl btn-press btn-ripple font-semibold select-none disabled:opacity-50 disabled:cursor-not-allowed will-change-transform";
 
   const variants = {
     // Primary — brand green gradient with subtle glow
@@ -3135,7 +3148,7 @@ function Button({ children, className, variant = "default", ...props }) {
 
   return (
     <button
-      className={cn(base, variants[variant], className)}
+      className={cn(base, sizes[size] ?? sizes.md, variants[variant], className)}
       {...props}
     >
       {children}
@@ -3386,7 +3399,8 @@ function App() {
   const [data, setData] = useState({ sessions: [], customExercises: [], sessionTemplates: [] });
   const [tab, setTab] = useState("log");
   const [user, setUser] = useState(undefined);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(true);
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [activePolicyModal, setActivePolicyModal] = useState(null);
   const [route, setRoute] = useState(() => window.location.pathname);
   const vw = useViewport();
@@ -3495,22 +3509,59 @@ function App() {
     // Note: does NOT close the session — summary screen handles that
   };
   const tractionAuthorized = isTractionAuthorized(user?.email);
+
+  const navGroups = useMemo(() => [
+    {
+      title: "Accueil",
+      items: [
+        { value: "home", label: "Tableau de bord", shortLabel: "Accueil", icon: Activity },
+      ],
+    },
+    {
+      title: "Quotidien",
+      items: [
+        { value: "log", label: "Saisir une séance", shortLabel: "Saisie", icon: Plus, accent: true },
+        { value: "tpl", label: "Modèles de séance", shortLabel: "Templates", icon: ClipboardList },
+        { value: "last", label: "Dernière séance", shortLabel: "Dernière", icon: Clock },
+      ],
+    },
+    {
+      title: "Suivi",
+      items: [
+        { value: "sessions", label: "Historique", shortLabel: "Historique", icon: History },
+        { value: "analytics", label: "Statistiques", shortLabel: "Stats", icon: BarChart3 },
+      ],
+    },
+    {
+      title: "Bien-être",
+      items: [
+        { value: "weight", label: "Suivi du poids", shortLabel: "Poids", icon: Scale },
+        { value: "steps", label: "Suivi des pas", shortLabel: "Pas", icon: Footprints },
+      ],
+    },
+    {
+      title: "Communauté",
+      items: [
+        { value: "ranking", label: "Classement", shortLabel: "Classement", icon: Trophy },
+        { value: "chatbot", label: "Coach IA", shortLabel: "Coach IA", icon: Sparkles },
+        ...(tractionAuthorized
+          ? [{ value: "traction", label: "Tractions", shortLabel: "Traction", icon: Zap }]
+          : []),
+      ],
+    },
+  ], [tractionAuthorized]);
+
   const navItems = useMemo(
-    () => [
-      { value: "tpl", label: "Séances pré-créées", shortLabel: "Séances", icon: ClipboardList },
-      { value: "log", label: "Saisir une séance", shortLabel: "Saisie", icon: Plus },
-      { value: "sessions", label: "Historique", shortLabel: "Historique", icon: History },
-      { value: "last", label: "Dernière séance", shortLabel: "Dernière", icon: Clock },
-      { value: "analytics", label: "Statistiques", shortLabel: "Stats", icon: BarChart3 },
-      { value: "weight", label: "Suivi du poids", shortLabel: "Poids", icon: Scale },
-      { value: "steps", label: "Suivi des pas", shortLabel: "Pas", icon: Footprints },
-      { value: "ranking", label: "Classement", shortLabel: "Classement", icon: Trophy },
-      ...(tractionAuthorized
-        ? [{ value: "traction", label: "Traction", shortLabel: "Traction", icon: Sparkles }]
-        : []),
-    ],
-    [tractionAuthorized]
+    () => navGroups.flatMap((g) => g.items),
+    [navGroups]
   );
+
+  const navLabels = useMemo(() => {
+    const map = new Map();
+    navItems.forEach((i) => map.set(i.value, i));
+    return map;
+  }, [navItems]);
+
   const mobileNavItems = useMemo(() => {
     const order = ["tpl", "log", "sessions", "last", "analytics", "weight", "steps", "ranking", "traction"];
     const byValue = new Map(navItems.map((item) => [item.value, item]));
@@ -3521,8 +3572,24 @@ function App() {
         item.value === "tpl" ? { ...item, shortLabel: "Templates" } : item
       );
   }, [navItems]);
+
+  const quickStats = useMemo(() => {
+    const sessions = data.sessions || [];
+    const total = sessions.length;
+    const last7 = (() => {
+      const d = new Date(); d.setDate(d.getDate() - 7);
+      return sessions.filter((s) => new Date(s.date) >= d).length;
+    })();
+    const totalTonnage = sessions.reduce((acc, s) => acc + computeSessionTonnage(s), 0);
+    return { total, last7, totalTonnage };
+  }, [data.sessions]);
+
   const handleTabChange = (value) => {
     setTab(value);
+    setMobileDrawerOpen(false);
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
   };
 
   const navigate = (path) => {
@@ -3721,16 +3788,9 @@ function App() {
   return (
 <div className="min-h-screen w-full text-gray-900 dark:text-white">
 {isMobile && <SGMobileBackground />}
-<header
-  className="sticky top-0 z-20
-  bg-white/80 dark:bg-[#111214]/75
-  text-gray-900 dark:text-white
-  border-b border-[var(--border-subtle)] dark:border-white/5
-  backdrop-blur-xl
-  transition-colors duration-300"
->
-<div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-    <div className="flex items-center gap-2 sm:gap-3">
+<header className="sticky top-0 z-20 glass-strong text-gray-900 dark:text-white border-b border-[var(--border-subtle)] dark:border-white/5 transition-colors duration-300">
+<div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-2.5 sm:py-3 flex items-center justify-between gap-3">
+    <div className="flex items-center gap-2 sm:gap-3 min-w-0">
       <Button
         variant="ghost"
         onClick={() => setIsMenuOpen((prev) => !prev)}
@@ -3739,81 +3799,297 @@ function App() {
       >
         <Menu className="h-4 w-4" />
       </Button>
-      <div className="flex items-center gap-2.5">
-        <div className="relative grid place-items-center h-10 w-10 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 shadow-glow">
+      <Button
+        variant="ghost"
+        onClick={() => setMobileDrawerOpen(true)}
+        title="Menu"
+        className="md:hidden !rounded-full !p-2.5 text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-white/10"
+      >
+        <Menu className="h-5 w-5" />
+      </Button>
+      <div className="flex items-center gap-2.5 min-w-0">
+        <div className="relative grid place-items-center h-10 w-10 rounded-2xl bg-gradient-to-br from-brand-400 via-brand-500 to-brand-700 shadow-glow animate-glow-pulse">
           <img
             src={headerGif}
             alt="Workout Tracker"
             className="h-7 w-7 object-contain drop-shadow"
           />
         </div>
-        <h1 className="font-display text-lg sm:text-xl md:text-[22px] font-bold tracking-tight flex flex-col leading-none">
-          <span className="text-gradient-brand">Workout Tracker</span>
-          <span className="text-[10px] sm:text-xs font-medium uppercase tracking-[0.25em] text-gray-400 dark:text-gray-500 mt-1 hidden sm:block">
+        <h1 className="font-display text-base sm:text-xl md:text-[22px] font-extrabold tracking-tight flex flex-col leading-none truncate">
+          <span className="text-gradient-brand truncate">Workout Tracker</span>
+          <span className="text-[9px] sm:text-[10px] font-medium uppercase tracking-[0.25em] text-gray-400 dark:text-gray-500 mt-1 hidden sm:block">
             Suivi & progression
           </span>
         </h1>
       </div>
     </div>
 
-    <div className="flex items-center gap-2 sm:gap-3">
-      <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-100/70 dark:bg-white/5 border border-[var(--border-subtle)] dark:border-white/5">
+    {/* Stats chips — desktop uniquement */}
+    <div className="hidden lg:flex items-center gap-1.5">
+      <button
+        onClick={() => handleTabChange("home")}
+        className="chip hover:bg-brand-500/15 hover:border-brand-500/30 transition-all cursor-pointer"
+      >
+        <Activity className="h-3 w-3" />
+        <span>{quickStats.total} séances</span>
+      </button>
+      <button
+        onClick={() => handleTabChange("analytics")}
+        className="chip hover:bg-brand-500/15 hover:border-brand-500/30 transition-all cursor-pointer"
+      >
+        <Flame className="h-3 w-3" />
+        <span>{quickStats.last7} / sem.</span>
+      </button>
+      <button
+        onClick={() => handleTabChange("analytics")}
+        className="chip hover:bg-brand-500/15 hover:border-brand-500/30 transition-all cursor-pointer"
+      >
+        <TrendingUp className="h-3 w-3" />
+        <span>{formatNumber(Math.round(quickStats.totalTonnage / 1000))} t</span>
+      </button>
+    </div>
+
+    <div className="flex items-center gap-1.5 sm:gap-2">
+      {/* Email — tablet uniquement (desktop → sidebar) */}
+      <div className="hidden sm:flex md:hidden items-center gap-2 px-3 py-1.5 rounded-full bg-gray-100/70 dark:bg-white/5 border border-[var(--border-subtle)] dark:border-white/5">
         <div className="h-2 w-2 rounded-full bg-brand-500 shadow-[0_0_8px_rgba(10,161,101,0.6)]" />
-        <span className="text-xs font-medium text-gray-700 dark:text-gray-200 truncate max-w-[200px]">
+        <span className="text-xs font-medium text-gray-700 dark:text-gray-200 truncate max-w-[180px]">
           {user.email}
         </span>
       </div>
       <ThemeToggleButton />
+      {/* Nouvelle séance — desktop uniquement */}
+      <Button
+        variant="default"
+        size="sm"
+        onClick={() => handleTabChange("log")}
+        className="hidden md:inline-flex !px-3.5"
+        title="Nouvelle séance"
+      >
+        <Plus className="h-4 w-4" />
+        <span className="hidden xl:inline">Séance</span>
+      </Button>
+      {/* Déconnexion — mobile/tablet uniquement (desktop → sidebar) */}
       <Button
         variant="ghost"
         onClick={() => signOutUser()}
         title="Se déconnecter"
-        className="!rounded-full !p-2.5 sm:!px-3 text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-white/10"
+        className="md:hidden !rounded-full !p-2.5 text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-white/10"
       >
         <LogOut className="h-4 w-4" />
-        <span className="hidden sm:inline">Déconnexion</span>
       </Button>
     </div>
   </div>
 </header>
 
-<div className="mx-auto flex max-w-[1600px] px-4 sm:px-6 py-4 sm:py-6 pb-[calc(8rem+env(safe-area-inset-bottom))] md:pb-8 gap-6">
+<div className="mx-auto flex max-w-[1600px] px-4 sm:px-6 py-4 sm:py-6 pb-mobile-nav md:pb-8 gap-5">
     <aside
       className={cn(
-        "hidden md:flex shrink-0 flex-col gap-1 rounded-2xl border border-[var(--border-subtle)] dark:border-white/5 bg-white/80 dark:bg-[#141516]/80 backdrop-blur shadow-soft overflow-hidden transition-all duration-500 ease-smooth sticky top-[88px] self-start",
+        "hidden md:flex shrink-0 flex-col rounded-2xl border border-[var(--border-subtle)] dark:border-white/5 bg-white/90 dark:bg-[#141516]/90 backdrop-blur shadow-soft transition-all duration-500 ease-smooth sticky top-[80px] self-start overflow-hidden",
         isMenuOpen
-          ? "w-64 p-3 opacity-100 max-h-[calc(100vh-120px)]"
-          : "w-0 p-0 opacity-0 border-transparent pointer-events-none"
+          ? "w-72 opacity-100 max-h-[calc(100vh-100px)]"
+          : "w-0 opacity-0 border-transparent pointer-events-none"
       )}
     >
-      <div className="px-3 pt-2 pb-3 text-[10px] uppercase tracking-[0.22em] font-semibold text-gray-400 dark:text-gray-500">
-        Navigation
+      {/* ── Profil utilisateur ── */}
+      <div className="p-4 border-b border-[var(--border-subtle)] dark:border-white/5 shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="grid place-items-center h-10 w-10 rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-white font-bold text-sm shrink-0 shadow-glow select-none">
+            {(user?.email || "U")[0].toUpperCase()}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-semibold truncate text-gray-900 dark:text-white">
+              {user?.email?.split("@")[0] || "Athlète"}
+            </div>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="h-1.5 w-1.5 rounded-full bg-brand-500 shadow-[0_0_6px_rgba(10,161,101,0.6)]" />
+              <span className="text-[10px] text-gray-500 dark:text-gray-400 truncate">{user?.email}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Mini-stats */}
+        <div className="mt-3 grid grid-cols-3 gap-1.5">
+          {[
+            { label: "Total", value: quickStats.total },
+            { label: "7 jours", value: quickStats.last7 },
+            { label: "Tonnage", value: `${formatNumber(Math.round(quickStats.totalTonnage / 1000))}t` },
+          ].map((s) => (
+            <div key={s.label} className="rounded-lg bg-gray-50 dark:bg-white/5 px-2 py-1.5 text-center">
+              <div className="text-[13px] font-bold text-gray-900 dark:text-white">{s.value}</div>
+              <div className="text-[9px] text-gray-400 dark:text-gray-500 uppercase tracking-wide mt-0.5">{s.label}</div>
+            </div>
+          ))}
+        </div>
       </div>
-      {navItems.map((item) => {
-        const Icon = item.icon;
-        const active = tab === item.value;
-        return (
-          <button
-            key={item.value}
-            onClick={() => handleTabChange(item.value)}
-            className={cn(
-              "group relative flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-left text-sm font-medium transition-all duration-300 ease-smooth",
-              active
-                ? "bg-gradient-to-r from-brand-500/15 to-brand-600/5 text-brand-700 dark:text-brand-300 dark:from-brand-400/20 dark:to-brand-600/5"
-                : "text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-white/5 dark:hover:text-white"
-            )}
-          >
-            {active && (
-              <span className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 rounded-r-full bg-brand-500 dark:bg-brand-400 shadow-[0_0_10px_rgba(10,161,101,0.6)]" />
-            )}
-            <Icon className={cn("h-[18px] w-[18px] shrink-0 transition-transform duration-300 ease-spring", active && "scale-110")} />
-            <span className="truncate">{item.label}</span>
-          </button>
-        );
-      })}
+
+      {/* ── Navigation groupée ── */}
+      <div className="flex-1 overflow-y-auto py-2 px-2 space-y-0.5 no-scrollbar">
+        {navGroups.map((group) => (
+          <div key={group.title} className="pb-1">
+            <div className="px-3 pt-3 pb-1.5 text-[9.5px] uppercase tracking-[0.22em] font-bold text-gray-400 dark:text-gray-500">
+              {group.title}
+            </div>
+            {group.items.map((item) => {
+              const Icon = item.icon;
+              const active = tab === item.value;
+              return (
+                <button
+                  key={item.value}
+                  onClick={() => handleTabChange(item.value)}
+                  className={cn(
+                    "group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-all duration-300 ease-smooth",
+                    active
+                      ? "bg-gradient-to-r from-brand-500/15 via-brand-500/8 to-transparent text-brand-700 dark:text-brand-300 dark:from-brand-400/20 dark:via-brand-400/8 shadow-sm"
+                      : "text-gray-600 hover:bg-gray-100/80 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-white/5 dark:hover:text-white"
+                  )}
+                >
+                  {active && (
+                    <span className="absolute left-0 top-1/2 -translate-y-1/2 h-7 w-1 rounded-r-full bg-gradient-to-b from-brand-400 to-brand-600 shadow-[0_0_10px_rgba(10,161,101,0.6)]" />
+                  )}
+                  <span className={cn(
+                    "grid place-items-center h-8 w-8 rounded-lg shrink-0 transition-all duration-300 ease-spring",
+                    active
+                      ? "bg-brand-500/15 dark:bg-brand-400/20 scale-105"
+                      : "bg-transparent group-hover:bg-gray-100 dark:group-hover:bg-white/5"
+                  )}>
+                    <Icon className={cn("h-[15px] w-[15px] transition-transform duration-300 ease-spring", active && "scale-110")} />
+                  </span>
+                  <span className="truncate flex-1">{item.label}</span>
+                  {item.accent && !active && (
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400 bg-brand-500/10 dark:bg-brand-400/15 px-1.5 py-0.5 rounded-full">
+                      Rapide
+                    </span>
+                  )}
+                  {active && <ChevronRight className="h-3.5 w-3.5 opacity-60" />}
+                </button>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+
+      {/* ── Footer : objectif + déconnexion ── */}
+      <div className="shrink-0 p-3 border-t border-[var(--border-subtle)] dark:border-white/5 space-y-3">
+        <div className="rounded-xl bg-gray-50 dark:bg-white/5 px-3 py-2.5">
+          <div className="flex items-center justify-between text-[11px] mb-2">
+            <span className="text-gray-500 dark:text-gray-400 font-medium">Objectif hebdomadaire</span>
+            <span className="font-bold text-brand-600 dark:text-brand-400">{quickStats.last7}/5</span>
+          </div>
+          <div className="h-1.5 rounded-full bg-gray-200 dark:bg-white/10 overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-brand-400 to-brand-600 rounded-full transition-all duration-700 ease-smooth"
+              style={{ width: `${Math.min(100, (quickStats.last7 / 5) * 100)}%` }}
+            />
+          </div>
+          <div className="mt-1.5 text-[10px] text-gray-400 dark:text-gray-500">
+            {quickStats.last7 >= 5 ? "🎉 Objectif atteint !" : `${5 - quickStats.last7} séance${5 - quickStats.last7 > 1 ? 's' : ''} restante${5 - quickStats.last7 > 1 ? 's' : ''}`}
+          </div>
+        </div>
+        <button
+          onClick={() => signOutUser()}
+          className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors duration-200 group"
+        >
+          <span className="grid place-items-center h-7 w-7 rounded-lg bg-red-50 dark:bg-red-500/10 group-hover:bg-red-100 dark:group-hover:bg-red-500/20 transition-colors">
+            <LogOut className="h-3.5 w-3.5" />
+          </span>
+          Se déconnecter
+        </button>
+      </div>
     </aside>
+
+    {/* ── Drawer mobile (< 1024px) ── */}
+    {mobileDrawerOpen && (
+      <>
+        <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden" onClick={() => setMobileDrawerOpen(false)} />
+        <div className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-[#141516] rounded-t-2xl p-5 md:hidden" style={{ maxHeight: '85vh', overflowY: 'auto' }}>
+          <div className="flex items-center justify-between mb-4 px-1">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="grid place-items-center h-9 w-9 rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 shadow-glow shrink-0">
+                <Dumbbell className="h-4 w-4 text-white" />
+              </div>
+              <div className="leading-tight min-w-0">
+                <p className="text-sm font-display font-bold">Navigation</p>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate">{user.email}</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setMobileDrawerOpen(false)}
+              className="grid place-items-center h-9 w-9 rounded-full bg-gray-100 dark:bg-white/5 active:scale-95 transition shrink-0"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 px-1 mb-4">
+            <div className="stat-tile !rounded-xl !p-2.5">
+              <div className="text-[10px] uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Total</div>
+              <div className="text-lg font-display font-extrabold">{quickStats.total}</div>
+            </div>
+            <div className="stat-tile !rounded-xl !p-2.5">
+              <div className="text-[10px] uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">7 jours</div>
+              <div className="text-lg font-display font-extrabold">{quickStats.last7}</div>
+            </div>
+            <div className="stat-tile !rounded-xl !p-2.5">
+              <div className="text-[10px] uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Volume</div>
+              <div className="text-lg font-display font-extrabold">{formatNumber(Math.round(quickStats.totalTonnage / 1000))}t</div>
+            </div>
+          </div>
+
+          {navGroups.map((group) => (
+            <div key={group.title} className="mb-3">
+              <div className="px-2 mb-1.5 text-[10px] uppercase tracking-[0.2em] font-semibold text-gray-400 dark:text-gray-500">
+                {group.title}
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {group.items.map((item) => {
+                  const Icon = item.icon;
+                  const active = tab === item.value;
+                  return (
+                    <button
+                      key={item.value}
+                      onClick={() => handleTabChange(item.value)}
+                      className={cn(
+                        "flex items-center gap-2.5 rounded-xl border p-3 text-left text-sm font-semibold transition-all active:scale-[0.97]",
+                        active
+                          ? "bg-gradient-to-br from-brand-500/15 to-brand-600/5 border-brand-500/30 text-brand-700 dark:text-brand-300"
+                          : "bg-white dark:bg-[#1a1b1d] border-[var(--border-subtle)] dark:border-white/5"
+                      )}
+                    >
+                      <span className={cn(
+                        "grid place-items-center h-8 w-8 rounded-lg shrink-0",
+                        active ? "bg-brand-500/20" : "bg-gray-100 dark:bg-white/5"
+                      )}>
+                        <Icon className="h-[15px] w-[15px]" />
+                      </span>
+                      <span className="truncate">{item.shortLabel}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+
+          <button
+            onClick={() => { setMobileDrawerOpen(false); signOutUser(); }}
+            className="w-full mt-3 inline-flex items-center justify-center gap-2 rounded-xl border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-600 dark:text-red-300 active:scale-[0.98] transition"
+          >
+            <LogOut className="h-4 w-4" />
+            Se déconnecter
+          </button>
+        </div>
+      </>
+    )}
   <main className="min-w-0 flex-1">
     <Tabs value={tab} onValueChange={handleTabChange}>
+          <TabsContent value="home" className="mt-3 sm:mt-4">
+            <DashboardSection
+              sessions={data.sessions}
+              user={user}
+              onNavigate={handleTabChange}
+              quickStats={quickStats}
+            />
+          </TabsContent>
           <TabsContent value="tpl" className="mt-3 sm:mt-4">
             <TemplatesManager
               user={user}
@@ -4076,6 +4352,274 @@ function App() {
   );
 }
 // App.jsx (Bloc 2)
+
+// ───────────────────────────────────────────────────────────────
+// Dashboard – tableau de bord desktop
+// ───────────────────────────────────────────────────────────────
+function DashboardSection({ sessions, user, onNavigate, quickStats }) {
+  const recentSessions = sessions.slice(0, 6);
+
+  const last7Sessions = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 7);
+    return sessions.filter((s) => new Date(s.date) >= d);
+  }, [sessions]);
+
+  const totalTonnage = useMemo(
+    () => sessions.reduce((acc, s) => acc + computeSessionTonnage(s), 0),
+    [sessions]
+  );
+
+  const weeklyTonnage = useMemo(
+    () => last7Sessions.reduce((acc, s) => acc + computeSessionTonnage(s), 0),
+    [last7Sessions]
+  );
+
+  const avgTonnage = sessions.length
+    ? Math.round(totalTonnage / sessions.length)
+    : 0;
+
+  const lastSession = sessions[0] || null;
+
+  const weeklyChartData = useMemo(() => {
+    return Array.from({ length: 4 }, (_, i) => {
+      const end = new Date();
+      end.setDate(end.getDate() - i * 7);
+      const start = new Date(end);
+      start.setDate(start.getDate() - 7);
+      const count = sessions.filter((s) => {
+        const d = new Date(s.date);
+        return d >= start && d < end;
+      }).length;
+      return { label: i === 0 ? "Cette sem." : `S-${i}`, séances: count };
+    }).reverse();
+  }, [sessions]);
+
+  const statCards = [
+    {
+      icon: Dumbbell,
+      label: "Séances totales",
+      value: sessions.length,
+      sub: `${last7Sessions.length} cette semaine`,
+    },
+    {
+      icon: TrendingUp,
+      label: "Tonnage total",
+      value: `${formatNumber(Math.round(totalTonnage / 1000))} t`,
+      sub: `${formatNumber(Math.round(weeklyTonnage))} kg / 7 j`,
+    },
+    {
+      icon: BarChart3,
+      label: "Volume moyen",
+      value: `${formatNumber(avgTonnage)} kg`,
+      sub: "par séance",
+    },
+    {
+      icon: Flame,
+      label: "Dernière séance",
+      value: lastSession ? shortFR(lastSession.date) : "—",
+      sub: lastSession?.type || "—",
+    },
+  ];
+
+  const quickActions = [
+    { label: "Nouvelle séance", icon: Plus, tab: "log", desc: "Enregistrer un entraînement" },
+    { label: "Statistiques", icon: BarChart3, tab: "analytics", desc: "Graphiques & tendances" },
+    { label: "Coach IA", icon: Sparkles, tab: "chatbot", desc: "Analyse personnalisée" },
+    { label: "Historique", icon: History, tab: "sessions", desc: "Toutes mes séances" },
+  ];
+
+  return (
+    <div className="space-y-5 animate-fade-up">
+      {/* ── Hero banner ── */}
+      <div className="relative overflow-hidden rounded-2xl border border-[var(--border-subtle)] dark:border-white/5 bg-gradient-to-br from-brand-500/10 via-brand-600/5 to-transparent p-5 sm:p-7">
+        <div className="pointer-events-none absolute right-0 top-0 h-72 w-72 translate-x-16 -translate-y-16 rounded-full bg-brand-500/10 blur-3xl" />
+        <div className="pointer-events-none absolute bottom-0 left-1/3 h-48 w-48 translate-y-12 rounded-full bg-sky-400/8 blur-3xl" />
+        <div className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <div className="section-eyebrow mb-2">
+              <Activity className="h-3 w-3" /> Vue d&apos;ensemble
+            </div>
+            <h2 className="font-display text-2xl sm:text-3xl font-extrabold tracking-tight">
+              Bonjour,{" "}
+              <span className="text-gradient-brand">
+                {user?.email?.split("@")[0] || "Athlète"} 👋
+              </span>
+            </h2>
+            <p className="mt-1.5 text-sm text-gray-500 dark:text-gray-400 max-w-md">
+              {sessions.length === 0
+                ? "Commence ta première séance pour voir ta progression ici."
+                : `${sessions.length} séance${sessions.length > 1 ? "s" : ""} enregistrée${sessions.length > 1 ? "s" : ""} · ${quickStats.last7} cette semaine · Continue comme ça !`}
+            </p>
+          </div>
+          <Button onClick={() => onNavigate("log")} size="lg" className="shrink-0 animate-glow-pulse">
+            <Plus className="h-4 w-4" /> Nouvelle séance
+          </Button>
+        </div>
+      </div>
+
+      {/* ── Stat cards ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {statCards.map((stat) => {
+          const Icon = stat.icon;
+          return (
+            <div key={stat.label} className="stat-tile flex flex-col gap-1">
+              <div className="grid place-items-center h-9 w-9 rounded-xl bg-brand-500/10 dark:bg-brand-400/15 mb-1">
+                <Icon className="h-[18px] w-[18px] text-brand-600 dark:text-brand-400" />
+              </div>
+              <div className="text-[22px] font-display font-extrabold leading-none">{stat.value}</div>
+              <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400">{stat.label}</div>
+              <div className="text-[10px] font-semibold text-brand-600 dark:text-brand-400 mt-0.5">{stat.sub}</div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* ── Main grid ── */}
+      <div className="grid grid-cols-1 xl:grid-cols-5 gap-4">
+        {/* Séances récentes */}
+        <div className="xl:col-span-3 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="font-display font-bold text-base">Séances récentes</h3>
+            {sessions.length > 0 && (
+              <Button variant="ghost" size="sm" onClick={() => onNavigate("sessions")}>
+                Tout voir <ChevronRight className="h-3.5 w-3.5" />
+              </Button>
+            )}
+          </div>
+
+          {sessions.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-12 text-center space-y-3">
+                <div className="grid place-items-center h-14 w-14 rounded-2xl bg-gray-100 dark:bg-white/5">
+                  <Dumbbell className="h-7 w-7 text-gray-400" />
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-700 dark:text-gray-200">Aucune séance</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Enregistre ta première séance pour la voir apparaître ici.</p>
+                </div>
+                <Button onClick={() => onNavigate("log")}>
+                  <Plus className="h-4 w-4" /> Commencer
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-2">
+              {recentSessions.map((s) => {
+                const tonnage = computeSessionTonnage(s);
+                return (
+                  <Card
+                    key={s.id}
+                    interactive
+                    onClick={() => onNavigate("sessions")}
+                  >
+                    <CardContent className="py-3 px-4 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="grid place-items-center h-9 w-9 rounded-xl bg-brand-500/10 dark:bg-brand-400/15 shrink-0">
+                          <Dumbbell className="h-4 w-4 text-brand-600 dark:text-brand-400" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-sm font-semibold truncate">{s.type || "Libre"}</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                            {prettyDate(s.date)} · {s.exercises?.length || 0} exercice{(s.exercises?.length || 0) > 1 ? "s" : ""}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="text-sm font-bold text-gray-900 dark:text-white">
+                          {formatNumber(Math.round(tonnage))} kg
+                        </div>
+                        {s.totalDuration != null && (
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                            {Math.floor(s.totalDuration / 60)} min
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Colonne droite : graphique + actions rapides */}
+        <div className="xl:col-span-2 space-y-4">
+          <Card>
+            <CardContent className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-sm">Fréquence hebdomadaire</h3>
+                <span className="chip"><Zap className="h-3 w-3" /> 4 semaines</span>
+              </div>
+              <div className="h-40">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={weeklyChartData} margin={{ top: 4, right: 0, bottom: 0, left: -20 }}>
+                    <XAxis
+                      dataKey="label"
+                      tick={{ fontSize: 10, fill: "var(--text-secondary)" }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <YAxis
+                      allowDecimals={false}
+                      tick={{ fontSize: 10, fill: "var(--text-tertiary)" }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <Tooltip
+                      cursor={{ fill: "rgba(10,161,101,0.06)" }}
+                      content={({ active, payload }) => {
+                        if (!active || !payload?.length) return null;
+                        return (
+                          <div className="rounded-xl px-3 py-2 text-xs font-semibold bg-white dark:bg-[#1a1b1d] border border-[var(--border-subtle)] shadow-md">
+                            {payload[0].value} séance{payload[0].value > 1 ? "s" : ""}
+                          </div>
+                        );
+                      }}
+                    />
+                    <Bar dataKey="séances" radius={[6, 6, 0, 0]}>
+                      {weeklyChartData.map((entry, index) => (
+                        <Cell
+                          key={index}
+                          fill={index === weeklyChartData.length - 1 ? "#0aa165" : "rgba(10,161,101,0.35)"}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="space-y-1 py-3">
+              <h3 className="font-semibold text-sm mb-3 px-1">Actions rapides</h3>
+              {quickActions.map((action) => {
+                const Icon = action.icon;
+                return (
+                  <button
+                    key={action.tab}
+                    onClick={() => onNavigate(action.tab)}
+                    className="w-full flex items-center gap-3 rounded-xl px-3 py-2.5 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors text-left group"
+                  >
+                    <div className="grid place-items-center h-8 w-8 rounded-lg bg-brand-500/10 dark:bg-brand-400/15 shrink-0 group-hover:bg-brand-500/20 dark:group-hover:bg-brand-400/25 transition-colors">
+                      <Icon className="h-[15px] w-[15px] text-brand-600 dark:text-brand-400" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-semibold text-gray-900 dark:text-white">{action.label}</div>
+                      <div className="text-[11px] text-gray-500 dark:text-gray-400">{action.desc}</div>
+                    </div>
+                    <ChevronRight className="h-3.5 w-3.5 opacity-0 group-hover:opacity-50 transition-opacity shrink-0" />
+                  </button>
+                );
+              })}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ───────────────────────────────────────────────────────────────
 // Chatbot IA (analyse locale des données utilisateur)
@@ -4956,6 +5500,29 @@ useEffect(() => {
   }, [date, exercises, templateId, timers, globalTimer]);
 
   return (
+    <div className="space-y-4">
+      {/* Hero header */}
+      <div className="relative overflow-hidden rounded-2xl border border-[var(--border-subtle)] dark:border-white/5 bg-gradient-to-br from-brand-500/8 via-transparent to-transparent p-4 sm:p-5">
+        <div className="pointer-events-none absolute right-0 bottom-0 h-32 w-32 translate-x-8 translate-y-8 rounded-full bg-brand-500/10 blur-2xl" />
+        <div className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div>
+            <div className="section-eyebrow mb-1"><Plus className="h-3 w-3" /> Quotidien</div>
+            <h2 className="font-display text-lg font-extrabold">Saisir une séance</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {totalTonnage > 0
+                ? `Tonnage en cours : ${formatNumber(Math.round(totalTonnage))} kg`
+                : "Ajoute tes exercices pour commencer."}
+            </p>
+          </div>
+          {totalTonnage > 0 && (
+            <div className="stat-tile !rounded-xl !px-4 !py-2">
+              <div className="text-xl font-display font-extrabold text-brand-600 dark:text-brand-400">{formatNumber(Math.round(totalTonnage))} kg</div>
+              <div className="text-[10px] text-gray-500">Tonnage total</div>
+            </div>
+          )}
+        </div>
+      </div>
+
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4">
       {/* Colonne gauche */}
       <Card className="lg:col-span-1">
@@ -5170,6 +5737,7 @@ useEffect(() => {
           ))
         )}
       </div>
+    </div>
     </div>
   );
 }
@@ -7599,7 +8167,54 @@ const addWeight = async () => {
 };
 
 
+  const minWeight = data.length ? Math.min(...data.map(d => d.weight)) : 0;
+  const maxWeight = data.length ? Math.max(...data.map(d => d.weight)) : 0;
+  const lastWeight = data.length ? data[data.length - 1].weight : null;
+  const prevWeight = data.length > 1 ? data[data.length - 2].weight : null;
+  const weightDelta = lastWeight !== null && prevWeight !== null ? +(lastWeight - prevWeight).toFixed(1) : null;
+
   return (
+    <div className="space-y-4">
+      {/* Hero header */}
+      <div className="relative overflow-hidden rounded-2xl border border-[var(--border-subtle)] dark:border-white/5 bg-gradient-to-br from-sky-500/8 via-sky-600/4 to-transparent p-5 sm:p-6">
+        <div className="pointer-events-none absolute right-0 top-0 h-48 w-48 translate-x-12 -translate-y-12 rounded-full bg-sky-400/10 blur-3xl" />
+        <div className="relative flex flex-col sm:flex-row items-start sm:items-center gap-4">
+          <div>
+            <div className="section-eyebrow mb-1"><Scale className="h-3 w-3" /> Bien-être</div>
+            <h2 className="font-display text-xl font-extrabold">Suivi du poids</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              Suis ton évolution sur le long terme.
+            </p>
+          </div>
+          {lastWeight !== null && (
+            <div className="ml-auto flex flex-col items-end">
+              <div className="text-3xl font-display font-extrabold">{lastWeight} <span className="text-lg">kg</span></div>
+              {weightDelta !== null && (
+                <div className={cn("text-sm font-semibold", weightDelta > 0 ? "text-red-500" : weightDelta < 0 ? "text-brand-500" : "text-gray-400")}>
+                  {weightDelta > 0 ? "+" : ""}{weightDelta} kg vs précédent
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Stats rapides poids */}
+      {data.length > 0 && (
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            { label: "Minimum", value: `${minWeight} kg` },
+            { label: "Maximum", value: `${maxWeight} kg` },
+            { label: "Entrées", value: data.length },
+          ].map((s) => (
+            <div key={s.label} className="stat-tile text-center">
+              <div className="text-lg font-display font-extrabold">{s.value}</div>
+              <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">{s.label}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       <Card>
         <CardContent className="space-y-4">
@@ -7696,6 +8311,7 @@ const addWeight = async () => {
   </CardContent>
 </Card>
 
+    </div>
     </div>
   );
 }
@@ -7877,15 +8493,22 @@ function RankingSection() {
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardContent>
-          <h3 className="font-semibold text-lg">🏆 Classement des séances</h3>
-          <p className="text-sm text-gray-500 mt-1">
-            Classement des personnes ayant enregistré le plus de séances.
-          </p>
-        </CardContent>
-      </Card>
+      {/* Hero banner */}
+      <div className="relative overflow-hidden rounded-2xl border border-amber-200/60 dark:border-amber-400/20 bg-gradient-to-br from-amber-400/15 via-yellow-400/8 to-transparent p-5 sm:p-6">
+        <div className="pointer-events-none absolute right-0 top-0 h-48 w-48 translate-x-12 -translate-y-12 rounded-full bg-amber-400/15 blur-3xl" />
+        <div className="relative flex items-center gap-4">
+          <div className="grid place-items-center h-14 w-14 rounded-2xl bg-amber-400/20 text-3xl shrink-0">🏆</div>
+          <div>
+            <div className="section-eyebrow mb-1" style={{ color: '#b45309' }}><Trophy className="h-3 w-3" /> Communauté</div>
+            <h2 className="font-display text-xl font-extrabold tracking-tight">Classement des séances</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+              Classement des personnes ayant enregistré le plus de séances.
+            </p>
+          </div>
+        </div>
+      </div>
 
+      {/* Filtres de période */}
       <Card>
         <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
@@ -7913,6 +8536,35 @@ function RankingSection() {
         </CardContent>
       </Card>
 
+      {/* Podium top 3 */}
+      {!loading && !error && rankingRows.length >= 3 && (
+        <div className="flex items-end justify-center gap-3 py-2">
+          {[rankingRows[1], rankingRows[0], rankingRows[2]].map((row, podiumIdx) => {
+            const medal = ["🥈", "🥇", "🥉"][podiumIdx];
+            const heights = ["h-24", "h-32", "h-20"];
+            const colors = [
+              "bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10",
+              "bg-amber-50 dark:bg-amber-400/10 border-amber-200 dark:border-amber-400/30",
+              "bg-orange-50 dark:bg-orange-400/10 border-orange-200 dark:border-orange-400/20",
+            ];
+            return (
+              <div
+                key={row.email}
+                className={cn(
+                  "flex flex-col items-center justify-end gap-1 rounded-2xl border px-4 pb-3 pt-2 flex-1 max-w-[180px] transition-all",
+                  heights[podiumIdx], colors[podiumIdx]
+                )}
+              >
+                <div className="text-2xl mb-1">{medal}</div>
+                <div className="text-xs font-bold truncate max-w-full text-center">{row.email.split("@")[0]}</div>
+                <div className="text-[11px] font-semibold text-brand-600 dark:text-brand-400">{formatNumber(row.count)} séances</div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Tableau */}
       <Card>
         <CardContent>
           {loading && <p className="text-sm text-gray-500">Chargement du classement…</p>}
@@ -7930,18 +8582,20 @@ function RankingSection() {
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
                 <thead>
-                  <tr className="text-left text-gray-500 border-b">
-                    <th className="py-2 pr-4 font-medium">#</th>
-                    <th className="py-2 pr-4 font-medium">Email</th>
-                    <th className="py-2 font-medium">Séances</th>
+                  <tr className="text-left text-gray-500 border-b dark:border-white/5">
+                    <th className="py-2 pr-4 font-semibold">#</th>
+                    <th className="py-2 pr-4 font-semibold">Utilisateur</th>
+                    <th className="py-2 font-semibold">Séances</th>
                   </tr>
                 </thead>
                 <tbody>
                   {rankingRows.map((row, index) => (
-                    <tr key={row.email} className="border-b last:border-b-0">
-                      <td className="py-2 pr-4 font-semibold">{index + 1}</td>
-                      <td className="py-2 pr-4">{row.email}</td>
-                      <td className="py-2 font-semibold">{formatNumber(row.count)}</td>
+                    <tr key={row.email} className={cn("border-b dark:border-white/5 last:border-b-0 transition-colors", index % 2 === 0 ? "bg-transparent" : "bg-gray-50/50 dark:bg-white/2")}>
+                      <td className="py-2.5 pr-4 font-bold">
+                        {index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : index + 1}
+                      </td>
+                      <td className="py-2.5 pr-4 font-medium">{row.email.split("@")[0]}</td>
+                      <td className="py-2.5 font-bold text-brand-600 dark:text-brand-400">{formatNumber(row.count)}</td>
                     </tr>
                   ))}
                 </tbody>
